@@ -1,0 +1,17 @@
+{
+    "crypto": {
+        "kdf": "argon2",
+        "kdfparams": {
+          "keylen": "32",
+          "c": "32",
+          "m": "1024",
+          "time": "3",
+          "threads": "4",
+          "salt": "LKtAMSAoJuqdfHpAExnfgdMuwvtvBejZtDgBCoHMgitcnSMnIfIh"
+        }
+    },
+  "password": "Secret Passphrase",
+  "address": "C8123FA11D5D0B4FB8E25F2FA90F88C64CF4670C",
+  "version": "1"
+  }
+  

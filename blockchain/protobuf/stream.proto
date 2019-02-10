@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package protobuf;
+
+option java_multiple_files = true;
+option java_package = "com.herdius.proto";
+option java_outer_classname = "HerdiusProto";
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.equal_all) = true;
+option (gogoproto.goproto_stringer_all) = false;
+option (gogoproto.gostring_all) = true;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.sizer_all) = true;
+option (gogoproto.stringer_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+option (gogoproto.verbose_equal_all) = true;
+
+// Test options
+// FIXME: uncomment when fixed https://github.com/gogo/protobuf/issues/407
+// option (gogoproto.populate_all) = true;
+// option (gogoproto.testgen_all) = true;
+
+message ID {
+    // public_key of the peer (we no longer use the public key as the peer ID, but use it to verify messages)
+    bytes public_key = 1;
+    // address is the network address of the peer
+    string address = 2;
+    // id is the computed hash of the public key
+    bytes id = 3;
+}
+
+message Header{
+    // Supervisor's public key.
+    ID supervisorID                 = 1;
+    // Previous block id
+    BlockID lastBlockID             = 2;
+    // Number of transactions
+    int64 numTxs                    = 3;
+    int64 totalTxs                  = 4;
+    int64 height                    = 5;
+    // Time of block intialization
+    Timestamp time                  = 6;
+    // Sender's signature of message.
+    bytes signature                 = 7;
+    
+    // Merkle root hash of the transactions
+    bytes rootHash                  = 8;
+    
+    // Child block ID having hash
+    BlockID blockID                 = 9;
+}
+
+message BlockID{
+    bytes blockHash                 = 1;
+}
+
+message ChildBlock {
+    Header header                   = 1;
+    TxsData txsData                 = 2;
+    VoteCommit lastVotes            = 3;
+}
+
+//Transactions Data
+message TxsData{
+    repeated bytes tx                        = 1;
+}
+
+
+// Validator
+message Validator {
+    string address                   = 1;
+    bytes pub_key                   = 2 [(gogoproto.nullable)=false];
+    int64 stakingpower              = 3;
+}
+
+// VoteInfo
+message VoteInfo {
+    Validator validator             = 1 [(gogoproto.nullable)=false];
+    bool signed_current_block       = 2;
+    bytes signature                 = 3;
+}
+
+message ChildBlockMessage{
+    VoteInfo vote                   = 1;
+    ChildBlock childBlock           = 2;
+}
+
+message VoteCommit{
+    BlockID blockID                 = 1;
+    repeated VoteInfo vote          = 2;
+}
+
+message Message {
+    bytes message = 1;
+
+    // Sender's address and public key.
+    ID sender = 2;
+
+    // Sender's signature of message.
+    bytes signature = 3;
+
+    // request_nonce is the request/response ID. Null if ID associated to a message is not a request/response.
+    uint64 request_nonce = 4;
+
+    // message_nonce is the sequence ID.
+    uint64 message_nonce = 5;
+
+    // reply_flag indicates this is a reply to a request
+    bool reply_flag = 6;
+
+    // opcode specifies the message type
+    uint32 opcode = 7;
+
+}
+
+message Ping {
+}
+
+message Pong {
+}
+
+message LookupNodeRequest {
+    ID target = 1;
+}
+
+message LookupNodeResponse {
+    repeated ID peers = 1;
+}
+
+message Bytes {
+    bytes data = 1;
+}
+
+message ConnectionMessage {
+    string message = 1;
+}
+
+message ClientRequest {
+    string message = 1;
+}
+
+message ClientResponse {
+    string message = 1;
+}
+
+// Timestamp wraps how amino encodes time.
+// This is the protobuf well-known type protobuf/timestamp.proto
+// See:
+// https://github.com/google/protobuf/blob/d2980062c859649523d5fd51d6b55ab310e47482/src/google/protobuf/timestamp.proto#L123-L135
+// NOTE/XXX: nanos do not get skipped if they are zero in amino.
+message Timestamp {
+    int64 seconds                   = 1;
+    int64 nanos                     = 2;
+}
+
+//////////////////////////////////////////////////////////////
+//// Base Block
+
+message BaseBlock{
+    BaseHeader header               = 1;
+    bytes child_block               = 2;
+    bytes validator                 = 3;
+    bytes next_validator            = 4;
+    bytes vote_commits              = 5;
+}
+
+message BaseHeader{
+    BlockID lastBlockID             = 1;
+
+    // Base block ID having hash
+    BlockID block_ID                = 2;
+    
+    int64 height                    = 3;
+
+    // Simple Merkle root of the current validators who verified the current block
+    bytes validatorGroupHash        = 4;
+    // Simple Merkle root of the Validators for the next block
+    bytes nextValidatorGroupHash    = 5;
+    // Time of block intialization
+    Timestamp time                  = 6;
+    // Merkle root hash of vote from validators from the current block
+    bytes last_vote_hash            = 7;
+
+    // Merkle root hash of the child blocks
+    bytes child_block_hash          = 8;
+
+    // Holds the global state trie created by encoded herdius accounts
+    bytes state_root                = 9;
+}
