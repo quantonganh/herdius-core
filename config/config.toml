@@ -1,0 +1,20 @@
+[development]
+server = "121.0.0.1"
+port = 8080
+connection_max = 100
+enabled = true
+chaindbpath = "./herdius/chaindb"
+statedbpath = "./herdius/statedb"
+badgerDb = "badger"
+levelDb = "goleveldb"
+nodeKeydir = "./supervisor/testdata/"
+
+[prod]
+server = "121.0.0.1"
+port = 8080
+connection_max = 100
+enabled = true
+chaindbpath = "./herdius/chaindb"
+statedbpath = "./herdius/statedb"
+badgerDb = "badger"
+levelDb = "goleveldb"
