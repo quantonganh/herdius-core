@@ -1,14 +1,14 @@
 # Herdius
 
-***Herdius*** is a P2P network and Byzantine Fault Tolerance blockchain system. It has the capability of vertically stretching itself, thereby fitting and stacking several blocks on top of each other in the process. This stretching mechanism allows us to introduce parallelization to the validation process and is our solution to make transactions within the Herdius network fast and scalable. This stretching mechanism is called Blocks-of-Blocks (**BoB**). Herdius also divides the P2P network into shards or better termed as validator groups where in each group is capable of validating the transactions in parallel. This system is written in [Go](https://golang.org/) by Developers at **Herdius**.
+***Herdius*** is a P2P network and Byzantine Fault Tolerance blockchain. It has the capability of vertically stretching itself, thereby stacking several blocks on top of each other in the process. This stretching mechanism allows us to introduce parallelization to the validation process and is our solution to make transactions within the Herdius network fast and scalable. We call this architecture Blocks-on-Blocks (**BoB**) and should be similarly imagined as sharding. Herdius also divides the P2P network into shards or better termed as validator groups where in each group is capable of validating the transactions that are assigned to them in batches. The individual groups do not need to waste bandwidth to communicate with one another and can all perform validation of transactions independently. The system is written in [Go](https://golang.org/) by Developers at **Herdius**.
 
-For protocol architecture details, see [Herdius Technical Paper](https://herdius.com/whitepaper/Herdius_Technical_Paper.pdf).
+For protocol architecture details, see [Herdius Technical Paper](https://herdius.com/whitepaper/Herdius_Technical_Paper.pdf). Our [Medium Blog](https://medium.com/herdius) is also a good resource. 
 
 ## Minimum requirements
 
 Requirements|Detail
 ---|---
-Go version | [Go1.11.4 or higher](https://golang.org/dl/)
+Go version | [Go 1.11.4 or higher](https://golang.org/dl/)
 Proctc | [Protobuf compiler](https://github.com/google/protobuf/releases)
 Make | [make tool](http://www.gnu.org/software/make/)
 
