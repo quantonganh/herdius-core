@@ -1,120 +1,178 @@
-package network
+package backoff
 
 import (
-	"fmt"
+	"context"
+	"flag"
 	"testing"
+	"time"
 
-	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/uber-go/atomic"
+	"github.com/herdius/herdius-core/p2p/crypto"
+	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
+	"github.com/herdius/herdius-core/p2p/network"
+	"github.com/herdius/herdius-core/p2p/network/discovery"
+	"github.com/herdius/herdius-core/p2p/tests/basic/messages"
+	"github.com/herdius/herdius-core/p2p/types/opcode"
+
+	"github.com/pkg/errors"
 )
 
-type MockPlugin struct {
-	*Plugin
+const (
+	numNodes = 2
+	protocol = "tcp"
+	host     = "127.0.0.1"
+)
 
-	startup        atomic.Int32
-	receive        atomic.Int32
-	cleanup        atomic.Int32
-	peerConnect    atomic.Int32
-	peerDisconnect atomic.Int32
+var (
+	idToPort = make(map[int]uint16)
+	keys     = make(map[string]*crypto.KeyPair)
+)
+
+// mockPlugin buffers all messages into a mailbox for this test.
+type mockPlugin struct {
+	*network.Plugin
+	Mailbox chan *messages.BasicMessage
 }
 
-func (p *MockPlugin) Startup(net *Network) {
-	p.startup.Inc()
+// Startup implements the network interface callback
+func (state *mockPlugin) Startup(net *network.Network) {
+	// Create mailbox
+	state.Mailbox = make(chan *messages.BasicMessage, 1)
 }
 
-func (p *MockPlugin) Receive(ctx *PluginContext) error {
-	p.receive.Inc()
+// Receive implements the network interface callback
+func (state *mockPlugin) Receive(ctx *network.PluginContext) error {
+	switch msg := ctx.Message().(type) {
+	case *messages.BasicMessage:
+		state.Mailbox <- msg
+	}
 	return nil
 }
 
-func (p *MockPlugin) Cleanup(net *Network) {
-	p.cleanup.Inc()
-}
+// broadcastAndCheck will send a message from node 0 to other nodes and check if it's received
+func broadcastAndCheck(nodes []*network.Network, plugins []*mockPlugin) error {
+	// Broadcast out a message from Node 0.
+	expected := "This is a broadcasted message from Node 0."
+	nodes[0].Broadcast(context.Background(), &messages.BasicMessage{Message: expected})
 
-func (p *MockPlugin) PeerConnect(client *PeerClient) {
-	p.peerConnect.Inc()
-}
-
-func (p *MockPlugin) PeerDisconnect(client *PeerClient) {
-	p.peerDisconnect.Inc()
-}
-
-func TestPluginHooks(t *testing.T) {
-	host := "localhost"
-	var nodes []*Network
-	nodeCount := 4
-
-	for i := 0; i < nodeCount; i++ {
-		builder := NewBuilder()
-		builder.SetKeys(ed25519.RandomKeyPair())
-		builder.SetAddress(FormatAddress("tcp", host, uint16(GetRandomUnusedPort())))
-		builder.AddPlugin(new(MockPlugin))
-
-		node, err := builder.Build()
-		if err != nil {
-			fmt.Println(err)
+	// Check if message was received by other nodes.
+	for i := 1; i < len(nodes); i++ {
+		select {
+		case received := <-plugins[i].Mailbox:
+			if received.Message != expected {
+				return errors.Errorf("Expected message %s to be received by node %d but got %v", expected, i, received.Message)
+			}
+		case <-time.After(2 * time.Second):
+			return errors.Errorf("Timed out attempting to receive message from Node 0.")
 		}
+	}
 
-		go node.Listen()
+	return nil
+}
 
+// newNode creates a new node and and adds it to the cluster, allows adding certain plugins if needed
+func newNode(i int, addDiscoveryPlugin bool, addBackoffPlugin bool) (*network.Network, *mockPlugin, error) {
+	port := uint16(0)
+	ok := false
+	// get random port
+	if port, ok = idToPort[i]; !ok {
+		port = uint16(network.GetRandomUnusedPort())
+		idToPort[i] = port
+	}
+	// restore the key if it was created in the past
+	addr := network.FormatAddress(protocol, host, port)
+	if _, ok := keys[addr]; !ok {
+		keys[addr] = ed25519.RandomKeyPair()
+	}
+
+	builder := network.NewBuilder()
+	builder.SetKeys(keys[addr])
+	builder.SetAddress(addr)
+
+	if addDiscoveryPlugin {
+		builder.AddPlugin(new(discovery.Plugin))
+	}
+	if addBackoffPlugin {
+		builder.AddPlugin(New())
+	}
+
+	plugin := new(mockPlugin)
+	builder.AddPlugin(plugin)
+
+	node, err := builder.Build()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	go node.Listen()
+
+	node.BlockUntilListening()
+
+	// Bootstrap to Node 0
+	if addDiscoveryPlugin && i != 0 {
+		node.Bootstrap(network.FormatAddress(protocol, host, uint16(idToPort[0])))
+	}
+
+	return node, plugin, nil
+}
+
+// TestPlugin tests the functionality of the exponential backoff as a plugin.
+func TestPlugin(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("skipping backoff plugin test in short mode")
+	}
+
+	flag.Parse()
+
+	var nodes []*network.Network
+	var plugins []*mockPlugin
+
+	opcode.RegisterMessageType(opcode.Opcode(1000), &messages.BasicMessage{})
+
+	for i := 0; i < numNodes; i++ {
+		node, plugin, err := newNode(i, true, i == 0)
+		if err != nil {
+			t.Error(err)
+		}
+		plugins = append(plugins, plugin)
 		nodes = append(nodes, node)
 	}
 
-	for _, node := range nodes {
-		node.BlockUntilListening()
+	// Wait for all nodes to finish discovering other peers.
+	time.Sleep(1 * time.Second)
+
+	// chack that broadcasts are working
+	if err := broadcastAndCheck(nodes, plugins); err != nil {
+		assert.Error(t, err, "Timed out attempting to receive message from Node 0")
+		//t.Fatal(err)
 	}
 
-	//for i, node := range nodes {
-	//	if i != 0 {
-	//		node.Bootstrap(nodes[0].Address)
-	//	}
-	//}
-	//
-	//time.Sleep(500 * time.Millisecond)
-	//
-	//for _, node := range nodes {
-	//	node.Close()
-	//}
-	//
-	//time.Sleep(500 * time.Millisecond)
-	//
-	//if startup != nodeCount {
-	//	t.Fatalf("startup hooks error, got: %d, expected: %d", startup, nodeCount)
-	//}
-	//
-	//if receive < nodeCount*2 { // Cannot in specific time
-	//	t.Fatalf("receive hooks error, got: %d, expected at least: %d", receive, nodeCount*2)
-	//}
-	//
-	//if cleanup != nodeCount {
-	//	t.Fatalf("cleanup hooks error, got: %d, expected: %d", cleanup, nodeCount)
-	//}
-	//
-	//if peerConnect < nodeCount*2 {
-	//	t.Fatalf("connect hooks error, got: %d, expected at least: %d", peerConnect, nodeCount*2)
-	//}
-	//
-	//if peerDisconnect < nodeCount*2 {
-	//	t.Fatalf("disconnect hooks error, got: %d, expected at least: %d", peerDisconnect, nodeCount*2)
-	//}
-}
+	// disconnect the node from the cluster
+	// nodes[1].Close()
 
-func TestRegisterPlugin(t *testing.T) {
-	t.Parallel()
+	// // wait until about the middle of the backoff period
+	// time.Sleep(defaultPluginInitialDelay + defaultMinInterval*2)
 
-	PluginID := (*Plugin)(nil)
+	// // tests that broadcasting fails
+	// if err := broadcastAndCheck(nodes, plugins); err == nil {
+	// 	t.Fatalf("On disconnect, expected the broadcast to fail")
+	// }
 
-	b := NewBuilder()
-	b.AddPluginWithPriority(-99999, new(Plugin))
+	// // recreate the second node and add back to the cluster
+	// node, plugin, err := newNode(1, false, false)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// nodes[1] = node
+	// plugins[1] = plugin
 
-	n, err := b.Build()
-	assert.Equal(t, nil, err)
+	// // wait for reconnection
+	// time.Sleep(5 * time.Second)
 
-	p, ok := n.plugins.Get(PluginID)
-	assert.Equal(t, true, ok)
-
-	plugin := p.(*Plugin)
-	assert.NotEqual(t, nil, plugin)
+	// // broad cast should be working again
+	// if err := broadcastAndCheck(nodes, plugins); err != nil {
+	// 	t.Fatal(err)
+	// }
 }
