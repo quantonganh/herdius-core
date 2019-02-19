@@ -12,7 +12,7 @@ Go version | [Go1.11.4 or higher](https://golang.org/dl/)
 Proctc | [Protobuf compiler](https://github.com/google/protobuf/releases)
 Make | [make tool](http://www.gnu.org/software/make/)
 
-## Quick Start
+## Quick Start the Service Locally
 
 ### Get Source Code
 
@@ -33,13 +33,12 @@ make create_db_dirs
 
 ```
 make install
-make build
 ```
 
 ### Test
 
 ```
-make run_test
+make run-test
 ```
 
 ### Start Supervisor Server
@@ -62,6 +61,7 @@ Once the initial setup is done, at the supervisor console it will ask if the tra
 
 Please press **"y"** to load transacions from the file.
 
+**NOTE**: Make sure all peer connections are established before presssing **"y"**.
 ```
 2:57PM INF Last Block Hash : 812B7A12C8E774C6EE5D5B3F76623102EED61A2956B632BCABA7A5E367EBBAB9
 2:57PM INF Height : 0
@@ -82,5 +82,125 @@ Once the new base block is created, below details will appear in the console.
 2:57PM INF State root : E6C27D9BDE675F2212937FD36CF3917CAE038765262EBB196B1571FBB2CC8EBC
 2:57PM INF Total time : 148.26511ms
 ```
+
+## Guidelines on AWS EC2 setup
+
+### Create an AWS EC2 Instance
+
+We have created and configured Herdius testnet and performed testing on **t3.small** EC2 instances with each instance having 2GB RAM and 2 CPU Cores. However, Herdius setup could be configured on any free tier EC2 instances.
+
+### Install Tools and Dependecies
+```
+sudo yum update
+sudo yum install git
+sudo yum install gcc
+mkdir downloads && cd downloads
+sudo wget https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.11.5.linux-amd64.tar.gz
+```
+
+### Create required directories and set permissions
+
+```
+mkdir $HOME/go_projects
+sudo chmod 777 -R $HOME/go_projects/
+```
+
+### Setup bashrc
+```
+sudo nano ~/.bashrc
+```
+
+Enter the below details and save the file
+
+```
+export PATH=$PATH:/usr/local/go/bin
+export GOPATH="$HOME/go_projects"
+export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+```
+
+Execute the below command
+```
+source ~/.bashrc
+```
+
+Check go version
+```
+go version
+go version go1.11.5 linux/amd64
+```
+
+### Clone from git repository
+
+Exectue the below command
+```
+cd /usr/local/go/src && sudo mkdir github.com && cd github.com && sudo mkdir herdius && cd herdius
+```
+
+Clone the herdius core
+```
+sudo git clone https://github.com/herdius/herdius-core.git
+```
+
+### Give permission to required folders
+
+```
+sudo chmod 777 -R /home/ec2-user/go_projects && sudo chmod 777 -R herdius-core/supervisor/testdata/ && sudo chmod 777 -R /usr/local/go/pkg
+sudo chmod 777 -R /usr/local/go/src/github.com/herdius/herdius-core/
+```
+
+### Herdius Core installation
+
+```
+cd herdius-core/
+make all
+```
+
+
+
+Exactly the same above setup guidelines need to be followed for other EC2 instances or nodes where core will be executing as validator. And once all the setups are completed. Run the below commands.
+
+
+
+### Start Supervisor Server
+
+```
+cd /usr/local/go/src/github.com/herdius/herdius-core/
+make start-supervisor
+```
+
+Once the supervisor node is started, it will create the genesis block and it will start listening at port **3000**.
+
+```
+Starting supervisor node
+11:41AM INF Listening for peers. address=tcp://<HOST-IP>:3000
+2019/02/19 11:41:13 Replaying from value pointer: {Fid:0 Len:0 Offset:0}
+2019/02/19 11:41:13 Iterating file id: 0
+2019/02/19 11:41:13 Iteration took: 15.354µs
+11:41AM INF Last Block Hash : 812B7A12C8E774C6EE5D5B3F76623102EED61A2956B632BCABA7A5E367EBBAB9
+11:41AM INF Height : 0
+11:41AM INF Timestamp : 2019-02-19 11:41:13 +0000 UTC
+11:41AM INF State root : 4A03B15DFAE8C35E5A52C170AAF8749A10C14178A6BD21F3D5F43D7C80D91476
+11:41AM INF Please press 'y' to load transactions from file. 
+
+```
+
+### Start Validator Node
+
+Open another EC2 instance to listen to a validator node
+
+```
+cd /usr/local/go/src/github.com/herdius/herdius-core/
+make start-validator HOST="<HOST-IP>" PEERS="tcp://<SUPERVISOR-IP>:3000"
+```
+
+Once the validator node is started, it will start listening at port **3000**.
+
+```
+Starting validator node
+12:33PM INF Listening for peers. address=tcp://<HOST-IP>:3000
+
+```
+
 
 
