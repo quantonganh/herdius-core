@@ -60,7 +60,7 @@ all: install run-test create_db_dirs
 
 start-supervisor: delete-db-dirs create_db_dirs
 	@echo "Starting supervisor node"
-	@$(GORUN) cmd/herserver/main.go -supervisor true $(GOPARAMETERS)
+	@$(GORUN) cmd/herserver/main.go -supervisor=true $(GOPARAMETERS)
 
 start-validator:
 	@echo "Starting validator node"
