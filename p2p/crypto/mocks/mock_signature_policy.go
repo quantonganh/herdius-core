@@ -5,9 +5,11 @@
 package mocks
 
 import (
+	
+	reflect "reflect"
+	
 	gomock "github.com/golang/mock/gomock"
 	crypto "github.com/perlin-network/noise/crypto"
-	reflect "reflect"
 )
 
 // MockSignaturePolicy is a mock of SignaturePolicy interface
