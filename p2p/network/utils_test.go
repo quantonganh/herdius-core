@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/herdius/herdius-core/p2p/internal/protobuf"
+	"github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/p2p/peer"
 )
 
