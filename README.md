@@ -202,5 +202,8 @@ Starting validator node
 
 ```
 
+## License
+
+The herdius-core library (i.e. all files and code without existing reference to other, separate license) is licensend under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/licenses.html#AGPL). Text of the license file is also include in the root folder under LICENSE. 
 
 
