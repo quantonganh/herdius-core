@@ -6,22 +6,18 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GORUN=$(GOCMD) run
 
-GOPORT=''
-GOHOST=''
 GOPEERS=''
-GOGROUPSIZE=''
-
 GOPARAMETERS=''
 
 ifeq (,$(subst ",,$(PORT)))
-    GOPORT=''
+    GOPARAMETERS :=$(GOPARAMETERS) '-port=3000'
 else
-	GOPARAMETERS :=$(GOPARAMETERS)'-port='$(PORT)
+	GOPARAMETERS :=$(GOPARAMETERS) '-port='$(PORT)
 endif
 
 
 ifeq (,$(subst ",,$(HOST)))
-    GOHOST=''
+    GOPARAMETERS :=$(GOPARAMETERS) '-host=localhost'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-host='$(HOST)
 endif
@@ -34,7 +30,7 @@ else
 endif
 
 ifeq (,$(subst ",,$(GROUPSIZE)))
-    GOGROUPSIZE=''
+    GOPARAMETERS := $(GOPARAMETERS) '-groupsize=3'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-groupsize='$(GROUPSIZE)
 endif
@@ -59,8 +55,8 @@ run-test:
 all: install run-test create_db_dirs
 
 start-supervisor: delete-db-dirs create_db_dirs
-	@echo "Starting supervisor node"
-	@$(GORUN) cmd/herserver/main.go -supervisor=true $(GOPARAMETERS)
+	@echo "Starting supervisor node"$(GOPARAMETERS)
+	@$(GORUN) cmd/herserver/main.go -supervisor=true$(GOPARAMETERS)
 
 start-validator:
 	@echo "Starting validator node"
