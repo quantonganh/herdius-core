@@ -64,4 +64,4 @@ start-supervisor: delete-db-dirs create_db_dirs
 
 start-validator:
 	@echo "Starting validator node"
-	@$(GORUN) cmd/herserver/main.go $(GOPARAMETERS)
+	@$(GORUN) cmd/herserver/main.go$(GOPARAMETERS)

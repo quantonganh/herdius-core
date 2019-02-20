@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
 
 	"os"
 	"strconv"
@@ -196,7 +197,7 @@ func main() {
 	host := *hostFlag
 	protocol := *protocolFlag
 	peers := strings.Split(*peersFlag, ",")
-
+	fmt.Printf("Peers info: %v\n", peers)
 	noOfPeersInGroup := *groupSizeFlag
 
 	// Generate or Load Keys
