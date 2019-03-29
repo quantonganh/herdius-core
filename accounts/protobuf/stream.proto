@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package protobuf;
+
+option java_multiple_files = true;
+option java_package = "com.herdius.proto";
+option java_outer_classname = "HerdiusProto";
+
+message Account {
+    string address               = 1;
+    uint64 nonce                 = 2;
+    uint64 balance            = 3;
+    string storage_root              = 4;
+}
+

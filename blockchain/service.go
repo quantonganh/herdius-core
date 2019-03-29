@@ -113,27 +113,27 @@ func (s *Service) GetBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
 	lastBlockFlag := false
 
 	for it.Rewind(); it.Valid(); it.Next() {
-		// item := it.Item()
+		//item := it.Item()
 
-		// err := item.Value(func(v []byte) error {
-		// 	lb := &protobuf.BaseBlock{}
-		// 	err := cdc.UnmarshalJSON(v, lb)
-		// 	if err != nil {
-		// 		return nil
-		// 	}
+		//err := item.Value(func(v []byte) error {
+		//	lb := &protobuf.BaseBlock{}
+		//	err := cdc.UnmarshalJSON(v, lb)
+		//	if err != nil {
+		//		return nil
+		//	}
 
-		// 	if height == lb.GetHeader().GetHeight() {
-		// 		lastBlock = lb
-		// 		lastBlockFlag = true
-		// 		return nil
-		// 	}
+		//	if height == lb.GetHeader().GetHeight() {
+		//		lastBlock = lb
+		//		lastBlockFlag = true
+		//		return nil
+		//	}
 
-		// 	return nil
-		// })
+		//	return nil
+		//})
 
-		// if err != nil {
-		// 	return nil, err
-		// }
+		//if err != nil {
+		//	return nil, err
+		//}
 		if lastBlockFlag {
 			break
 		}
@@ -163,6 +163,7 @@ func (s *Service) AddBaseBlock(bb *protobuf.BaseBlock) error {
 func (s *Service) GetLastBlock() *protobuf.BaseBlock {
 	bbbz := badgerDB.Get([]byte("LastBlock"))
 	bb := &protobuf.BaseBlock{}
+	//log.Printf("bbbz length, content:\n%v\n%v", len(bbbz), bbbz)
 	if len(bbbz) == 0 {
 		bb, err := s.CreateOrLoadGenesisBlock()
 

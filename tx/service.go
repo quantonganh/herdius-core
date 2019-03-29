@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
 	"github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
+	txProtoc "github.com/herdius/herdius-core/hbi/protobuf"
 	amino "github.com/tendermint/go-amino"
 )
 
@@ -26,53 +28,80 @@ func RegisterTxServiceAmino(cdc *amino.Codec) {
 // Service ... Operations for a list of transactions
 type Service interface {
 	SetTxs(txs [][]byte)
-	Hash(tx Tx) []byte           // Hash computes the hash of the wire encoded transaction.
-	String(tx Tx) string         // String returns the hex-encoded transaction as a string.
-	Index(tx Tx) int             // Index returns the index of this transaction in the list, or -1 if not found
-	IndexByHash(hash []byte) int // IndexByHash returns the index of this transaction hash in the list, or -1 if not found
-	MerkleHash() []byte          // MerkleHash returns the simple Merkle root hash of the transactions.
-	Proof(i int) Proof           // Proof returns a simple merkle proof for this node.
-	LeafHash(tx Tx) []byte       // LeafHash returns the hash of the this proof refers to.
+	GetTxs() [][]byte
+	ParseNewTxRequest(uint64, uint64, *txProtoc.TransactionRequest) error // Accepts incoming protoc structured transactions and sets byte-wise tx transaction
+	Hash(tx Tx) []byte                                                    // Hash computes the hash of the wire encoded transaction.
+	String(tx Tx) string                                                  // String returns the hex-encoded transaction as a string.
+	Index(tx Tx) int                                                      // Index returns the index of this transaction in the list, or -1 if not found
+	IndexByHash(hash []byte) int                                          // IndexByHash returns the index of this transaction hash in the list, or -1 if not found
+	MerkleHash() []byte                                                   // MerkleHash returns the simple Merkle root hash of the transactions.
+	Proof(i int) Proof                                                    // Proof returns a simple merkle proof for this node.
+	LeafHash(tx Tx) []byte                                                // LeafHash returns the hash of the this proof refers to.
 	// Validate verifies the proof. It returns nil if the RootHash matches the dataHash argument,
 	// and if the proof is internally consistent. Otherwise, it returns a sensible error.
 	Validate(dataHash []byte) error
 }
 
-type tx struct {
-	txs [][]byte
+// GetTxService creates a new transaction service
+func GetTxsService() Service {
+	return &Txs{}
 }
 
-// GetTxService creates a new transaction service
-func GetTxService() Service {
-	return &tx{}
+func (t *Txs) ParseNewTxRequest(senderNonce, senderBal uint64, txReq *txProtoc.TransactionRequest) error {
+
+	reqNonce := txReq.Tx.Asset.Nonce
+
+	if senderNonce >= reqNonce {
+		log.Println("request nonce must be larger than sender account's nonce value")
+		log.Println("request nonce:", reqNonce)
+		log.Println("sender account's nonce:", senderNonce)
+		return errors.New("request nonce must be larger than sender account's nonce value")
+	}
+
+	tx, err := cdc.MarshalJSON(txReq)
+	*t = append(*t, tx)
+	if err != nil {
+		log.Println("marshalling error:", err)
+		return err
+	}
+	return nil
 }
-func (t *tx) SetTxs(txs [][]byte) {
-	t.txs = txs
+
+func (t *Txs) SetTxs(txs [][]byte) {
+	*t = txs
+}
+
+func (t *Txs) GetTxs() [][]byte {
+	var allTxs [][]byte
+	for _, v := range *t {
+		allTxs = append(allTxs, v)
+	}
+	return allTxs
 }
 
 // Hash ...
-func (t *tx) Hash(tx Tx) []byte {
+func (t *Txs) Hash(tx Tx) []byte {
 	return herhash.Sum(tx)
 }
 
 // String returns the hex-encoded transaction as a string.
-func (t *tx) String(tx Tx) string {
+func (t *Txs) String(tx Tx) string {
 	return fmt.Sprintf("Tx{%X}", []byte(tx))
 }
 
 // MerkleHash returns the simple Merkle root hash of the transactions.
-func (t *tx) MerkleHash() []byte {
-	txBzs := make([][]byte, len(t.txs))
-	for i := 0; i < len(t.txs); i++ {
-		txBzs[i] = t.txs[i]
+func (t *Txs) MerkleHash() []byte {
+	txBzs := make([][]byte, len(*t))
+	for i := 0; i < len(*t); i++ {
+		txBzs[i] = (*t)[i]
 	}
 	return merkle.SimpleHashFromByteSlices(txBzs)
 }
 
 // Index returns the index of this transaction in the list, or -1 if not found
-func (t *tx) Index(tx Tx) int {
-	for i := range t.txs {
-		if bytes.Equal(t.txs[i], tx) {
+func (t *Txs) Index(tx Tx) int {
+	for i := range *t {
+		if bytes.Equal((*t)[i], tx) {
 			return i
 		}
 	}
@@ -80,9 +109,9 @@ func (t *tx) Index(tx Tx) int {
 }
 
 // IndexByHash returns the index of this transaction hash in the list, or -1 if not found
-func (t *tx) IndexByHash(hash []byte) int {
-	for i := range t.txs {
-		if bytes.Equal(t.Hash(t.txs[i]), hash) {
+func (t *Txs) IndexByHash(hash []byte) int {
+	for i := range *t {
+		if bytes.Equal(t.Hash((*t)[i]), hash) {
 			return i
 		}
 	}
@@ -92,28 +121,28 @@ func (t *tx) IndexByHash(hash []byte) int {
 // Proof returns a simple merkle proof for this node.
 // Panics if i < 0 or i >= len(txs)
 // TODO: optimize this!
-func (t *tx) Proof(i int) Proof {
-	l := len(t.txs)
+func (t *Txs) Proof(i int) Proof {
+	l := len(*t)
 	bzs := make([][]byte, l)
 	for i := 0; i < l; i++ {
-		bzs[i] = t.txs[i]
+		bzs[i] = (*t)[i]
 	}
 	root, proofs := merkle.SimpleProofsFromByteSlices(bzs)
 
 	return Proof{
 		RootHash: root,
-		Data:     t.txs[i],
+		Data:     (*t)[i],
 		Proof:    *proofs[i],
 	}
 }
 
 // LeafHash returns the hash of the this proof refers to.
-func (t *tx) LeafHash(tx Tx) []byte {
+func (t *Txs) LeafHash(tx Tx) []byte {
 	return t.Hash(tx)
 }
 
 // Validate ...
-func (t *tx) Validate(dataHash []byte) error {
+func (t *Txs) Validate(dataHash []byte) error {
 	return nil
 }
 

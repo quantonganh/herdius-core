@@ -9,6 +9,7 @@ import (
 type Tx []byte
 
 // Txs is a slice of Tx.
+// TODO make Txs of type `[]Tx`
 type Txs [][]byte
 
 // Proof represents a Merkle proof of the presence of a transaction in the Merkle tree.

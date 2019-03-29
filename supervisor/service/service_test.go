@@ -5,6 +5,7 @@ import (
 
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
 
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/herdius/herdius-core/supervisor/transaction"
 	"github.com/stretchr/testify/assert"
 )
@@ -146,6 +147,44 @@ func TestCreateChildBlock(t *testing.T) {
 func getTx(nonce int) transaction.Tx {
 	msg := []byte("Transfer 10 BTC")
 	privKey := ed25519.GenPrivKey()
+	pubKey := privKey.PubKey()
+	sign, _ := privKey.Sign(msg)
+	tx := transaction.Tx{
+		Nonce:         uint64(nonce),
+		Senderpubkey:  pubKey.Bytes(),
+		Fee:           []byte("100"),
+		Assetcategory: "Crypto",
+		Assetname:     "BTC",
+		Value:         []byte("10"),
+		Signature:     sign,
+	}
+
+	// pp, _ := transaction.PrettyPrint(tx)
+	// fmt.Println(pp)
+	return tx
+}
+
+func TestCreateChildBlockForSecp256k1Account(t *testing.T) {
+	var txService transaction.Service
+	txService = transaction.TxService()
+	for i := 1; i <= 200; i++ {
+		tx := getTxSecp256k1Account(i)
+		txService.AddTx(tx)
+	}
+	txList := txService.GetTxList()
+	assert.NotNil(t, txList)
+	assert.Equal(t, 200, len((*txList).Transactions))
+
+	supsvc := &Supervisor{}
+	supsvc.SetWriteMutex()
+	cb := supsvc.CreateChildBlock(nil, txList, 1, []byte{0})
+
+	assert.NotNil(t, cb)
+}
+
+func getTxSecp256k1Account(nonce int) transaction.Tx {
+	msg := []byte("Transfer 10 BTC")
+	privKey := secp256k1.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
 	tx := transaction.Tx{

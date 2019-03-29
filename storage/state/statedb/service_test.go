@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 
 	tt "github.com/ethereum/go-ethereum/trie"
-	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -76,7 +76,90 @@ func TestTryGet(t *testing.T) {
 	os.RemoveAll(dir)
 }
 
-func TestTryUpdateGetAccounts(t *testing.T) {
+// func TestTryUpdateGetAccounts(t *testing.T) {
+// 	var accountList []Account
+
+// 	dir, err := ioutil.TempDir("", "trie-singleton")
+
+// 	assert.NoError(t, err, fmt.Sprintf("can't create temporary directory: %v", err))
+
+// 	trie := GetState(dir)
+
+// 	for i := 0; i < 10; i++ {
+// 		account := createAccount(i + 1)
+// 		js, err := cdc.MarshalJSON(account)
+// 		assert.NoError(t, err, fmt.Sprintf("can't encode the account object: %v", err))
+// 		accountList = append(accountList, account)
+
+// 		err = trie.TryUpdate(account.AddressHash, js)
+
+// 		assert.NoError(t, err, fmt.Sprintf("can't add (key, value) to Trie: %v", err))
+// 	}
+
+// 	root, err := trie.Commit(nil)
+// 	assert.NoError(t, err, fmt.Sprintf("can't commit (key, value) to Trie: %v", err))
+
+// 	assert.NotNil(t, root)
+
+// 	//////////////////
+// 	// Retrieve and Verify the Accounts using root hash
+// 	trie2, err := tt.New(common.BytesToHash(root), GetDB())
+// 	assert.NoError(t, err, fmt.Sprintf("unable to get Trie: %v", err))
+// 	assert.NotNil(t, trie2)
+
+// 	size := len(accountList)
+
+// 	for i := 0; i < size; i++ {
+// 		account := accountList[i]
+// 		a, _ := trie2.TryGet((account.AddressHash))
+// 		var av Account
+// 		err = cdc.UnmarshalJSON(a, &av)
+
+// 		assert.NoError(t, err, fmt.Sprintf("unable to unmarshal: %v", err))
+
+// 		assert.NotNil(t, av)
+// 		assert.Equal(t, uint64(i+1), av.Nonce)
+
+// 	}
+
+// 	os.RemoveAll(dir)
+// }
+
+func TestTryGetInDir(t *testing.T) {
+	dir := "./herdius/statedb"
+	trie := GetState(dir)
+	err := trie.TryUpdate([]byte("key"), []byte("value"))
+	assert.NoError(t, err, fmt.Sprintf("can't add (key, value) to Trie: %v", err))
+
+	root, err := trie.Commit(nil)
+	assert.NoError(t, err, fmt.Sprintf("can't commit (key, value) to Trie: %v", err))
+
+	assert.NotNil(t, root)
+
+	v, err := trie.TryGet(([]byte("key"))[:])
+	assert.NoError(t, err, fmt.Sprintf("can't get value from Trie: %v", err))
+	value := string(v)
+	assert.Equal(t, "value", value)
+	os.RemoveAll(dir)
+}
+
+// func createAccount(nonce int) Account {
+// 	var privKey = ed25519.GenPrivKey()
+// 	var pubKey = privKey.PubKey()
+
+// 	address := fmt.Sprintf("%X", pubKey.Address().Bytes()[:])
+// 	var bal = "100"
+// 	account := Account{
+// 		Nonce:       uint64(nonce),
+// 		Address:     address,
+// 		AddressHash: pubKey.Bytes(),
+// 		Balance:     []byte(bal),
+// 	}
+
+// 	return account
+// }
+
+func TestTryUpdateGetSecp256k1Accounts(t *testing.T) {
 	var accountList []Account
 
 	dir, err := ioutil.TempDir("", "trie-singleton")
@@ -86,7 +169,7 @@ func TestTryUpdateGetAccounts(t *testing.T) {
 	trie := GetState(dir)
 
 	for i := 0; i < 10; i++ {
-		account := createAccount(i + 1)
+		account := createSecp256k1Account(i + 1)
 		js, err := cdc.MarshalJSON(account)
 		assert.NoError(t, err, fmt.Sprintf("can't encode the account object: %v", err))
 		accountList = append(accountList, account)
@@ -101,7 +184,6 @@ func TestTryUpdateGetAccounts(t *testing.T) {
 
 	assert.NotNil(t, root)
 
-	//////////////////
 	// Retrieve and Verify the Accounts using root hash
 	trie2, err := tt.New(common.BytesToHash(root), GetDB())
 	assert.NoError(t, err, fmt.Sprintf("unable to get Trie: %v", err))
@@ -125,35 +207,17 @@ func TestTryUpdateGetAccounts(t *testing.T) {
 	os.RemoveAll(dir)
 }
 
-func TestTryGetInDir(t *testing.T) {
-	dir := "./herdius/statedb"
-	trie := GetState(dir)
-	err := trie.TryUpdate([]byte("key"), []byte("value"))
-	assert.NoError(t, err, fmt.Sprintf("can't add (key, value) to Trie: %v", err))
-
-	root, err := trie.Commit(nil)
-	assert.NoError(t, err, fmt.Sprintf("can't commit (key, value) to Trie: %v", err))
-
-	assert.NotNil(t, root)
-
-	v, err := trie.TryGet(([]byte("key"))[:])
-	assert.NoError(t, err, fmt.Sprintf("can't get value from Trie: %v", err))
-	value := string(v)
-	assert.Equal(t, "value", value)
-	os.RemoveAll(dir)
-}
-
-func createAccount(nonce int) Account {
-	var privKey = ed25519.GenPrivKey()
+func createSecp256k1Account(nonce int) Account {
+	var privKey = secp256k1.GenPrivKey()
 	var pubKey = privKey.PubKey()
 
 	address := fmt.Sprintf("%X", pubKey.Address().Bytes()[:])
-	var bal = "100"
+
 	account := Account{
 		Nonce:       uint64(nonce),
 		Address:     address,
 		AddressHash: pubKey.Bytes(),
-		Balance:     []byte(bal),
+		Balance:     100,
 	}
 
 	return account

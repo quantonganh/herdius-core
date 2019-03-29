@@ -1,79 +1,66 @@
 package keystore
 
-import (
-	"os"
-	"path/filepath"
-	"testing"
+// func TestLoadOrGenNodeKey(t *testing.T) {
+// 	filePath := filepath.Join(os.TempDir(), cmn.RandStr(12)+"_herdius_key.json")
 
-	"github.com/herdius/herdius-core/crypto"
-	ed25519 "github.com/herdius/herdius-core/crypto/ed"
-	cmn "github.com/herdius/herdius-core/libs/common"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/argon2"
-)
+// 	key, err := StoreKey(filePath)
+// 	assert.Nil(t, err)
 
-func TestLoadOrGenNodeKey(t *testing.T) {
-	filePath := filepath.Join(os.TempDir(), cmn.RandStr(12)+"_herdius_key.json")
+// 	key2, err := LoadKeyUsingPrivKey(filePath)
+// 	assert.Nil(t, err)
 
-	key, err := StoreKey(filePath)
-	assert.Nil(t, err)
+// 	assert.Equal(t, key, key2)
 
-	key2, err := LoadKeyUsingPrivKey(filePath)
-	assert.Nil(t, err)
+// 	privKey := (*key).PrivKey
+// 	pubKey := privKey.PubKey()
 
-	assert.Equal(t, key, key2)
+// 	privKey2 := (*key2).PrivKey
+// 	pubKey2 := privKey2.PubKey()
 
-	privKey := (*key).PrivKey
-	pubKey := privKey.PubKey()
+// 	assert.Equal(t, pubKey, pubKey2)
+// 	assert.Equal(t, pubKey.Address(), pubKey2.Address())
+// }
 
-	privKey2 := (*key2).PrivKey
-	pubKey2 := privKey2.PubKey()
+// func TestLoadKeyFromJSONFile(t *testing.T) {
 
-	assert.Equal(t, pubKey, pubKey2)
-	assert.Equal(t, pubKey.Address(), pubKey2.Address())
-}
+// 	salt := "LKtAMSAoJuqdfHpAExnfgdMuwvtvBejZtDgBCoHMgitcnSMnIfIh"
+// 	expectedPubKeyAddress := "C8123FA11D5D0B4FB8E25F2FA90F88C64CF4670C"
+// 	var memory uint32
+// 	memory = 32 * 1024
+// 	key := argon2.Key([]byte("Secret Passphrase"), []byte(salt), 3, memory, 4, 32)
 
-func TestLoadKeyFromJSONFile(t *testing.T) {
+// 	// Expected Private Key
+// 	expPrivKey := ed25519.GenPrivKeyFromSecret(key)
 
-	salt := "LKtAMSAoJuqdfHpAExnfgdMuwvtvBejZtDgBCoHMgitcnSMnIfIh"
-	expectedPubKeyAddress := "C8123FA11D5D0B4FB8E25F2FA90F88C64CF4670C"
-	var memory uint32
-	memory = 32 * 1024
-	key := argon2.Key([]byte("Secret Passphrase"), []byte(salt), 3, memory, 4, 32)
+// 	privKey, err := LoadKeyUsingSecretKeyAndSalt("./testdata/v1_test_argon2.json")
+// 	assert.Nil(t, err)
 
-	// Expected Private Key
-	expPrivKey := ed25519.GenPrivKeyFromSecret(key)
+// 	assert.True(t, expPrivKey.Equals((*privKey).PrivKey))
 
-	privKey, err := LoadKeyUsingSecretKeyAndSalt("./testdata/v1_test_argon2.json")
-	assert.Nil(t, err)
+// 	assert.Equal(t, (*privKey).PrivKey.PubKey(), expPrivKey.PubKey())
 
-	assert.True(t, expPrivKey.Equals((*privKey).PrivKey))
+// 	address := (*privKey).PrivKey.PubKey().Address().String()
+// 	assert.Equal(t, expectedPubKeyAddress, address)
 
-	assert.Equal(t, (*privKey).PrivKey.PubKey(), expPrivKey.PubKey())
+// }
 
-	address := (*privKey).PrivKey.PubKey().Address().String()
-	assert.Equal(t, expectedPubKeyAddress, address)
+// func TestSignAndValidateEd25519(t *testing.T) {
+// 	key, err := LoadKeyUsingSecretKeyAndSalt("./testdata/v1_test_argon2.json")
+// 	assert.Nil(t, err)
+// 	assert.NotEmpty(t, key)
 
-}
+// 	privKey := (*key).PrivKey
+// 	pubKey := privKey.PubKey()
 
-func TestSignAndValidateEd25519(t *testing.T) {
-	key, err := LoadKeyUsingSecretKeyAndSalt("./testdata/v1_test_argon2.json")
-	assert.Nil(t, err)
-	assert.NotEmpty(t, key)
+// 	msg := crypto.CRandBytes(128)
+// 	sig, err := privKey.Sign(msg)
+// 	require.Nil(t, err)
 
-	privKey := (*key).PrivKey
-	pubKey := privKey.PubKey()
+// 	// Test the signature
+// 	assert.True(t, pubKey.VerifyBytes(msg, sig))
 
-	msg := crypto.CRandBytes(128)
-	sig, err := privKey.Sign(msg)
-	require.Nil(t, err)
+// 	// Mutate the signature, just one bit.
+// 	sig[7] ^= byte(0x01)
 
-	// Test the signature
-	assert.True(t, pubKey.VerifyBytes(msg, sig))
-
-	// Mutate the signature, just one bit.
-	sig[7] ^= byte(0x01)
-
-	assert.False(t, pubKey.VerifyBytes(msg, sig))
-}
+// 	assert.False(t, pubKey.VerifyBytes(msg, sig))
+// }

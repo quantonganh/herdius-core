@@ -4,17 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strconv"
 
-	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	cmn "github.com/herdius/herdius-core/libs/common"
-	"golang.org/x/crypto/argon2"
 )
 
 // Key ...
 type Key struct {
-	PrivKey ed25519.PrivKeyEd25519 `json:"privKey"`
+	PrivKeySP secp256k1.PrivKeySecp256k1 `json:"privKeySp"`
 }
 
 // AuthKeyJSONV1 ...
@@ -50,68 +48,6 @@ func LoadKeyUsingPrivKey(filePath string) (*Key, error) {
 
 	}
 	return nil, nil
-}
-
-// LoadKeyUsingSecretKeyAndSalt - Loads and decrypts the key from disk.
-// Key will be loaded based on secret, KDF details, salt details.
-// Argon2 KDF is being used to derive cryptographic keys from passwords and salts.
-func LoadKeyUsingSecretKeyAndSalt(filename string) (*Key, error) {
-	byteValue, err := cmn.ReadFile(filename)
-	if err != nil {
-		log.Printf("%v\n", err)
-		return nil, err
-	}
-
-	var authKeyjsonv1 authKeyJSONV1
-
-	json.Unmarshal(byteValue, &authKeyjsonv1)
-
-	salt := authKeyjsonv1.Crypto.KDFParams["salt"].(string)
-	m := authKeyjsonv1.Crypto.KDFParams["m"]
-	c := authKeyjsonv1.Crypto.KDFParams["c"]
-
-	mem := ensureUint32(m)
-	cost := ensureUint32(c)
-	memory := mem * cost //32*1024
-
-	timeJSON := authKeyjsonv1.Crypto.KDFParams["time"]
-	time := ensureUint32(timeJSON)
-
-	keylenJSON := authKeyjsonv1.Crypto.KDFParams["keylen"]
-	keylen := ensureUint32(keylenJSON)
-
-	threadsJSON := authKeyjsonv1.Crypto.KDFParams["threads"]
-	threads := ensureUint8(threadsJSON)
-
-	password := authKeyjsonv1.Password
-	argon2Key := argon2.Key([]byte(password), []byte(salt), time, memory, threads, keylen)
-	privKey := ed25519.GenPrivKeyFromSecret(argon2Key)
-
-	key := &Key{
-		PrivKey: privKey,
-	}
-	return key, nil
-}
-
-// StoreKey - A key will be created, encrypted and stored in the file provided.
-func StoreKey(filePath string) (*Key, error) {
-	privKey := ed25519.GenPrivKey()
-
-	key := &Key{
-		PrivKey: privKey,
-	}
-
-	jsonBytes, err := MarshalJSON(key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
-	if err != nil {
-		return nil, err
-	}
-	return key, nil
 }
 
 //MarshalJSON ...

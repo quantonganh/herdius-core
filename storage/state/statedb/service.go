@@ -2,6 +2,7 @@ package statedb
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -119,12 +120,11 @@ func (s *state) GetKey([]byte) []byte {
 }
 
 func createGoLevelDB(dir string) (string, *trie.Database) {
-	//dir := "~/herdius/statedb"
 
 	diskdb, err := ethdb.NewLDBDatabase(dir, 0, 0)
 
 	if err != nil {
-		panic(fmt.Sprintf("can't create state database: %v", err))
+		log.Fatalf(fmt.Sprintf("can't create state database: %v", err))
 	}
 	return dir, trie.NewDatabase(diskdb)
 }

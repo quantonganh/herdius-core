@@ -4,17 +4,19 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"fmt"
 
+	nlog "log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/herdius/herdius-core/blockchain"
-	"github.com/herdius/herdius-core/blockchain/protobuf"
+	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	cryptokey "github.com/herdius/herdius-core/crypto"
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
+	"github.com/herdius/herdius-core/hbi/message"
+	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
 	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/crypto"
 	keystore "github.com/herdius/herdius-core/p2p/key"
@@ -37,24 +39,24 @@ var voteCount = 0
 var isChildBlockReceivedByValidator = false
 
 // Child block message object received
-var mcb = &protobuf.ChildBlockMessage{}
+var mcb = &blockProtobuf.ChildBlockMessage{}
 
 // firstPingFromValidator checks whether a connection is established betweer supervisor and validator.
 // And it is used to send a message on established connection.
 var firstPingFromValidator = 0
 
-var nodeKeydir = "./supervisor/testdata/"
+var nodeKeydir = "./cmd/testdata/secp205k1Accts/"
 
 var t1 time.Time
 var t2 time.Time
 
 func init() {
-
+	nlog.SetFlags(nlog.LstdFlags | nlog.Lshortfile)
 	supsvc = &sup.Supervisor{}
 	supsvc.SetWriteMutex()
-	supsvc.ValidatorChildblock = make(map[string]*protobuf.BlockID, 0)
-	supsvc.ChildBlock = make([]*protobuf.ChildBlock, 0)
-	supsvc.VoteInfoData = make(map[string][]*protobuf.VoteInfo, 0)
+	supsvc.ValidatorChildblock = make(map[string]*blockProtobuf.BlockID, 0)
+	supsvc.ChildBlock = make([]*blockProtobuf.ChildBlock, 0)
+	supsvc.VoteInfoData = make(map[string][]*blockProtobuf.VoteInfo, 0)
 
 	RegisterAminoService(cdc)
 }
@@ -74,7 +76,7 @@ var addresses = make([]string, 0)
 func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 	switch msg := ctx.Message().(type) {
-	case *protobuf.ConnectionMessage:
+	case *blockProtobuf.ConnectionMessage:
 		address := ctx.Client().ID.Address
 		pubKey := ctx.Client().ID.PublicKey
 		err := supsvc.AddValidator(pubKey, address)
@@ -88,9 +90,9 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		// This map will be used to map validators to their respective child blocks
 		mx := supsvc.GetMutex()
 		mx.Lock()
-		supsvc.ValidatorChildblock[address] = &protobuf.BlockID{}
+		supsvc.ValidatorChildblock[address] = &blockProtobuf.BlockID{}
 		mx.Unlock()
-	case *protobuf.ChildBlockMessage:
+	case *blockProtobuf.ChildBlockMessage:
 
 		mcb = msg
 		vote := mcb.GetVote()
@@ -142,6 +144,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					bbh = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 					log.Info().Msg("New Block Added")
 					log.Info().Msgf("Block Id: %v", bbh.String())
+
 					log.Info().Msgf("Block Height: %v", baseBlock.GetHeader().GetHeight())
 
 					s := lastBlock.GetHeader().GetTime().GetSeconds()
@@ -154,10 +157,10 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					// Once new base block is added to be block chain
 					// do the following
 
-					supsvc.ValidatorChildblock = make(map[string]*protobuf.BlockID, 0)
-					supsvc.ChildBlock = make([]*protobuf.ChildBlock, 0)
-					supsvc.VoteInfoData = make(map[string][]*protobuf.VoteInfo, 0)
-					mcb = &protobuf.ChildBlockMessage{}
+					supsvc.ValidatorChildblock = make(map[string]*blockProtobuf.BlockID, 0)
+					supsvc.ChildBlock = make([]*blockProtobuf.ChildBlock, 0)
+					supsvc.VoteInfoData = make(map[string][]*blockProtobuf.VoteInfo, 0)
+					mcb = &blockProtobuf.ChildBlockMessage{}
 					voteCount = 0
 
 					supsvc.StateRoot = []byte{0}
@@ -197,15 +200,13 @@ func main() {
 	host := *hostFlag
 	protocol := *protocolFlag
 	peers := strings.Split(*peersFlag, ",")
-	fmt.Printf("Peers info: %v\n", peers)
 	noOfPeersInGroup := *groupSizeFlag
 
 	// Generate or Load Keys
 
 	nodeAddress := host + ":" + strconv.Itoa(*portFlag)
 
-	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_peer_id.json")
-
+	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
 		log.Error().Msgf("Failed to create or load node key: %v", err)
 	}
@@ -220,8 +221,14 @@ func main() {
 		PubKey:     pubKey,
 	}
 
-	opcode.RegisterMessageType(opcode.Opcode(1111), &protobuf.ChildBlockMessage{})
-	opcode.RegisterMessageType(opcode.Opcode(1112), &protobuf.ConnectionMessage{})
+	opcode.RegisterMessageType(opcode.Opcode(1111), &blockProtobuf.ChildBlockMessage{})
+	opcode.RegisterMessageType(opcode.Opcode(1112), &blockProtobuf.ConnectionMessage{})
+	opcode.RegisterMessageType(opcode.Opcode(1113), &protoplugin.BlockHeightRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1114), &protoplugin.BlockResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1115), &protoplugin.AccountRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1116), &protoplugin.AccountResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TransactionRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TransactionResponse{})
 
 	builder := network.NewBuilder()
 	builder.SetKeys(keys)
@@ -231,8 +238,11 @@ func main() {
 	// Register peer discovery plugin.
 	builder.AddPlugin(new(discovery.Plugin))
 
-	// Add custom chat plugin.
+	// Add custom Herdius plugin.
 	builder.AddPlugin(new(HerdiusMessagePlugin))
+	builder.AddPlugin(new(message.BlockMessagePlugin))
+	builder.AddPlugin(new(message.AccountMessagePlugin))
+	builder.AddPlugin(new(message.TransactionMessagePlugin))
 
 	net, err := builder.Build()
 	if err != nil {
@@ -251,7 +261,6 @@ func main() {
 
 	var stateRoot []byte
 	if *supervisorFlag {
-
 		blockchain.LoadDB()
 		sup.LoadStateDB()
 		blockchainSvc := &blockchain.Service{}
@@ -298,7 +307,8 @@ func main() {
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			supervisorProcessor(net, reader, stateRoot, noOfPeersInGroup)
 		} else {
-			validatorProcessor(net, reader)
+
+			validatorProcessor(net, reader, peers)
 
 		}
 
@@ -322,8 +332,8 @@ func supervisorProcessor(net *network.Network, reader *bufio.Reader, stateRoot [
 	numberOfTXsInEachBatch := 500
 	numberOfBatches := totalTXsToBeValidated / numberOfTXsInEachBatch
 
-	err := supsvc.CreateTxBatchesFromFile("./supervisor/testdata/txs.json", numberOfBatches, numberOfTXsInEachBatch, stateRoot)
-
+	txFilePath := "./cmd/testdata/txs-sec.json"
+	err := supsvc.CreateTxBatchesFromFile(txFilePath, numberOfBatches, numberOfTXsInEachBatch, stateRoot)
 	if err != nil {
 		log.Error().Msgf("Failed while batching the transactions: %v", err)
 		return
@@ -361,7 +371,7 @@ func supervisorProcessor(net *network.Network, reader *bufio.Reader, stateRoot [
 		previousBlockHash = cb.GetHeader().GetBlockID().BlockHash
 
 		supsvc.ChildBlock = append(supsvc.ChildBlock, cb)
-		cbmsg := &protobuf.ChildBlockMessage{
+		cbmsg := &blockProtobuf.ChildBlockMessage{
 			ChildBlock: cb,
 		}
 
@@ -402,13 +412,25 @@ func supervisorProcessor(net *network.Network, reader *bufio.Reader, stateRoot [
 }
 
 // validatorProcessor checks and validates all the new child blocks
-func validatorProcessor(net *network.Network, reader *bufio.Reader) {
-
+func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
-		net.Broadcast(ctx, &protobuf.ConnectionMessage{Message: "Connection established"})
+		net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
 		firstPingFromValidator++
 		return
+	}
+
+	// Check if connection state of supervisor node is down
+	// Send a bootstrap request and wait until bootstrap is completed.
+	// Finally broadcast a message to supervisor on re-connection state
+	// TODO: Can we make it something better and maintainable?
+	if firstPingFromValidator == 1 {
+		_, ok := net.ConnectionState(peers[0])
+		if !ok {
+			net.Bootstrap(peers...)
+			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection re-established"})
+			return
+		}
 	}
 
 	// Check if a new child block has arrived
@@ -422,13 +444,13 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader) {
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
 		err := vService.VerifyTxs(cbRootHash, txs)
 		if err != nil {
-			net.Broadcast(ctx, &protobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
+			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
 		}
 
 		// Sign and vote the child block
 		err = vService.Vote(net, net.Address, mcb)
 		if err != nil {
-			net.Broadcast(ctx, &protobuf.ConnectionMessage{Message: "Failed to get vote"})
+			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to get vote"})
 		}
 
 		net.Broadcast(ctx, mcb)

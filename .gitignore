@@ -1,0 +1,10 @@
+.DS_Store
+._*
+.Spotlight-V100
+.TemporaryItems
+log/
+*.log
+
+supervisor/testdata/*
+cmd/testdata/*
+herdius/*
