@@ -2,14 +2,20 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	b64 "encoding/base64"
 	"os"
 	"sync"
+
+	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -23,6 +29,7 @@ import (
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
+	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
 	txbyte "github.com/herdius/herdius-core/tx"
@@ -40,6 +47,7 @@ type SupervisorI interface {
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
+	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
 }
 
 var (
@@ -55,6 +63,7 @@ type Supervisor struct {
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
 	StateRoot           []byte
+	memPoolChan         chan<- mempool.MemPool
 }
 
 //GetMutex ...
@@ -459,6 +468,209 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 	return cb
 }
 
+// ProcessTxs will process transactions.
+// It will check whether to send the transactions to Validators
+// or to be included in Singular base block
+func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+	// Get the Memory pool pointer Memory Pool
+	mp := mempool.GetMemPool()
+	// Check if transactions are available in Memory pool
+	txs := mp.GetTxs()
+
+	// Check if transactions to be added in Singular Block
+	if len(txs) > 0 && len(txs) < 500 {
+		baseBlock, err := s.createSingularBlock(lastBlock, net, txs, mp, stateRoot)
+		if err != nil {
+			return nil, errors.New("Failed to create base block: " + err.Error())
+		}
+
+		return baseBlock, nil
+	}
+	return nil, nil
+}
+func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
+	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
+
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+	}
+	for _, txbz := range txs {
+
+		var tx pluginproto.Tx
+		err := cdc.UnmarshalJSON(txbz, &tx)
+		if err != nil {
+			log.Printf("Failed to Unmarshal tx: %v", err)
+			continue
+		}
+
+		// Get the public key of the sender
+		senderAddress := tx.GetSenderAddress()
+		pubKeyS, err := b64.StdEncoding.DecodeString(tx.GetSenderPubkey())
+		if err != nil {
+			plog.Error().Msgf("Failed to decode sender public key: %v", err)
+			continue
+		}
+
+		var pubKey crypto.PubKey
+		err = cdc.UnmarshalBinaryBare(pubKeyS, &pubKey)
+		if err != nil {
+			plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
+		}
+
+		// Verify the signature
+		// if verification failed update the tx status as failed tx.
+		//Recreate the TX
+		asset := &pluginproto.Asset{
+			Category: tx.Asset.Category,
+			Symbol:   tx.Asset.Symbol,
+			Network:  tx.Asset.Network,
+			Value:    tx.Asset.Value,
+			Fee:      tx.Asset.Fee,
+			Nonce:    tx.Asset.Nonce,
+		}
+		verifiableTx := pluginproto.Tx{
+			SenderAddress:   tx.SenderAddress,
+			SenderPubkey:    tx.SenderPubkey,
+			RecieverAddress: tx.RecieverAddress,
+			Asset:           asset,
+			Message:         tx.Message,
+		}
+
+		txbBeforeSign, err := json.Marshal(verifiableTx)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to marshal the transaction to verify sign: %v", err)
+			continue
+		}
+
+		decodedSig, err := b64.StdEncoding.DecodeString(tx.Sign)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to decode the base64 sign to verify sign: %v", err)
+			continue
+		}
+
+		signVerificationRes := pubKey.VerifyBytes(txbBeforeSign, decodedSig)
+		if !signVerificationRes {
+			plog.Error().Msgf("Signature Verification Failed: %v", signVerificationRes)
+			continue
+		}
+		// Get account details from state trie
+		senderAddressBytes := []byte(senderAddress)
+		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to retrieve account detail: %v", err)
+			continue
+		}
+
+		var senderAccount statedb.Account
+
+		err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to Unmarshal account: %v", err)
+			continue
+		}
+
+		if strings.EqualFold(tx.Asset.Network, "Herdius") && strings.EqualFold(tx.Asset.Symbol, "HER") {
+			// Debit Sender's Account
+			senderAccount.Balance = senderAccount.Balance - tx.Asset.Value
+
+			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
+
+			// Get Reciever's Account
+			rcvrAddressBytes := []byte(tx.RecieverAddress)
+			rcvrActbz, _ := stateTrie.TryGet(rcvrAddressBytes)
+
+			var rcvrAccount statedb.Account
+
+			err = cdc.UnmarshalJSON(rcvrActbz, &rcvrAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Unmarshal receiver's account: %v", err)
+				continue
+			}
+
+			// Credit Reciever's Account
+
+			rcvrAccount.Balance = rcvrAccount.Balance + tx.Asset.Value
+			senderAccount.Nonce = tx.Asset.Nonce
+			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+			}
+
+			err = stateTrie.TryUpdate(senderAddressBytes, updatedSenderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to update sender's account in state db: %v", err)
+			}
+
+			updatedRcvrAccount, err := cdc.MarshalJSON(rcvrAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal receiver's account: %v", err)
+			}
+
+			err = stateTrie.TryUpdate(rcvrAddressBytes, updatedRcvrAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to update receiver's account in state db: %v", err)
+			}
+
+			// TODO: Fee should be credit to intended recipient
+		}
+		// Mark the tx as finally processed and
+		// add it to batch that will finally be added to singular block
+
+	}
+
+	// State Root
+	root, err := stateTrie.Commit(nil)
+
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
+	}
+
+	// Get Merkle Root Hash of all transactions
+	mrh := txs.MerkleHash()
+
+	// Create Singular Block Header
+	ts := time.Now().UTC()
+	baseHeader := &protobuf.BaseHeader{
+		Block_ID:    &protobuf.BlockID{},
+		LastBlockID: lastBlock.GetHeader().GetBlock_ID(),
+		Height:      lastBlock.Header.Height + 1,
+		StateRoot:   root.Bytes(),
+		Time: &protobuf.Timestamp{
+			Seconds: ts.Unix(),
+			Nanos:   ts.UnixNano(),
+		},
+		RootHash: mrh,
+		TotalTxs: int64(len(txs)),
+	}
+	blockHashBz, err := cdc.MarshalJSON(baseHeader)
+	if err != nil {
+		plog.Error().Msgf("Base Header marshaling failed.: %v", err)
+	}
+
+	blockHash := hehash.Sum(blockHashBz)
+
+	baseHeader.GetBlock_ID().BlockHash = blockHash
+	// Add Header to Block
+
+	s.writerMutex.Lock()
+	baseBlock := &protobuf.BaseBlock{
+		Header:  baseHeader,
+		TxsData: &protobuf.TxsData{Tx: txs},
+	}
+	s.writerMutex.Unlock()
+
+	// Remove processed transactions from Memory Pool
+	mp.RemoveTxs()
+	return baseBlock, nil
+}
+
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
 // Initially 50 accounts will be loaded to state db
 func LoadStateDBWithInitialAccounts() ([]byte, error) {
@@ -481,7 +693,7 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 			//All 10 intital accounts will have an initial balance of 10000 HER tokens
 
 			account := statedb.Account{
-				Nonce:       1,
+				Nonce:       0,
 				Address:     pubKey.GetAddress(),
 				AddressHash: pubKey.Bytes(),
 				Balance:     10000,

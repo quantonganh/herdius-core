@@ -2,25 +2,28 @@ package message
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"strings"
 
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
-	"github.com/herdius/herdius-core/tx"
 
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
+	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
+)
+
+var (
+	clientAddress = "tcp://127.0.0.1:5555"
 )
 
 // BlockMessagePlugin will receive all Block specific messages.
 type BlockMessagePlugin struct{ *network.Plugin }
 type AccountMessagePlugin struct{ *network.Plugin }
 type TransactionMessagePlugin struct{ *network.Plugin }
-
-var memPool = mempool.NewMemPool()
 
 func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
@@ -33,7 +36,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 		}
 
 		if account == nil {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockProtobuf.ConnectionMessage{Message: "Account detail not found"}, "tcp://127.0.0.1:5555")
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockProtobuf.ConnectionMessage{Message: "Account detail not found"}, clientAddress)
 		}
 
 		if account != nil {
@@ -43,7 +46,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 				Balance:     account.Balance,
 				StorageRoot: account.StorageRoot,
 			}
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, "tcp://127.0.0.1:5555")
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, clientAddress)
 
 		}
 
@@ -84,7 +87,7 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 		log.Info().Msgf("Block Response at processor: %v", blockRes)
 
-		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockRes, "tcp://127.0.0.1:5555")
+		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockRes, clientAddress)
 
 	case *protoplugin.BlockResponse:
 		log.Info().Msgf("Block Response: %v", msg)
@@ -92,33 +95,52 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 	return nil
 }
 
+// Receive to handle transaction requests
 func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
-	case *protoplugin.TransactionRequest:
-		txsSrv := tx.GetTxsService()
+	case *protoplugin.TxRequest:
+		tx := msg.GetTx()
+
 		accSrv := account.NewAccountService()
-		accAddress, err := accSrv.GetPublicAddress(msg.Tx.Senderpubkey)
-		if err != nil || accAddress == "" {
-			fmt.Println("couldn't find user account for specificied sender public key:", err)
-			return err
-		}
-		senderAcc, err := accSrv.GetAccountByAddress(accAddress)
-		if err != nil || senderAcc == nil {
-			fmt.Println("couldn't get account by address; err:", err)
-			return err
-		}
-		fmt.Println("senderAcc.Nonce, senderAcc.Balance:", senderAcc)
 
-		err = txsSrv.ParseNewTxRequest(senderAcc.Nonce, senderAcc.Balance, msg)
-		poolCount, err := memPool.AddTxs(txsSrv)
+		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 		if err != nil {
-			log.Info().Msgf("error adding transaction to memory pool: ", err)
-			return err
+			log.Error().Msgf("Couldn't find the account for: %v", msg.Tx.GetSenderAddress())
 		}
-		fmt.Println("poolCount in hbi:", poolCount)
 
-	case *protoplugin.TransactionResponse:
-		log.Info().Msgf("Transaction Response: %v", msg)
+		//Check Tx.Nonce > account.Nonce
+		if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
+			return errors.New("Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce))
+		}
+
+		// Check if asset is HER Token, then check
+		// account.Balance > Tx.Value
+		if strings.EqualFold(tx.GetAsset().Symbol, "HER") && !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value) {
+			return errors.New("Not enough HER Tokens: " + msg.Tx.GetSenderAddress())
+		}
+
+		// Add Tx to Mempool
+		mp := mempool.GetMemPool()
+		txbz, err := cdc.MarshalJSON(tx)
+
+		if err != nil {
+			return errors.New("Failed to Masshal Tx: " + msg.Tx.GetSenderAddress())
+		}
+
+		txCount := mp.AddTx(txbz)
+
+		log.Info().Msgf("Remaining mempool txcount: %v", txCount)
+
+		// Create the Transaction ID
+		txID := cmn.CreateTxID(txbz)
+		log.Info().Msgf("Tx ID : %v", txID)
+
+		// Send Tx ID to client who sent the TX
+		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			&protoplugin.TxResponse{
+				TxId: txID, Status: "success", Queued: 0, Pending: 0,
+			}, clientAddress)
+
 	}
 	return nil
 }

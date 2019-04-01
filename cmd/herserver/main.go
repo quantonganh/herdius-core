@@ -227,8 +227,10 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1114), &protoplugin.BlockResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1115), &protoplugin.AccountRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1116), &protoplugin.AccountResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TransactionRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TransactionResponse{})
+	//opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TransactionRequest{})
+	//opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TransactionResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TxRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TxResponse{})
 
 	builder := network.NewBuilder()
 	builder.SetKeys(keys)
@@ -303,9 +305,45 @@ func main() {
 					}
 				}
 			}
+			//go func() {
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
-			supervisorProcessor(net, reader, stateRoot, noOfPeersInGroup)
+			// Blocks will be created every 3 seconds
+			time.Sleep(3 * time.Second)
+			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
+
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
+
+			if baseBlock != nil {
+				//log.Info().Msgf("Block Detail: %v", baseBlock)
+				err = blockchainSvc.AddBaseBlock(baseBlock)
+				if err != nil {
+					log.Error().Msgf("Failed to Add Base Block: %v", err)
+				}
+
+				var bbh, pbbh cmn.HexBytes
+				pbbh = baseBlock.Header.LastBlockID.BlockHash
+				bbh = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+				log.Info().Msg("New Block Added")
+				log.Info().Msgf("Block Id: %v", bbh.String())
+				log.Info().Msgf("Last Block Id: %v", pbbh.String())
+
+				log.Info().Msgf("Block Height: %v", baseBlock.GetHeader().GetHeight())
+
+				s := lastBlock.GetHeader().GetTime().GetSeconds()
+				ts := time.Unix(s, 0)
+				log.Info().Msgf("Timestamp : %v", ts)
+
+				var stateRoot cmn.HexBytes
+				stateRoot = baseBlock.GetHeader().GetStateRoot()
+				log.Info().Msgf("State root : %v", stateRoot)
+			}
+			//	}()
+			//TODO: It needs to be implemented for Child blocks. Currently it
+			// Loads transactions from a File.
+			//supervisorProcessor(net, reader, stateRoot, noOfPeersInGroup)
 		} else {
 
 			validatorProcessor(net, reader, peers)

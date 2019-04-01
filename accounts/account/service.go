@@ -82,3 +82,21 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	}
 	return acc, nil
 }
+
+// VerifyAccountBalance verifies if account has enough HER tokens
+// This only has to be verified and called for HER crypto asset
+func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64) bool {
+	if a.Balance < txValue {
+		return false
+	}
+	return true
+}
+
+// VerifyAccountNonce verifies initiated transaction has Nonce value greater than
+// Nonce value in account
+func (s *Service) VerifyAccountNonce(a *protobuf.Account, txNonce uint64) bool {
+	if txNonce > a.Nonce {
+		return true
+	}
+	return false
+}
