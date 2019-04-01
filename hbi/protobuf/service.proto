@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package protobuf;
+option go_package="protobuf";
+
+option java_multiple_files = true;
+option java_package = "com.herdius.proto";
+option java_outer_classname = "HerdiusProto";
+
+// import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+// option (gogoproto.equal_all) = true;
+// option (gogoproto.goproto_stringer_all) = false;
+// option (gogoproto.gostring_all) = true;
+// option (gogoproto.marshaler_all) = true;
+// option (gogoproto.sizer_all) = true;
+// option (gogoproto.stringer_all) = true;
+// option (gogoproto.unmarshaler_all) = true;
+// option (gogoproto.verbose_equal_all) = true;
+
+message Timestamp {
+    int64 seconds                   = 1;
+    int64 nanos                     = 2;
+}
+
+message BlockHeightRequest{
+    int64 block_height                  = 1;
+}
+
+message BlockResponse{
+    int64 block_height                  = 1;
+    // Time of block intialization
+    Timestamp time                  = 2;
+    int32 transactions              = 3;
+
+    // Supervisor herdius token address who created the block
+    string supervisor_address       = 4;
+}
+
+message AccountRequest {
+  string address = 1;
+}
+
+message AccountResponse {
+  string address = 1;
+  uint64 nonce = 2;
+  uint64 balance = 3;
+  string storage_root = 4;
+}
+
+message Asset {
+  string category         = 1;
+  string symbol           = 2;
+  string network          = 3;
+  uint64 value            = 4;
+  uint64 fee              = 5;
+  uint64 nonce            = 6;
+}
+
+message Tx {
+  string sender_address   = 1;
+  string sender_pubkey    = 2;
+  string reciever_address = 3;
+  Asset asset             = 4;
+  string message          = 5;
+  string sign             = 6;
+}
+
+// Final Tx will finnally be included in the block
+message FinalTx{
+  Tx tx                   = 1;
+  string status           = 2;
+}
+
+message TxRequest {
+  Tx tx                   = 1;
+}
+
+message TxResponse {
+  string tx_id            = 1;
+  int64 pending           = 2;
+  int64 queued            = 3;
+  string status           = 4;
+}
+
+message AccountRegisterRequest{
+  string sender_pubkey    = 1;
+}
+
+message AccountRegisterResponse{
+  bool status             = 1;
+}
+
+// Send request to retrieve transaction committed in herdius blockchain
+message TxDetailRequest {
+  string tx_id            = 1;
+}
+
+// Transaction detail response from herdius blockchain
+message TxDetailResponse {
+  string tx_id            = 1;
+  Tx tx                   = 2;
+  Timestamp creationDt    = 3;
+}
+
+message Transaction {
+  bytes senderpubkey = 1;
+  string signature = 2;
+  string recaddress = 3;
+  Asset asset = 4;
+}
+
+message TransactionRequest {
+  Transaction Tx = 1;
+}
+
+message TransactionResponse {
+  string tx_id = 1;
+  int64 pending = 2;
+  int64 queued = 3;
+  string status = 4;
+}
+

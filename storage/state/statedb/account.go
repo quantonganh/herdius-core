@@ -9,5 +9,5 @@ type Account struct {
 	Nonce       uint64
 	Address     string
 	AddressHash cmn.HexBytes
-	Balance     []byte
+	Balance     uint64
 }

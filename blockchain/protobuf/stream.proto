@@ -164,6 +164,7 @@ message BaseBlock{
     bytes validator                 = 3;
     bytes next_validator            = 4;
     bytes vote_commits              = 5;
+    TxsData txsData                 = 6;
 }
 
 message BaseHeader{
@@ -188,4 +189,8 @@ message BaseHeader{
 
     // Holds the global state trie created by encoded herdius accounts
     bytes state_root                = 9;
+
+    // Merkle root hash of the transactions in SingularBlock
+    bytes rootHash                  = 10;
+    int64 totalTxs                  = 11;
 }

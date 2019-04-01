@@ -2,12 +2,14 @@ package ed
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
 	"io"
 
 	crypto "github.com/herdius/herdius-core/crypto"
 	"github.com/herdius/herdius-core/crypto/herhash"
+	"github.com/mr-tron/base58"
 	amino "github.com/tendermint/go-amino"
 	"golang.org/x/crypto/ed25519"
 )
@@ -154,4 +156,18 @@ func (pubKey PubKeyEd25519) Equals(other crypto.PubKey) bool {
 	} else {
 		return false
 	}
+}
+
+// GetAddress will create an address prefixed with 'H'
+// e.g. HSGB2xixYLfkvuTSEhs7HABtRFT4sAnBBD
+func (pubKey PubKeyEd25519) GetAddress() string {
+	addr40 := append([]byte{40}, pubKey.Address()...)
+
+	hash2561 := sha256.Sum256(addr40)
+	hash2562 := sha256.Sum256(hash2561[:])
+	checksum := hash2562[:4]
+
+	rawAddr := append(addr40, checksum...)
+	herdiusAddr := base58.Encode(rawAddr)
+	return herdiusAddr
 }

@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	"github.com/herdius/herdius-core/crypto"
-	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	amino "github.com/tendermint/go-amino"
 )
 
@@ -27,7 +27,7 @@ func init() {
 
 	// TODO: Have amino provide a way to go from concrete struct to route directly.
 	// Its currently a private API
-	routeTable[reflect.TypeOf(ed25519.PubKeyEd25519{})] = ed25519.PubKeyAminoRoute
+	routeTable[reflect.TypeOf(secp256k1.PubKeySecp256k1{})] = secp256k1.PubKeyAminoName
 
 }
 
@@ -43,12 +43,12 @@ func PubkeyAminoRoute(cdc *amino.Codec, key crypto.PubKey) (string, bool) {
 func RegisterAmino(cdc *amino.Codec) {
 	// These are all written here instead of
 	cdc.RegisterInterface((*crypto.PubKey)(nil), nil)
-	cdc.RegisterConcrete(ed25519.PubKeyEd25519{},
-		ed25519.PubKeyAminoRoute, nil)
+	cdc.RegisterConcrete(secp256k1.PubKeySecp256k1{},
+		secp256k1.PubKeyAminoName, nil)
 
 	cdc.RegisterInterface((*crypto.PrivKey)(nil), nil)
-	cdc.RegisterConcrete(ed25519.PrivKeyEd25519{},
-		ed25519.PrivKeyAminoRoute, nil)
+	cdc.RegisterConcrete(secp256k1.PrivKeySecp256k1{},
+		secp256k1.PrivKeyAminoName, nil)
 
 }
 

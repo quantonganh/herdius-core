@@ -360,9 +360,10 @@ func (n *Network) Bootstrap(addresses ...string) {
 
 	for _, address := range addresses {
 		client, err := n.Client(address)
-
 		if err != nil {
-			log.Error().Err(err).Msg("")
+			// TODO: Need to display a graceful error message
+			// when connection is disconnected
+			//log.Error().Err(err).Msg("")
 			continue
 		}
 
@@ -410,6 +411,7 @@ func (n *Network) Dial(address string) (net.Conn, error) {
 
 // Accept handles peer registration and processes incoming message streams.
 func (n *Network) Accept(incoming net.Conn) {
+
 	var client *PeerClient
 
 	recvWindow := NewRecvWindow(n.opts.recvWindowSize)
@@ -428,6 +430,7 @@ func (n *Network) Accept(incoming net.Conn) {
 	}()
 
 	for {
+
 		//Add receiveChildBlock for the child
 		msg, err := n.receiveMessage(incoming)
 		if err != nil {

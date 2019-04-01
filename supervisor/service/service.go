@@ -2,14 +2,20 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	b64 "encoding/base64"
 	"os"
 	"sync"
+
+	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -20,9 +26,10 @@ import (
 	cmn "github.com/herdius/herdius-core/libs/common"
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/key"
-	"github.com/herdius/herdius-core/p2p/log"
+	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
+	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
 	txbyte "github.com/herdius/herdius-core/tx"
@@ -34,13 +41,13 @@ type SupervisorI interface {
 	RemoveValidator(address string)
 	CreateChildBlock(net *network.Network, txs *transaction.TxList, height int64, previousBlockHash []byte) *protobuf.ChildBlock
 	CreateTxBatchesFromFile(filename string, numOfBatches, txsNum int, stateRoot []byte) error
-	CreateTxBatches()
 	SetWriteMutex()
 	GetChildBlockMerkleHash() ([]byte, error)
 	GetValidatorGroupHash() ([]byte, error)
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
+	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
 }
 
 var (
@@ -56,6 +63,7 @@ type Supervisor struct {
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
 	StateRoot           []byte
+	memPoolChan         chan<- mempool.MemPool
 }
 
 //GetMutex ...
@@ -168,7 +176,6 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 	defer fileReader.Close()
 
 	// Get Trie Root of state db from last block
-
 	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
 
 	if err != nil {
@@ -186,8 +193,9 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 			// all txs are done
 			break
 		}
+
 		if err != nil {
-			log.Error().Msgf("Failed while reading the file: %v", err)
+			plog.Error().Msgf("Failed while reading the file: %v", err)
 		}
 
 		// Verify the account state from Tx and update it in state trie
@@ -195,16 +203,16 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 
 		err = cdc.UnmarshalBinaryBare(tx.Senderpubkey, &pubKey)
 		if err != nil {
-			log.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
+			plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
 		}
-
-		actbz, _ := stateTrie.TryGet(pubKey.Bytes())
+		pubKeyBytes := []byte(pubKey.GetAddress())
+		actbz, _ := stateTrie.TryGet(pubKeyBytes)
 
 		var account statedb.Account
 		err = cdc.UnmarshalJSON(actbz, &account)
 
 		if err != nil {
-			log.Error().Msgf("Failed to Unmarshal the account from state trie: %v", err)
+			plog.Error().Msgf("Failed to Unmarshal the account from state trie: %v", err)
 		}
 
 		// Increment the Account nonce by 1
@@ -214,18 +222,19 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 		bal, _ := strconv.Atoi(string(account.Balance))
 
 		//Check if tx fee is less than available balance otherwise proceed to next tx
-		if int(txFee) > bal {
+		if txFee > bal {
 			continue
 		}
 
 		//Deduct transaction fee from the available balance in the account
-		bal = bal - int(txFee)
-		account.Balance = []byte(strconv.Itoa(bal))
+		bal = bal - txFee
+		account.Balance = uint64(bal)
 
 		actbz, _ = cdc.MarshalJSON(account)
-		err = stateTrie.TryUpdate(pubKey.Bytes(), actbz)
+
+		err = stateTrie.TryUpdate(pubKeyBytes, actbz)
 		if err != nil {
-			log.Error().Msgf("Failed to update the account to state trie: %v", err)
+			plog.Error().Msgf("Failed to update the account to state trie: %v", err)
 		}
 		txService.AddTx(tx)
 
@@ -262,7 +271,7 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 			txbz, err := cdc.MarshalJSON(tx)
 
 			if err != nil {
-				log.Error().Msgf("Failed to Marshal the Tx: %v", err)
+				plog.Error().Msgf("Failed to Marshal the Tx: %v", err)
 			}
 			txs[i] = txbz
 			txCounter++
@@ -275,9 +284,6 @@ func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsN
 	return nil
 }
 
-// CreateTxBatches creates batches of the transactions
-func (s *Supervisor) CreateTxBatches() {}
-
 // CreateBaseBlock creates the base block with all the child blocks
 func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error) {
 
@@ -285,21 +291,21 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	cbMerkleHash, err := s.GetChildBlockMerkleHash()
 
 	if err != nil {
-		log.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
+		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the validators
 	vgHash, err := s.GetValidatorGroupHash()
 
 	if err != nil {
-		log.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
+		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the next validators
 	nvgHash, err := s.GetNextValidatorGroupHash()
 
 	if err != nil {
-		log.Error().Msgf("Failed to create Merkle Hash of Next Validators: %v", err)
+		plog.Error().Msgf("Failed to create Merkle Hash of Next Validators: %v", err)
 	}
 
 	height := lastBlock.GetHeader().GetHeight()
@@ -323,7 +329,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	vcbz, err := cdc.MarshalJSON(votecommits)
 
 	if err != nil {
-		log.Error().Msgf("Vote commits marshaling failed.: %v", err)
+		plog.Error().Msgf("Vote commits marshaling failed.: %v", err)
 	}
 
 	ts := time.Now().UTC()
@@ -345,7 +351,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	blockHashBz, err := cdc.MarshalJSON(baseHeader)
 
 	if err != nil {
-		log.Error().Msgf("Base Header marshaling failed.: %v", err)
+		plog.Error().Msgf("Base Header marshaling failed.: %v", err)
 	}
 	blockHash := hehash.Sum(blockHashBz)
 
@@ -354,13 +360,13 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	childBlocksBz, err := cdc.MarshalJSON(s.ChildBlock)
 
 	if err != nil {
-		log.Error().Msgf("Child blocks marshaling failed.: %v", err)
+		plog.Error().Msgf("Child blocks marshaling failed.: %v", err)
 	}
 
 	// Vote commits marshalling
 	vcBz, err := cdc.MarshalJSON(votecommits)
 	if err != nil {
-		log.Error().Msgf("Vote Commits marshaling failed.: %v", err)
+		plog.Error().Msgf("Vote Commits marshaling failed.: %v", err)
 	}
 
 	// Validators marshaling
@@ -368,7 +374,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	valsBz, err := cdc.MarshalJSON(s.Validator)
 
 	if err != nil {
-		log.Error().Msgf("Validators marshaling failed.: %v", err)
+		plog.Error().Msgf("Validators marshaling failed.: %v", err)
 	}
 	s.writerMutex.Lock()
 	baseBlock := &protobuf.BaseBlock{
@@ -392,12 +398,12 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 	numTxs := len(txList.Transactions)
 
 	txbzs := make([][]byte, 0)
-	txservice := txbyte.GetTxService()
+	txservice := txbyte.GetTxsService()
 
 	for _, tx := range txList.Transactions {
 
 		txbz, err := cdc.MarshalJSON(*tx)
-		//log.Fatalf("Marshalling failed: %v.", err)
+		//plog.Fatalf("Marshalling failed: %v.", err)
 		if err != nil {
 			return nil
 		}
@@ -415,7 +421,7 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 	if net != nil {
 		keys = net.GetKeys()
 		pubKey = keys.PubKey.Bytes()
-		address = keys.PubKey.Address().String()
+		address = keys.PubKey.GetAddress()
 	}
 
 	// TODO: Id value calculation needs to implemented.
@@ -462,6 +468,209 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 	return cb
 }
 
+// ProcessTxs will process transactions.
+// It will check whether to send the transactions to Validators
+// or to be included in Singular base block
+func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+	// Get the Memory pool pointer Memory Pool
+	mp := mempool.GetMemPool()
+	// Check if transactions are available in Memory pool
+	txs := mp.GetTxs()
+
+	// Check if transactions to be added in Singular Block
+	if len(txs) > 0 && len(txs) < 500 {
+		baseBlock, err := s.createSingularBlock(lastBlock, net, txs, mp, stateRoot)
+		if err != nil {
+			return nil, errors.New("Failed to create base block: " + err.Error())
+		}
+
+		return baseBlock, nil
+	}
+	return nil, nil
+}
+func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
+	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
+
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+	}
+	for _, txbz := range txs {
+
+		var tx pluginproto.Tx
+		err := cdc.UnmarshalJSON(txbz, &tx)
+		if err != nil {
+			log.Printf("Failed to Unmarshal tx: %v", err)
+			continue
+		}
+
+		// Get the public key of the sender
+		senderAddress := tx.GetSenderAddress()
+		pubKeyS, err := b64.StdEncoding.DecodeString(tx.GetSenderPubkey())
+		if err != nil {
+			plog.Error().Msgf("Failed to decode sender public key: %v", err)
+			continue
+		}
+
+		var pubKey crypto.PubKey
+		err = cdc.UnmarshalBinaryBare(pubKeyS, &pubKey)
+		if err != nil {
+			plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
+		}
+
+		// Verify the signature
+		// if verification failed update the tx status as failed tx.
+		//Recreate the TX
+		asset := &pluginproto.Asset{
+			Category: tx.Asset.Category,
+			Symbol:   tx.Asset.Symbol,
+			Network:  tx.Asset.Network,
+			Value:    tx.Asset.Value,
+			Fee:      tx.Asset.Fee,
+			Nonce:    tx.Asset.Nonce,
+		}
+		verifiableTx := pluginproto.Tx{
+			SenderAddress:   tx.SenderAddress,
+			SenderPubkey:    tx.SenderPubkey,
+			RecieverAddress: tx.RecieverAddress,
+			Asset:           asset,
+			Message:         tx.Message,
+		}
+
+		txbBeforeSign, err := json.Marshal(verifiableTx)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to marshal the transaction to verify sign: %v", err)
+			continue
+		}
+
+		decodedSig, err := b64.StdEncoding.DecodeString(tx.Sign)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to decode the base64 sign to verify sign: %v", err)
+			continue
+		}
+
+		signVerificationRes := pubKey.VerifyBytes(txbBeforeSign, decodedSig)
+		if !signVerificationRes {
+			plog.Error().Msgf("Signature Verification Failed: %v", signVerificationRes)
+			continue
+		}
+		// Get account details from state trie
+		senderAddressBytes := []byte(senderAddress)
+		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to retrieve account detail: %v", err)
+			continue
+		}
+
+		var senderAccount statedb.Account
+
+		err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
+
+		if err != nil {
+			plog.Error().Msgf("Failed to Unmarshal account: %v", err)
+			continue
+		}
+
+		if strings.EqualFold(tx.Asset.Network, "Herdius") && strings.EqualFold(tx.Asset.Symbol, "HER") {
+			// Debit Sender's Account
+			senderAccount.Balance = senderAccount.Balance - tx.Asset.Value
+
+			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
+
+			// Get Reciever's Account
+			rcvrAddressBytes := []byte(tx.RecieverAddress)
+			rcvrActbz, _ := stateTrie.TryGet(rcvrAddressBytes)
+
+			var rcvrAccount statedb.Account
+
+			err = cdc.UnmarshalJSON(rcvrActbz, &rcvrAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Unmarshal receiver's account: %v", err)
+				continue
+			}
+
+			// Credit Reciever's Account
+
+			rcvrAccount.Balance = rcvrAccount.Balance + tx.Asset.Value
+			senderAccount.Nonce = tx.Asset.Nonce
+			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+			}
+
+			err = stateTrie.TryUpdate(senderAddressBytes, updatedSenderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to update sender's account in state db: %v", err)
+			}
+
+			updatedRcvrAccount, err := cdc.MarshalJSON(rcvrAccount)
+
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal receiver's account: %v", err)
+			}
+
+			err = stateTrie.TryUpdate(rcvrAddressBytes, updatedRcvrAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to update receiver's account in state db: %v", err)
+			}
+
+			// TODO: Fee should be credit to intended recipient
+		}
+		// Mark the tx as finally processed and
+		// add it to batch that will finally be added to singular block
+
+	}
+
+	// State Root
+	root, err := stateTrie.Commit(nil)
+
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
+	}
+
+	// Get Merkle Root Hash of all transactions
+	mrh := txs.MerkleHash()
+
+	// Create Singular Block Header
+	ts := time.Now().UTC()
+	baseHeader := &protobuf.BaseHeader{
+		Block_ID:    &protobuf.BlockID{},
+		LastBlockID: lastBlock.GetHeader().GetBlock_ID(),
+		Height:      lastBlock.Header.Height + 1,
+		StateRoot:   root.Bytes(),
+		Time: &protobuf.Timestamp{
+			Seconds: ts.Unix(),
+			Nanos:   ts.UnixNano(),
+		},
+		RootHash: mrh,
+		TotalTxs: int64(len(txs)),
+	}
+	blockHashBz, err := cdc.MarshalJSON(baseHeader)
+	if err != nil {
+		plog.Error().Msgf("Base Header marshaling failed.: %v", err)
+	}
+
+	blockHash := hehash.Sum(blockHashBz)
+
+	baseHeader.GetBlock_ID().BlockHash = blockHash
+	// Add Header to Block
+
+	s.writerMutex.Lock()
+	baseBlock := &protobuf.BaseBlock{
+		Header:  baseHeader,
+		TxsData: &protobuf.TxsData{Tx: txs},
+	}
+	s.writerMutex.Unlock()
+
+	// Remove processed transactions from Memory Pool
+	mp.RemoveTxs()
+	return baseBlock, nil
+}
+
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
 // Initially 50 accounts will be loaded to state db
 func LoadStateDBWithInitialAccounts() ([]byte, error) {
@@ -470,30 +679,31 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 		panic(err)
 	}
 	parent := filepath.Dir(wd)
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 10; i++ {
 		ser := i + 1
-		filePath := filepath.Join(parent + "/herdius-core/supervisor/testdata/accounts/account_" + strconv.Itoa(ser) + ".json")
+		filePath := filepath.Join(parent + "/herdius-core/cmd/testdata/secp205k1Accts/" + strconv.Itoa(ser) + "_peer_id.json")
 
 		nodeKey, err := key.LoadOrGenNodeKey(filePath)
 
 		if err != nil {
-			log.Error().Msgf("Failed to Load or create node keys: %v", err)
+			plog.Error().Msgf("Failed to Load or create node keys: %v", err)
 		} else {
 			pubKey := nodeKey.PrivKey.PubKey()
 
-			//All 50 intital accounts will have an initial balance of 10000 HER tokens
-			var bal = "10000"
+			//All 10 intital accounts will have an initial balance of 10000 HER tokens
+
 			account := statedb.Account{
 				Nonce:       0,
-				Address:     pubKey.Address().String(),
+				Address:     pubKey.GetAddress(),
 				AddressHash: pubKey.Bytes(),
-				Balance:     []byte(bal),
+				Balance:     10000,
 			}
 
 			actbz, _ := cdc.MarshalJSON(account)
-			err := trie.TryUpdate(pubKey.Bytes(), actbz)
+			pubKeyBytes := []byte(pubKey.GetAddress())
+			err := trie.TryUpdate(pubKeyBytes, actbz)
 			if err != nil {
-				log.Error().Msgf("Failed to store account in state db: %v", err)
+				plog.Error().Msgf("Failed to store account in state db: %v", err)
 			}
 		}
 	}

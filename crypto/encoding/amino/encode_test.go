@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/herdius/herdius-core/crypto"
-	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,8 +56,8 @@ func ExamplePrintRegisteredTypes() {
 	cdc.PrintTypes(os.Stdout)
 	// Output: | Type | Name | Prefix | Length | Notes |
 	//| ---- | ---- | ------ | ----- | ------ |
-	//| PubKeyEd25519 | herdius/PubKeyEd25519 | 0x7EE55EE4 | 0x20 |  |
-	//| PrivKeyEd25519 | herdius/PrivKeyEd25519 | 0xCC1FCD56 | 0x40 |  |
+	//| PubKeySecp256k1 | herdius/PubKeySecp256k1 | 0xF181CAB8 | 0x21 |  |
+	//| PrivKeySecp256k1 | herdius/PrivKeySecp256k1 | 0x953F313C | 0x20 |  |
 }
 
 func TestKeyEncodings(t *testing.T) {
@@ -65,9 +66,9 @@ func TestKeyEncodings(t *testing.T) {
 		privSize, pubSize, sigSize int // binary sizes
 	}{
 		{
-			privKey:  ed25519.GenPrivKey(),
-			privSize: 69,
-			pubSize:  37,
+			privKey:  secp256k1.GenPrivKey(),
+			privSize: 37,
+			pubSize:  38,
 			sigSize:  65,
 		},
 	}
@@ -130,7 +131,7 @@ func TestPubkeyAminoRoute(t *testing.T) {
 		want  string
 		found bool
 	}{
-		{ed25519.PubKeyEd25519{}, ed25519.PubKeyAminoRoute, true},
+		{secp256k1.PubKeySecp256k1{}, secp256k1.PubKeyAminoName, true},
 	}
 	for i, tc := range tests {
 		got, found := PubkeyAminoRoute(cdc, tc.key)

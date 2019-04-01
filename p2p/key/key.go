@@ -7,6 +7,7 @@ import (
 
 	"github.com/herdius/herdius-core/crypto"
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	cmn "github.com/herdius/herdius-core/libs/common"
 )
 
@@ -38,6 +39,7 @@ func PubKeyToID(pubKey crypto.PubKey) ID {
 	return ID(hex.EncodeToString(pubKey.Address()))
 }
 
+// LoadOrGenNodeKey for secp256k1 curve
 // LoadOrGenNodeKey attempts to load the NodeKey from the given filePath.
 // If the file does not exist, it generates and saves a new NodeKey.
 func LoadOrGenNodeKey(filePath string) (*NodeKey, error) {
@@ -48,7 +50,7 @@ func LoadOrGenNodeKey(filePath string) (*NodeKey, error) {
 		}
 		return nodeKey, nil
 	}
-	return genNodeKey(filePath)
+	return genNodeKeySK(filePath)
 }
 
 // LoadNodeKey ...
@@ -67,6 +69,23 @@ func LoadNodeKey(filePath string) (*NodeKey, error) {
 
 func genNodeKey(filePath string) (*NodeKey, error) {
 	privKey := ed25519.GenPrivKey()
+	nodeKey := &NodeKey{
+		PrivKey: privKey,
+	}
+
+	jsonBytes, err := cdc.MarshalJSON(nodeKey)
+	if err != nil {
+		return nil, err
+	}
+	err = ioutil.WriteFile(filePath, jsonBytes, 0600)
+	if err != nil {
+		return nil, err
+	}
+	return nodeKey, nil
+}
+
+func genNodeKeySK(filePath string) (*NodeKey, error) {
+	privKey := secp256k1.GenPrivKey()
 	nodeKey := &NodeKey{
 		PrivKey: privKey,
 	}

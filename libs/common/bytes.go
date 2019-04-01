@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/herdius/herdius-core/crypto/herhash"
 )
 
 //HexBytes : The main purpose of HexBytes is to enable HEX-encoding for json/encoding.
@@ -60,4 +62,21 @@ func (bz HexBytes) Format(s fmt.State, verb rune) {
 	default:
 		s.Write([]byte(fmt.Sprintf("%X", []byte(bz))))
 	}
+}
+
+// CreateTxID creates an ID for a given encoded transaction
+func CreateTxID(txbBeforeSign []byte) string {
+	txhash := herhash.Sum(txbBeforeSign)
+	flen := 20
+	if len(txhash) == flen {
+		return "HTx" + hex.EncodeToString(txhash)
+	}
+	if len(txhash) > flen {
+
+		return "HTx" + hex.EncodeToString(txhash[len(txhash)-flen:])
+	}
+	hh := make([]byte, flen)
+	copy(hh[flen-len(txhash):flen], txhash)
+
+	return "HTx" + hex.EncodeToString(hh)
 }
