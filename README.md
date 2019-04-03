@@ -202,6 +202,34 @@ Starting validator node
 
 ```
 
+## Contributing
+
+Thank you for your interest in advancing the development of the Herdius Blockchain! :heart: :heart: :heart:
+
+The Herdius Blockchain is an open-source project that welcomes source-code development, discovered issues, and recommendations on our blockchain and product's future! The following are some required and suggested contribution instructions:
+
+#### Table of Contents
+
+* [Major technologies](#major-technologies)
+* [Repository structure](#repository-structure)
+* [Documentation](#documentation)
+* [Pull Request Instructions](#pull-request-instructions)
+
+### Major Technologies
+
+### Repository structure
+
+### Documentation
+
+### Pull Request Instructions
+
+All new pull requests should be submitted to the newest release branch. Release branches are indicated with a preceding `v` and then the release number (eg. `v1.0.0`). Note- no PRs will be accepted to the `master` branch, and will be requested to be redirected.
+
+For a pull request to be review, apply the GitHub "Ready for Review" label.
+
+All pull requests must pass the CI/CD pipeline testing prior to merge. This pipeline is integrated with GitHub and will report success or failure as a GitHub status check.
+
+
 ## License
 
 The herdius-core library (i.e. all files and code without existing reference to other, separate license) is licensend under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/licenses.html#AGPL). Text of the license file is also include in the root folder under LICENSE. 
