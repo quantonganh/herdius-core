@@ -192,5 +192,5 @@ message BaseHeader{
 
     // Merkle root hash of the transactions in SingularBlock
     bytes rootHash                  = 10;
-    uint64 total_txs                  = 11;
+    uint64 total_txs                = 11;
 }
