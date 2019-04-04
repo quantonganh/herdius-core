@@ -31,7 +31,7 @@ message BlockResponse{
     int64 block_height                  = 1;
     // Time of block intialization
     Timestamp time                  = 2;
-    int32 transactions              = 3;
+    uint64 total_txs              = 3;
 
     // Supervisor herdius token address who created the block
     string supervisor_address       = 4;
