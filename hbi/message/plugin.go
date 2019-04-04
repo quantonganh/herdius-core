@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/herdius/herdius-core/accounts/account"
@@ -14,10 +15,6 @@ import (
 	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
-)
-
-var (
-	clientAddress = "tcp://127.0.0.1:5555"
 )
 
 // BlockMessagePlugin will receive all Block specific messages.
@@ -36,7 +33,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 		}
 
 		if account == nil {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockProtobuf.ConnectionMessage{Message: "Account detail not found"}, clientAddress)
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockProtobuf.ConnectionMessage{Message: "Account detail not found"}, ctx.Client().Address)
 		}
 
 		if account != nil {
@@ -46,7 +43,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 				Balance:     account.Balance,
 				StorageRoot: account.StorageRoot,
 			}
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, clientAddress)
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, ctx.Client().Address)
 
 		}
 
@@ -87,7 +84,7 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 		log.Info().Msgf("Block Response at processor: %v", blockRes)
 
-		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockRes, clientAddress)
+		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockRes, ctx.Client().Address)
 
 	case *protoplugin.BlockResponse:
 		log.Info().Msgf("Block Response: %v", msg)
@@ -105,18 +102,30 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 		if err != nil {
-			log.Error().Msgf("Couldn't find the account for: %v", msg.Tx.GetSenderAddress())
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+				&protoplugin.TxResponse{
+					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Couldn't find the account for: " + msg.Tx.GetSenderAddress(),
+				}, ctx.Client().Address)
+			return errors.New("Couldn't find the account for: " + msg.Tx.GetSenderAddress())
 		}
 
 		//Check Tx.Nonce > account.Nonce
 		if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+				&protoplugin.TxResponse{
+					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce),
+				}, ctx.Client().Address)
 			return errors.New("Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce))
 		}
 
 		// Check if asset is HER Token, then check
 		// account.Balance > Tx.Value
 		if strings.EqualFold(tx.GetAsset().Symbol, "HER") && !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value) {
-			return errors.New("Not enough HER Tokens: " + msg.Tx.GetSenderAddress())
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+				&protoplugin.TxResponse{
+					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Not enough HER Tokens: " + string(msg.Tx.GetAsset().Value),
+				}, ctx.Client().Address)
+			return errors.New("Not enough HER Tokens: " + strconv.FormatUint(uint64(msg.Tx.GetAsset().Value), 10))
 		}
 
 		// Add Tx to Mempool
@@ -124,6 +133,10 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		txbz, err := cdc.MarshalJSON(tx)
 
 		if err != nil {
+			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+				&protoplugin.TxResponse{
+					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
+				}, ctx.Client().Address)
 			return errors.New("Failed to Masshal Tx: " + msg.Tx.GetSenderAddress())
 		}
 
@@ -139,7 +152,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
 			&protoplugin.TxResponse{
 				TxId: txID, Status: "success", Queued: 0, Pending: 0,
-			}, clientAddress)
+			}, ctx.Client().Address)
 
 	}
 	return nil
