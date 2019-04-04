@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dgraph-io/badger"
 	"github.com/herdius/herdius-core/supervisor/service"
 
 	"github.com/herdius/herdius-core/blockchain/protobuf"
@@ -106,43 +107,43 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 
 // GetBlockByHeight ...
 func (s *Service) GetBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
-
-	it, err := badgerDB.BadgerIterator()
-
 	lastBlock := &protobuf.BaseBlock{}
 	lastBlockFlag := false
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+			lb := &protobuf.BaseBlock{}
+			err = cdc.UnmarshalJSON(v, lb)
+			if err != nil {
+				return nil
+			}
 
-	for it.Rewind(); it.Valid(); it.Next() {
-		//item := it.Item()
+			if height == lb.GetHeader().GetHeight() {
+				lastBlock = lb
+				lastBlockFlag = true
+				return nil
+			}
 
-		//err := item.Value(func(v []byte) error {
-		//	lb := &protobuf.BaseBlock{}
-		//	err := cdc.UnmarshalJSON(v, lb)
-		//	if err != nil {
-		//		return nil
-		//	}
-
-		//	if height == lb.GetHeader().GetHeight() {
-		//		lastBlock = lb
-		//		lastBlockFlag = true
-		//		return nil
-		//	}
-
-		//	return nil
-		//})
-
-		//if err != nil {
-		//	return nil, err
-		//}
-		if lastBlockFlag {
-			break
+			if err != nil {
+				return err
+			}
+			if lastBlockFlag {
+				break
+			}
 		}
-	}
-
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to find the block: %v.", err))
 	}
-
 	return lastBlock, nil
 }
 

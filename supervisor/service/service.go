@@ -647,7 +647,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			Nanos:   ts.UnixNano(),
 		},
 		RootHash: mrh,
-		TotalTxs: int64(len(txs)),
+		TotalTxs: uint64(len(txs)),
 	}
 	blockHashBz, err := cdc.MarshalJSON(baseHeader)
 	if err != nil {

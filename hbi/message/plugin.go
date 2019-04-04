@@ -77,7 +77,7 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 		blockRes := protoplugin.BlockResponse{
 			BlockHeight:       block.GetHeader().GetHeight(),
-			Transactions:      500,
+			TotalTxs:          block.GetHeader().TotalTxs,
 			Time:              timestamp,
 			SupervisorAddress: supervisorAdd,
 		}
