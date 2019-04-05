@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 
+	b64 "encoding/base64"
+
 	tt "github.com/ethereum/go-ethereum/trie"
 	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/stretchr/testify/assert"
@@ -212,8 +214,10 @@ func createSecp256k1Account(nonce int) Account {
 	var pubKey = privKey.PubKey()
 
 	address := fmt.Sprintf("%X", pubKey.Address().Bytes()[:])
-
+	// Convert public key to base64
+	b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
 	account := Account{
+		PublicKey:   b64PubKey,
 		Nonce:       uint64(nonce),
 		Address:     address,
 		AddressHash: pubKey.Bytes(),
