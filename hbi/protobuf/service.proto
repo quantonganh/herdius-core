@@ -46,6 +46,7 @@ message AccountResponse {
   uint64 nonce = 2;
   uint64 balance = 3;
   string storage_root = 4;
+  string public_key = 5;
 }
 
 message Asset {
@@ -64,12 +65,9 @@ message Tx {
   Asset asset             = 4;
   string message          = 5;
   string sign             = 6;
-}
-
-// Final Tx will finnally be included in the block
-message FinalTx{
-  Tx tx                   = 1;
-  string status           = 2;
+  // type will check if tx is of type Account Registeration or Value Transfer
+  string type             = 7;
+  string status           = 8;
 }
 
 message TxRequest {
@@ -86,10 +84,6 @@ message TxResponse {
 
 message AccountRegisterRequest{
   string sender_pubkey    = 1;
-}
-
-message AccountRegisterResponse{
-  bool status             = 1;
 }
 
 // Send request to retrieve transaction committed in herdius blockchain

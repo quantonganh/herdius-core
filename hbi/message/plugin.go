@@ -17,6 +17,17 @@ import (
 	"github.com/herdius/herdius-core/p2p/network"
 )
 
+type TxType int
+
+const (
+	Register TxType = iota
+	ValueTransfer
+)
+
+func (t TxType) String() string {
+	return [...]string{"Register", "ValueTransfer"}[t]
+}
+
 // BlockMessagePlugin will receive all Block specific messages.
 type BlockMessagePlugin struct{ *network.Plugin }
 type AccountMessagePlugin struct{ *network.Plugin }
@@ -42,6 +53,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 				Nonce:       account.Nonce,
 				Balance:     account.Balance,
 				StorageRoot: account.StorageRoot,
+				PublicKey:   account.PublicKey,
 			}
 			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, ctx.Client().Address)
 
@@ -97,16 +109,21 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 	switch msg := ctx.Message().(type) {
 	case *protoplugin.TxRequest:
 		tx := msg.GetTx()
-
 		accSrv := account.NewAccountService()
-
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 		if err != nil {
 			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
 				&protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Couldn't find the account for: " + msg.Tx.GetSenderAddress(),
+					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Couldn't find the account due to : " + err.Error(),
 				}, ctx.Client().Address)
-			return errors.New("Couldn't find the account for: " + msg.Tx.GetSenderAddress())
+			return errors.New("Couldn't find the account due to: " + err.Error())
+		}
+
+		//Check if tx is of type account registeration
+		register := Register.String()
+		if strings.EqualFold(tx.GetAsset().Symbol, "HER") && strings.EqualFold(tx.Type, register) {
+			postAccountRegisterTx(tx, ctx)
+			return nil
 		}
 
 		//Check Tx.Nonce > account.Nonce
@@ -155,5 +172,34 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			}, ctx.Client().Address)
 
 	}
+	return nil
+}
+
+func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
+	// Add Tx to Mempool
+	mp := mempool.GetMemPool()
+	txbz, err := cdc.MarshalJSON(tx)
+
+	if err != nil {
+		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			&protoplugin.TxResponse{
+				TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Transaction format incorrect : " + err.Error(),
+			}, ctx.Client().Address)
+		return errors.New("Failed to Masshal Tx: " + err.Error())
+	}
+
+	txCount := mp.AddTx(txbz)
+
+	log.Info().Msgf("Remaining mempool txcount: %v", txCount)
+
+	// Create the Transaction ID
+	txID := cmn.CreateTxID(txbz)
+	log.Info().Msgf("Tx ID : %v", txID)
+
+	// Send Tx ID to client who sent the TX
+	ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+		&protoplugin.TxResponse{
+			TxId: txID, Status: "success", Queued: 0, Pending: 0,
+		}, ctx.Client().Address)
 	return nil
 }

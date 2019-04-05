@@ -534,6 +534,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			RecieverAddress: tx.RecieverAddress,
 			Asset:           asset,
 			Message:         tx.Message,
+			Type:            tx.Type,
 		}
 
 		txbBeforeSign, err := json.Marshal(verifiableTx)
@@ -555,16 +556,36 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			plog.Error().Msgf("Signature Verification Failed: %v", signVerificationRes)
 			continue
 		}
-		// Get account details from state trie
+		var senderAccount statedb.Account
 		senderAddressBytes := []byte(senderAddress)
+		// Check if tx is of type account registeration
+		if strings.EqualFold(tx.Asset.Network, "Herdius") &&
+			strings.EqualFold(tx.Type, "Register") {
+			senderAccount.Address = tx.SenderAddress
+			senderAccount.Balance = 0
+			senderAccount.Nonce = 0
+			senderAccount.PublicKey = tx.SenderPubkey
+
+			sactbz, err := cdc.MarshalJSON(senderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+				continue
+			}
+			spubKeyBytes := []byte(pubKey.GetAddress())
+			err = stateTrie.TryUpdate(spubKeyBytes, sactbz)
+			if err != nil {
+				plog.Error().Msgf("Failed to store account in state db: %v", err)
+			}
+			continue
+		}
+		// Get account details from state trie
+
 		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
 
 		if err != nil {
 			plog.Error().Msgf("Failed to retrieve account detail: %v", err)
 			continue
 		}
-
-		var senderAccount statedb.Account
 
 		err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
 
@@ -573,7 +594,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			continue
 		}
 
-		if strings.EqualFold(tx.Asset.Network, "Herdius") && strings.EqualFold(tx.Asset.Symbol, "HER") {
+		if strings.EqualFold(tx.Asset.Network, "Herdius") &&
+			strings.EqualFold(tx.Asset.Symbol, "HER") {
 			// Debit Sender's Account
 			senderAccount.Balance = senderAccount.Balance - tx.Asset.Value
 
@@ -689,14 +711,13 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 			plog.Error().Msgf("Failed to Load or create node keys: %v", err)
 		} else {
 			pubKey := nodeKey.PrivKey.PubKey()
-
+			b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
 			//All 10 intital accounts will have an initial balance of 10000 HER tokens
-
 			account := statedb.Account{
-				Nonce:       0,
-				Address:     pubKey.GetAddress(),
-				AddressHash: pubKey.Bytes(),
-				Balance:     10000,
+				PublicKey: b64PubKey,
+				Nonce:     0,
+				Address:   pubKey.GetAddress(),
+				Balance:   10000,
 			}
 
 			actbz, _ := cdc.MarshalJSON(account)

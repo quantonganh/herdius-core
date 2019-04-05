@@ -20,6 +20,7 @@ type ServiceI interface {
 	GetBlockByBlockHash(db db.DB, key []byte) (*protobuf.BaseBlock, error)
 	AddBaseBlock(bb *protobuf.BaseBlock) error
 	GetLastBlock() *protobuf.BaseBlock
+	GetTx(txID string) ([]byte, error)
 }
 
 // Service ...
@@ -164,7 +165,6 @@ func (s *Service) AddBaseBlock(bb *protobuf.BaseBlock) error {
 func (s *Service) GetLastBlock() *protobuf.BaseBlock {
 	bbbz := badgerDB.Get([]byte("LastBlock"))
 	bb := &protobuf.BaseBlock{}
-	//log.Printf("bbbz length, content:\n%v\n%v", len(bbbz), bbbz)
 	if len(bbbz) == 0 {
 		bb, err := s.CreateOrLoadGenesisBlock()
 
@@ -178,4 +178,40 @@ func (s *Service) GetLastBlock() *protobuf.BaseBlock {
 
 	cdc.UnmarshalJSON(bbbz, bb)
 	return bb
+}
+
+// GetTx searches a transaction against a tx id in blockchain
+// TODO: This will be completed in another PR since account
+// since account registeration needs to be completed and
+// I would like to complete the implementation once the
+// account registeration works.
+func (s *Service) GetTx(txID string) ([]byte, error) {
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+			lb := &protobuf.BaseBlock{}
+			err = cdc.UnmarshalJSON(v, lb)
+			if err != nil {
+				return nil
+			}
+
+			if lb.GetChildBlock() != nil && len(lb.GetChildBlock()) > 0 {
+				// Check transactions in child blocks
+			}
+
+		}
+		return nil
+	})
+	if err != nil {
+		return []byte{0}, fmt.Errorf(fmt.Sprintf("Failed to find the tx: %v.", err))
+	}
+	return []byte{0}, nil
 }
