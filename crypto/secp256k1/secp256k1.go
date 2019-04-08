@@ -12,6 +12,7 @@ import (
 	secp256k1 "github.com/tendermint/btcd/btcec"
 	amino "github.com/tendermint/go-amino"
 	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/crypto/sha3"
 )
 
 //-------------------------------------
@@ -47,6 +48,7 @@ func (privKey PrivKeySecp256k1) Bytes() []byte {
 // Sign creates an ECDSA signature on curve Secp256k1, using SHA256 on the msg.
 func (privKey PrivKeySecp256k1) Sign(msg []byte) ([]byte, error) {
 	priv, _ := secp256k1.PrivKeyFromBytes(secp256k1.S256(), privKey[:])
+
 	sig, err := priv.Sign(crypto.Sha256(msg))
 	if err != nil {
 		return nil, err
@@ -162,16 +164,32 @@ func (pubKey PubKeySecp256k1) Equals(other crypto.PubKey) bool {
 	return false
 }
 
-// GetAddress will create an address prefixed with 'H'
+// GetAddress will create an encoded Herdius address begins
+// with H and is 34 bytes in length
 // e.g. HSGB2xixYLfkvuTSEhs7HABtRFT4sAnBBD
 func (pubKey PubKeySecp256k1) GetAddress() string {
-	addr40 := append([]byte{40}, pubKey.Address()...)
+	//Hash the public key using sha3-256 function
+	hash := sha3.New256()
+	hash.Write(pubKey[:])
+	hashed := hash.Sum(nil)
 
+	// Extract the last 20 bytes of the result.
+	last20 := hashed[len(hashed)-20:]
+
+	// Add 40 to the beginning of the byte array.
+	// Length of the initial address should be 21 bytes.
+	addr40 := append([]byte{40}, last20...)
+
+	// Hash the address twice using sha256 function
 	hash2561 := sha256.Sum256(addr40)
 	hash2562 := sha256.Sum256(hash2561[:])
+
+	// Take the first 4 bytes as verification code
 	checksum := hash2562[:4]
 
+	// Add the verification code to the end of the initial address
 	rawAddr := append(addr40, checksum...)
+	// Get an address in base58check format through base58 encoding
 	herdiusAddr := base58.Encode(rawAddr)
 	return herdiusAddr
 }
