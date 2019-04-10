@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
 
-	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
 	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/log"
@@ -33,31 +33,12 @@ type BlockMessagePlugin struct{ *network.Plugin }
 type AccountMessagePlugin struct{ *network.Plugin }
 type TransactionMessagePlugin struct{ *network.Plugin }
 
+// Receive handles account specific messages
 func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
 
 	case *protoplugin.AccountRequest:
-		accountSvc := &account.Service{}
-		account, err := accountSvc.GetAccountByAddress(msg.GetAddress())
-		if err != nil {
-			log.Error().Msgf("Failed to retreive the Account: %v", err)
-		}
-
-		if account == nil {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockProtobuf.ConnectionMessage{Message: "Account detail not found"}, ctx.Client().Address)
-		}
-
-		if account != nil {
-			accountResp := protoplugin.AccountResponse{
-				Address:     msg.GetAddress(),
-				Nonce:       account.Nonce,
-				Balance:     account.Balance,
-				StorageRoot: account.StorageRoot,
-				PublicKey:   account.PublicKey,
-			}
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &accountResp, ctx.Client().Address)
-
-		}
+		getAccount(msg.Address, ctx)
 
 	case *protoplugin.AccountResponse:
 		log.Info().Msgf("Account Response: %v", msg)
@@ -69,34 +50,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
 	case *protoplugin.BlockHeightRequest:
-		blockchainSvc := &blockchain.Service{}
-		block, err := blockchainSvc.GetBlockByHeight(msg.GetBlockHeight())
-
-		if err != nil {
-			log.Error().Msgf("Failed to retreive the Block: %v", err)
-		}
-
-		log.Info().Msgf("Block height at the blockMessage plugin%v", msg.GetBlockHeight())
-
-		supervisorAdd := ctx.Client().ID.Address
-
-		log.Info().Msgf("Supervisor Address: %s", supervisorAdd)
-
-		timestamp := &protoplugin.Timestamp{
-			Nanos:   block.GetHeader().GetTime().GetNanos(),
-			Seconds: block.GetHeader().GetTime().GetSeconds(),
-		}
-
-		blockRes := protoplugin.BlockResponse{
-			BlockHeight:       block.GetHeader().GetHeight(),
-			TotalTxs:          block.GetHeader().TotalTxs,
-			Time:              timestamp,
-			SupervisorAddress: supervisorAdd,
-		}
-
-		log.Info().Msgf("Block Response at processor: %v", blockRes)
-
-		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true), &blockRes, ctx.Client().Address)
+		getBlock(msg.BlockHeight, ctx)
 
 	case *protoplugin.BlockResponse:
 		log.Info().Msgf("Block Response: %v", msg)
@@ -111,11 +65,20 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		tx := msg.GetTx()
 		accSrv := account.NewAccountService()
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
 		if err != nil {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
+		}
+
+		if err != nil {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Couldn't find the account due to : " + err.Error(),
-				}, ctx.Client().Address)
+					TxId: "", Status: "failed", Queued: 0, Pending: 0,
+					Message: "Couldn't find the account due to : " + err.Error(),
+				})
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+			}
 			return errors.New("Couldn't find the account due to: " + err.Error())
 		}
 
@@ -128,20 +91,28 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		//Check Tx.Nonce > account.Nonce
 		if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce),
-				}, ctx.Client().Address)
+					TxId: "", Status: "failed", Queued: 0, Pending: 0,
+					Message: "Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce),
+				})
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+			}
 			return errors.New("Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce))
 		}
 
 		// Check if asset is HER Token, then check
 		// account.Balance > Tx.Value
 		if strings.EqualFold(tx.GetAsset().Symbol, "HER") && !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value) {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Not enough HER Tokens: " + string(msg.Tx.GetAsset().Value),
-				}, ctx.Client().Address)
+					TxId: "", Status: "failed", Queued: 0, Pending: 0,
+					Message: "Not enough HER Tokens: " + string(msg.Tx.GetAsset().Value),
+				})
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+			}
 			return errors.New("Not enough HER Tokens: " + strconv.FormatUint(uint64(msg.Tx.GetAsset().Value), 10))
 		}
 
@@ -150,10 +121,14 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		txbz, err := cdc.MarshalJSON(tx)
 
 		if err != nil {
-			ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
-				}, ctx.Client().Address)
+					TxId: "", Status: "failed", Queued: 0, Pending: 0,
+					Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
+				})
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+			}
 			return errors.New("Failed to Masshal Tx: " + msg.Tx.GetSenderAddress())
 		}
 
@@ -166,11 +141,13 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		log.Info().Msgf("Tx ID : %v", txID)
 
 		// Send Tx ID to client who sent the TX
-		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 			&protoplugin.TxResponse{
 				TxId: txID, Status: "success", Queued: 0, Pending: 0,
-			}, ctx.Client().Address)
-
+			})
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
 	}
 	return nil
 }
@@ -179,12 +156,19 @@ func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error
 	// Add Tx to Mempool
 	mp := mempool.GetMemPool()
 	txbz, err := cdc.MarshalJSON(tx)
-
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
 	if err != nil {
-		ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+		return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
+	}
+	if err != nil {
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 			&protoplugin.TxResponse{
-				TxId: "", Status: "failed", Queued: 0, Pending: 0, Message: "Transaction format incorrect : " + err.Error(),
-			}, ctx.Client().Address)
+				TxId: "", Status: "failed", Queued: 0, Pending: 0,
+				Message: "Transaction format incorrect : " + err.Error(),
+			})
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
 		return errors.New("Failed to Masshal Tx: " + err.Error())
 	}
 
@@ -197,9 +181,94 @@ func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error
 	log.Info().Msgf("Tx ID : %v", txID)
 
 	// Send Tx ID to client who sent the TX
-	ctx.Network().BroadcastByAddresses(network.WithSignMessage(context.Background(), true),
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 		&protoplugin.TxResponse{
 			TxId: txID, Status: "success", Queued: 0, Pending: 0,
-		}, ctx.Client().Address)
+		})
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+	}
+	return nil
+}
+
+func getBlock(height int64, ctx *network.PluginContext) error {
+	blockchainSvc := &blockchain.Service{}
+	block, err := blockchainSvc.GetBlockByHeight(height)
+
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to retreive the Block: :%v", err))
+	}
+
+	pc, err := ctx.Network().Client(ctx.Client().Address)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
+	}
+	supervisorAdd := ctx.Client().ID.Address
+
+	if block.Header != nil {
+		timestamp := &protoplugin.Timestamp{
+			Nanos:   block.GetHeader().GetTime().GetNanos(),
+			Seconds: block.GetHeader().GetTime().GetSeconds(),
+		}
+
+		totalTxs := block.GetHeader().TotalTxs
+
+		blockRes := protoplugin.BlockResponse{
+			BlockHeight:       block.GetHeader().GetHeight(),
+			TotalTxs:          totalTxs,
+			Time:              timestamp,
+			SupervisorAddress: supervisorAdd,
+		}
+
+		log.Info().Msgf("Block Response at processor: %v", blockRes)
+
+		err = pc.Reply(network.WithSignMessage(context.Background(), true), 1, &blockRes)
+
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
+		return nil
+	}
+
+	err = pc.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.BlockResponse{})
+
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+	}
+	return nil
+}
+func getAccount(address string, ctx *network.PluginContext) error {
+	accountSvc := &account.Service{}
+	account, err := accountSvc.GetAccountByAddress(address)
+	if err != nil {
+		log.Error().Msgf("Failed to retreive the Account: %v", err)
+	}
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
+	}
+
+	if account == nil {
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.AccountResponse{})
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
+	}
+
+	if account != nil {
+		accountResp := protoplugin.AccountResponse{
+			Address:     address,
+			Nonce:       account.Nonce,
+			Balance:     account.Balance,
+			StorageRoot: account.StorageRoot,
+			PublicKey:   account.PublicKey,
+		}
+
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &accountResp)
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
+	}
 	return nil
 }
