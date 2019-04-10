@@ -38,7 +38,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
 
 	case *protoplugin.AccountRequest:
-		findAccount(msg.Address, ctx)
+		getAccount(msg.Address, ctx)
 
 	case *protoplugin.AccountResponse:
 		log.Info().Msgf("Account Response: %v", msg)
@@ -50,7 +50,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
 	case *protoplugin.BlockHeightRequest:
-		findBlock(msg.BlockHeight, ctx)
+		getBlock(msg.BlockHeight, ctx)
 
 	case *protoplugin.BlockResponse:
 		log.Info().Msgf("Block Response: %v", msg)
@@ -65,19 +65,19 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		tx := msg.GetTx()
 		accSrv := account.NewAccountService()
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
-		peerClient, err := ctx.Network().Client(ctx.Client().Address)
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
 		}
 
 		if err != nil {
-			err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Couldn't find the account due to : " + err.Error(),
 				})
 			if err != nil {
-				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
 			return errors.New("Couldn't find the account due to: " + err.Error())
 		}
@@ -91,7 +91,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		//Check Tx.Nonce > account.Nonce
 		if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
-			err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Incorrect Transaction Nonce: " + string(msg.Tx.GetAsset().Nonce),
@@ -105,7 +105,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		// Check if asset is HER Token, then check
 		// account.Balance > Tx.Value
 		if strings.EqualFold(tx.GetAsset().Symbol, "HER") && !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value) {
-			err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Not enough HER Tokens: " + string(msg.Tx.GetAsset().Value),
@@ -121,7 +121,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		txbz, err := cdc.MarshalJSON(tx)
 
 		if err != nil {
-			err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
@@ -141,7 +141,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		log.Info().Msgf("Tx ID : %v", txID)
 
 		// Send Tx ID to client who sent the TX
-		err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 			&protoplugin.TxResponse{
 				TxId: txID, Status: "success", Queued: 0, Pending: 0,
 			})
@@ -156,12 +156,12 @@ func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error
 	// Add Tx to Mempool
 	mp := mempool.GetMemPool()
 	txbz, err := cdc.MarshalJSON(tx)
-	peerClient, err := ctx.Network().Client(ctx.Client().Address)
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
 	}
 	if err != nil {
-		err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 			&protoplugin.TxResponse{
 				TxId: "", Status: "failed", Queued: 0, Pending: 0,
 				Message: "Transaction format incorrect : " + err.Error(),
@@ -181,7 +181,7 @@ func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error
 	log.Info().Msgf("Tx ID : %v", txID)
 
 	// Send Tx ID to client who sent the TX
-	err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
 		&protoplugin.TxResponse{
 			TxId: txID, Status: "success", Queued: 0, Pending: 0,
 		})
@@ -191,7 +191,7 @@ func postAccountRegisterTx(tx *protoplugin.Tx, ctx *network.PluginContext) error
 	return nil
 }
 
-func findBlock(height int64, ctx *network.PluginContext) error {
+func getBlock(height int64, ctx *network.PluginContext) error {
 	blockchainSvc := &blockchain.Service{}
 	block, err := blockchainSvc.GetBlockByHeight(height)
 
@@ -237,20 +237,20 @@ func findBlock(height int64, ctx *network.PluginContext) error {
 	}
 	return nil
 }
-func findAccount(address string, ctx *network.PluginContext) error {
+func getAccount(address string, ctx *network.PluginContext) error {
 	accountSvc := &account.Service{}
 	account, err := accountSvc.GetAccountByAddress(address)
 	if err != nil {
 		log.Error().Msgf("Failed to retreive the Account: %v", err)
 	}
 
-	peerClient, err := ctx.Network().Client(ctx.Client().Address)
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to get the peer client :%v", err))
 	}
 
 	if account == nil {
-		err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.AccountResponse{})
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.AccountResponse{})
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -265,7 +265,7 @@ func findAccount(address string, ctx *network.PluginContext) error {
 			PublicKey:   account.PublicKey,
 		}
 
-		err = peerClient.Reply(network.WithSignMessage(context.Background(), true), 1, &accountResp)
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &accountResp)
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
