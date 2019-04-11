@@ -518,13 +518,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			continue
 		}
 
-		//var pubKey crypto.PubKey
 		var pubKey secp256k1.PubKeySecp256k1
 		copy(pubKey[:], pubKeyS)
-		// err = cdc.UnmarshalBinaryBare(pubKeyS, &pubKey)
-		// if err != nil {
-		// 	plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
-		// }
 
 		// Verify the signature
 		// if verification failed update the tx status as failed tx.
