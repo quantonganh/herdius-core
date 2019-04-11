@@ -23,6 +23,7 @@ import (
 	"github.com/herdius/herdius-core/crypto"
 	hehash "github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
+	"github.com/herdius/herdius-core/crypto/secp256k1"
 	cmn "github.com/herdius/herdius-core/libs/common"
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/key"
@@ -494,7 +495,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
-	for _, txbz := range txs {
+	for i, txbz := range txs {
 
 		var tx pluginproto.Tx
 		err := cdc.UnmarshalJSON(txbz, &tx)
@@ -508,14 +509,22 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		pubKeyS, err := b64.StdEncoding.DecodeString(tx.GetSenderPubkey())
 		if err != nil {
 			plog.Error().Msgf("Failed to decode sender public key: %v", err)
+			tx.Status = "failed"
+			txbz, err = cdc.MarshalJSON(&tx)
+			txs[i] = txbz
+			if err != nil {
+				plog.Error().Msgf("Failed to encode failed tx: %v", err)
+			}
 			continue
 		}
 
-		var pubKey crypto.PubKey
-		err = cdc.UnmarshalBinaryBare(pubKeyS, &pubKey)
-		if err != nil {
-			plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
-		}
+		//var pubKey crypto.PubKey
+		var pubKey secp256k1.PubKeySecp256k1
+		copy(pubKey[:], pubKeyS)
+		// err = cdc.UnmarshalBinaryBare(pubKeyS, &pubKey)
+		// if err != nil {
+		// 	plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
+		// }
 
 		// Verify the signature
 		// if verification failed update the tx status as failed tx.
@@ -554,52 +563,84 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		signVerificationRes := pubKey.VerifyBytes(txbBeforeSign, decodedSig)
 		if !signVerificationRes {
 			plog.Error().Msgf("Signature Verification Failed: %v", signVerificationRes)
+			tx.Status = "failed"
+			txbz, err = cdc.MarshalJSON(&tx)
+			txs[i] = txbz
+			if err != nil {
+				plog.Error().Msgf("Failed to encode failed tx: %v", err)
+			}
 			continue
 		}
 		var senderAccount statedb.Account
 		senderAddressBytes := []byte(senderAddress)
-		// Check if tx is of type account registeration
-		if strings.EqualFold(tx.Asset.Network, "Herdius") &&
-			strings.EqualFold(tx.Type, "Register") {
-			senderAccount.Address = tx.SenderAddress
-			senderAccount.Balance = 0
-			senderAccount.Nonce = 0
-			senderAccount.PublicKey = tx.SenderPubkey
 
-			sactbz, err := cdc.MarshalJSON(senderAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-				continue
-			}
-			spubKeyBytes := []byte(pubKey.GetAddress())
-			err = stateTrie.TryUpdate(spubKeyBytes, sactbz)
-			if err != nil {
-				plog.Error().Msgf("Failed to store account in state db: %v", err)
-			}
-			continue
-		}
 		// Get account details from state trie
-
 		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
-
 		if err != nil {
 			plog.Error().Msgf("Failed to retrieve account detail: %v", err)
 			continue
 		}
 
-		err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
+		if len(senderActbz) > 0 {
+			err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to Unmarshal account: %v", err)
+				continue
+			}
+		}
 
-		if err != nil {
-			plog.Error().Msgf("Failed to Unmarshal account: %v", err)
+		// Check if tx is of type account update
+		if strings.EqualFold(tx.Type, "Update") {
+			senderAccount.Address = tx.SenderAddress
+			senderAccount.Balance = 0
+			senderAccount.Nonce = tx.Asset.Nonce
+			senderAccount.PublicKey = tx.SenderPubkey
+
+			// By default each of the new account will have HER token (with balance 0)
+			// added to the map object balances
+
+			balances := senderAccount.Balances
+			if balances == nil {
+				balances = make(map[string]uint64)
+			}
+			//balances[strings.ToUpper(tx.Asset.Symbol)]
+			if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
+				balances["HER"] = 0
+			} else {
+				balances[strings.ToUpper(tx.Asset.Symbol)] = tx.Asset.Value
+			}
+
+			senderAccount.Balances = balances
+			sactbz, err := cdc.MarshalJSON(senderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+				continue
+			}
+			addressBytes := []byte(pubKey.GetAddress())
+			err = stateTrie.TryUpdate(addressBytes, sactbz)
+			if err != nil {
+				plog.Error().Msgf("Failed to store account in state db: %v", err)
+				tx.Status = "failed"
+				txbz, err = cdc.MarshalJSON(&tx)
+				txs[i] = txbz
+				if err != nil {
+					plog.Error().Msgf("Failed to encode failed tx: %v", err)
+				}
+			}
+			tx.Status = "success"
+			txbz, err = cdc.MarshalJSON(&tx)
+			txs[i] = txbz
+			if err != nil {
+				plog.Error().Msgf("Failed to encode failed tx: %v", err)
+			}
 			continue
 		}
 
-		if strings.EqualFold(tx.Asset.Network, "Herdius") &&
-			strings.EqualFold(tx.Asset.Symbol, "HER") {
-			// Debit Sender's Account
-			senderAccount.Balance = senderAccount.Balance - tx.Asset.Value
+		if strings.EqualFold(tx.Asset.Network, "Herdius") {
 
 			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
+			//Withdraw fund from Sender Account
+			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
 
 			// Get Reciever's Account
 			rcvrAddressBytes := []byte(tx.RecieverAddress)
@@ -615,8 +656,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			}
 
 			// Credit Reciever's Account
+			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
 
-			rcvrAccount.Balance = rcvrAccount.Balance + tx.Asset.Value
 			senderAccount.Nonce = tx.Asset.Nonce
 			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
 
@@ -642,9 +683,15 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 			// TODO: Fee should be credit to intended recipient
 		}
-		// Mark the tx as finally processed and
-		// add it to batch that will finally be added to singular block
 
+		// Mark the tx as success and
+		// add the updated tx to batch that will finally be added to singular block
+		tx.Status = "success"
+		txbz, err = cdc.MarshalJSON(&tx)
+		txs[i] = txbz
+		if err != nil {
+			plog.Error().Msgf("Failed to encode failed tx: %v", err)
+		}
 	}
 
 	// State Root
@@ -693,6 +740,22 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	return baseBlock, nil
 }
 
+func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
+	// Get balance of the required asset
+	balance := senderAccount.Balances[strings.ToUpper(assetSymbol)]
+	if balance >= txValue {
+		// Debit Sender's Account
+		remainingBalance := balance - txValue
+		senderAccount.Balances[strings.ToUpper(assetSymbol)] = remainingBalance
+	}
+
+}
+
+func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint64) {
+	// Credit Receiver's Account
+	receiverAccount.Balances[strings.ToUpper(assetSymbol)] = receiverAccount.Balances[strings.ToUpper(assetSymbol)] + txValue
+}
+
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
 // Initially 50 accounts will be loaded to state db
 func LoadStateDBWithInitialAccounts() ([]byte, error) {
@@ -713,11 +776,14 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 			pubKey := nodeKey.PrivKey.PubKey()
 			b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
 			//All 10 intital accounts will have an initial balance of 10000 HER tokens
+			balances := make(map[string]uint64)
+			balances["HER"] = 10000
 			account := statedb.Account{
 				PublicKey: b64PubKey,
 				Nonce:     0,
 				Address:   pubKey.GetAddress(),
 				Balance:   10000,
+				Balances:  balances,
 			}
 
 			actbz, _ := cdc.MarshalJSON(account)

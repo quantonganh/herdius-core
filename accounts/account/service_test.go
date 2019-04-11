@@ -10,17 +10,23 @@ import (
 )
 
 func TestVerifyAccountBalanceTrue(t *testing.T) {
-	account := &protobuf.Account{Balance: 10}
+	balances := make(map[string]uint64)
+	balances["HER"] = 10
+
+	account := &protobuf.Account{Balance: 10, Balances: balances}
 
 	accService := NewAccountService()
-	assert.True(t, accService.VerifyAccountBalance(account, 5))
+	assert.True(t, accService.VerifyAccountBalance(account, 5, "HER"))
 }
 
 func TestVerifyAccountBalanceFalse(t *testing.T) {
-	account := &protobuf.Account{Balance: 1}
+	balances := make(map[string]uint64)
+	balances["HER"] = 1
+
+	account := &protobuf.Account{Balances: balances}
 
 	accService := NewAccountService()
-	assert.False(t, accService.VerifyAccountBalance(account, 5))
+	assert.False(t, accService.VerifyAccountBalance(account, 5, "HER"))
 }
 
 func TestPublicAddressCreation(t *testing.T) {

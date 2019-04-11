@@ -27,7 +27,7 @@ type PubKey interface {
 	VerifyBytes(msg []byte, sig []byte) bool
 	Equals(PubKey) bool
 	GetAddress() string // Creates address in string format and precedes the address with 'H'
-
+	//Compressed()
 }
 
 // PrivKey ...

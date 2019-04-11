@@ -12,4 +12,5 @@ type Account struct {
 	StateRoot   string
 	AddressHash cmn.HexBytes
 	Balance     uint64
+	Balances    map[string]uint64 // Balances will store balances of assets e.g. [BTC]=10 or [HER]=1000
 }
