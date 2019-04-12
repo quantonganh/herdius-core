@@ -7,9 +7,15 @@ option java_package = "com.herdius.proto";
 option java_outer_classname = "HerdiusProto";
 
 message Account {
-    string address               = 1;
-    uint64 nonce                 = 2;
-    uint64 balance            = 3;
-    string storage_root              = 4;
+    string address              = 1;
+    string public_key           = 2;
+    uint64 nonce                = 3;
+    uint64 balance              = 4;
+    string storage_root         = 5;
+    map<string,uint64> balances = 6;
+}
+
+message AccountRegisterRequest{
+    string public_key           = 1;
 }
 

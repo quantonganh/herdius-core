@@ -2,7 +2,6 @@ package ed_test
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"testing"
 
 	"github.com/herdius/herdius-core/crypto"
@@ -40,8 +39,6 @@ func TestSignAndValidateEd25519(t *testing.T) {
 	// Mutate the signature, just one bit.
 	sig[7] ^= byte(0x01)
 
-	fmt.Printf("Address is 1: %X\n", pubKey.Address())
-	fmt.Printf("Address is 2: %X\n", addr40)
 	assert.False(t, pubKey.VerifyBytes(msg, sig))
 }
 

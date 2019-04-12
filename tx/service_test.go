@@ -17,7 +17,7 @@ import (
 var service Service
 
 func TestHashOfTx(t *testing.T) {
-	service = GetTxService()
+	service = GetTxsService()
 	tx := getTx(1)
 	txbz, err := cdc.MarshalJSON(tx)
 	require.NoError(t, err, "Marshalling failed: %v.", err)
@@ -28,7 +28,7 @@ func TestSimpleProofOfTxs(t *testing.T) {
 	total := 100
 
 	txs := make([][]byte, total)
-	service = GetTxService()
+	service = GetTxsService()
 	for i := 0; i < total; i++ {
 		tx := getTx(i + 1)
 		txbz, err := cdc.MarshalJSON(tx)
@@ -88,7 +88,7 @@ func TestMerkleProofValidationOfTxs(t *testing.T) {
 	total := 500
 
 	txs := make([][]byte, total)
-	service = GetTxService()
+	service = GetTxsService()
 	for i := 0; i < total; i++ {
 		tx := getTx(i + 1)
 		txbz, err := cdc.MarshalJSON(tx)

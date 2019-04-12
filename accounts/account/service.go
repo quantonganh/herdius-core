@@ -75,9 +75,11 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	}
 
 	acc := &protobuf.Account{
+		PublicKey:   account.PublicKey,
 		Address:     account.Address,
 		Nonce:       account.Nonce,
 		Balance:     account.Balance,
+		Balances:    account.Balances,
 		StorageRoot: stateRootHex.String(),
 	}
 	return acc, nil
@@ -85,8 +87,12 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 
 // VerifyAccountBalance verifies if account has enough HER tokens
 // This only has to be verified and called for HER crypto asset
-func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64) bool {
-	if a.Balance < txValue {
+func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string) bool {
+	// Get the balance of required asset
+	balance := a.Balances[assetSymbol]
+
+	// Check asset has enough balance in account
+	if balance < txValue {
 		return false
 	}
 	return true

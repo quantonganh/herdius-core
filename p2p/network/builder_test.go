@@ -20,7 +20,7 @@ var (
 )
 
 func buildNetwork(port uint16) (*Network, error) {
-	builder := NewBuilder()
+	builder := NewBuilder("dev")
 	builder.SetKeys(keys)
 	builder.SetAddress(
 		fmt.Sprintf("%s://%s:%d", protocol, host, port),
@@ -61,7 +61,7 @@ func TestSetters(t *testing.T) {
 func TestNoKeys(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder()
+	builder := NewBuilder("dev")
 	builder.SetKeys(nil)
 	_, err := builder.Build()
 	if err == nil {
@@ -72,7 +72,7 @@ func TestNoKeys(t *testing.T) {
 func TestBuilderAddress(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder()
+	builder := NewBuilder("dev")
 	builder.SetAddress("")
 	_, err := builder.Build()
 	assert.NotEqual(t, nil, err)
@@ -88,7 +88,7 @@ func TestBuilderAddress(t *testing.T) {
 func TestDuplicatePlugin(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder()
+	builder := NewBuilder("dev")
 	_, err := builder.Build()
 
 	assert.Equal(t, nil, err)
@@ -105,7 +105,7 @@ func TestConnectionTimeout(t *testing.T) {
 	t.Parallel()
 
 	timeout := 5 * time.Second
-	builder := NewBuilderWithOptions(ConnectionTimeout(timeout))
+	builder := NewBuilderWithOptions("dev", ConnectionTimeout(timeout))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.connectionTimeout, timeout, "connection timeout given should match found")
@@ -115,7 +115,7 @@ func TestSignaturePolicy(t *testing.T) {
 	t.Parallel()
 
 	signaturePolicy := ed25519.New()
-	builder := NewBuilderWithOptions(SignaturePolicy(signaturePolicy))
+	builder := NewBuilderWithOptions("dev", SignaturePolicy(signaturePolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.signaturePolicy, signaturePolicy, "signature policy given should match found")
@@ -125,7 +125,7 @@ func TestHashPolicy(t *testing.T) {
 	t.Parallel()
 
 	hashPolicy := blake2b.New()
-	builder := NewBuilderWithOptions(HashPolicy(hashPolicy))
+	builder := NewBuilderWithOptions("dev", HashPolicy(hashPolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.hashPolicy, hashPolicy, "hash policy given should match found")
@@ -137,6 +137,7 @@ func TestWindowSize(t *testing.T) {
 	recvWindowSize := 2000
 	sendWindowSize := 1000
 	builder := NewBuilderWithOptions(
+		"dev",
 		RecvWindowSize(recvWindowSize),
 		SendWindowSize(sendWindowSize),
 	)
@@ -153,6 +154,7 @@ func TestWriteBufferSize(t *testing.T) {
 
 	writeBufferSize := 2048
 	builder := NewBuilderWithOptions(
+		"dev",
 		WriteBufferSize(writeBufferSize),
 	)
 	net, err := builder.Build()
@@ -165,6 +167,7 @@ func TestWriteFlushLatency(t *testing.T) {
 
 	writeFlushLatency := 100 * time.Millisecond
 	builder := NewBuilderWithOptions(
+		"dev",
 		WriteFlushLatency(writeFlushLatency),
 	)
 	net, err := builder.Build()
@@ -177,6 +180,7 @@ func TestWriteTimeout(t *testing.T) {
 
 	writeTimeout := 1 * time.Second
 	builder := NewBuilderWithOptions(
+		"dev",
 		WriteTimeout(writeTimeout),
 	)
 	net, err := builder.Build()
