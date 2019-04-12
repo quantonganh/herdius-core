@@ -9,20 +9,6 @@ GORUN=$(GOCMD) run
 GOPEERS=''
 GOPARAMETERS=''
 
-ifeq (,$(subst ",,$(PORT)))
-    GOPARAMETERS :=$(GOPARAMETERS) '-port=3000'
-else
-	GOPARAMETERS :=$(GOPARAMETERS) '-port='$(PORT)
-endif
-
-
-ifeq (,$(subst ",,$(HOST)))
-    GOPARAMETERS :=$(GOPARAMETERS) '-host=localhost'
-else
-	GOPARAMETERS := $(GOPARAMETERS) '-host='$(HOST)
-endif
-
-
 ifeq (,$(subst ",,$(PEERS)))
     GOPEERS=''
 else
@@ -33,6 +19,12 @@ ifeq (,$(subst ",,$(GROUPSIZE)))
     GOPARAMETERS := $(GOPARAMETERS) '-groupsize=3'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-groupsize='$(GROUPSIZE)
+endif
+
+ifeq (,$(subst ",,$(ENV)))
+    GOPARAMETERS := $(GOPARAMETERS) '-env=dev'
+else
+	GOPARAMETERS := $(GOPARAMETERS) '-env='$(ENV)
 endif
 
 install:

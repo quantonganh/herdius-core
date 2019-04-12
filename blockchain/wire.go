@@ -26,8 +26,8 @@ func LoadDB() {
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
-		dir = viper.GetString("development.chaindbpath")
-		dbName = viper.GetString("development.badgerDb")
+		dir = viper.GetString("dev.chaindbpath")
+		dbName = viper.GetString("dev.badgerDb")
 		fmt.Println("Dir Name :" + dir)
 		fmt.Println("dbName Name :" + dbName)
 	}

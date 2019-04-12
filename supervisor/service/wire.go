@@ -25,7 +25,7 @@ func LoadStateDB() {
 	if err != nil {
 		log.Error().Msgf("Config file not found: %v\n", err)
 	} else {
-		dir = viper.GetString("development.statedbpath")
+		dir = viper.GetString("dev.statedbpath")
 	}
 
 	trie = statedb.GetState(dir)

@@ -47,6 +47,7 @@ type state struct {
 // GetState :
 // once.Do function ensures that the singleton is only instantiated once
 func GetState(dir string) Trie {
+	log.Println("dir:", dir)
 	once.Do(func() {
 		_, db := createGoLevelDB(dir)
 		t, _ := trie.New(common.Hash{}, db)
@@ -120,9 +121,7 @@ func (s *state) GetKey([]byte) []byte {
 }
 
 func createGoLevelDB(dir string) (string, *trie.Database) {
-
 	diskdb, err := ethdb.NewLDBDatabase(dir, 0, 0)
-
 	if err != nil {
 		log.Fatalf(fmt.Sprintf("can't create state database: %v", err))
 	}
