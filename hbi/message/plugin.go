@@ -60,6 +60,12 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 // Receive to handle transaction requests
 func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
+	case *protoplugin.TxDetailRequest:
+
+		txID := msg.GetTxId()
+		log.Printf("Tx ID: %v", txID)
+		getTx(txID, ctx)
+
 	case *protoplugin.TxRequest:
 		tx := msg.GetTx()
 		accSrv := account.NewAccountService()
@@ -270,6 +276,28 @@ func getAccount(address string, ctx *network.PluginContext) error {
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
+	}
+	return nil
+}
+
+func getTx(id string, ctx *network.PluginContext) error {
+	txSvc := &blockchain.TxService{}
+	txDetailRes, err := txSvc.GetTx(id)
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+
+	if err != nil {
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			&protoplugin.TxDetailResponse{})
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
+		return errors.New("Failed due to: " + err.Error())
+	}
+
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, txDetailRes)
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
 	return nil
 }

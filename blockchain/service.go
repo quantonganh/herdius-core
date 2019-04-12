@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/herdius/herdius-core/supervisor/service"
-
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/crypto/herhash"
+	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
+	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/storage/db"
+	"github.com/herdius/herdius-core/supervisor/service"
 )
 
 // ServiceI is blockchain service interface
@@ -214,4 +215,90 @@ func (s *Service) GetTx(txID string) ([]byte, error) {
 		return []byte{0}, fmt.Errorf(fmt.Sprintf("Failed to find the tx: %v.", err))
 	}
 	return []byte{0}, nil
+}
+
+// TxServiceI is transaction service interface over blockchain
+type TxServiceI interface {
+	GetTx(id string) (*pluginproto.TxDetailResponse, error)
+}
+
+// TxService ...
+type TxService struct{}
+
+var (
+	_ TxServiceI = (*TxService)(nil)
+)
+
+// GetTx ...
+func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
+	txDetailRes := &pluginproto.TxDetailResponse{}
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+
+			var baseBlock protobuf.BaseBlock
+			err = cdc.UnmarshalJSON(v, &baseBlock)
+			if err != nil {
+				return nil
+			}
+
+			// Check if base block has an transaction in it
+			if baseBlock.GetTxsData() != nil &&
+				len(baseBlock.GetTxsData().GetTx()) > 0 {
+
+				// Get all the transaction from the base block
+				txs := baseBlock.GetTxsData().GetTx()
+				for _, txbz := range txs {
+					var tx pluginproto.Tx
+					err := cdc.UnmarshalJSON(txbz, &tx)
+					if err != nil {
+						log.Printf("Failed to Unmarshal tx: %v", err)
+						continue
+					}
+					txID := getTxIDWithoutStatus(&tx)
+					if txID == id {
+						txDetailRes.Tx = &tx
+						txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+
+						ts := &pluginproto.Timestamp{
+							Seconds: baseBlock.GetHeader().Time.Seconds,
+							Nanos:   baseBlock.GetHeader().Time.Nanos,
+						}
+						txDetailRes.CreationDt = ts
+						txDetailRes.TxId = txID
+						break
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+	}
+	return txDetailRes, nil
+}
+
+// getTxIDWithoutStatus creates TxID without the status
+func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
+	txWithOutStatus := pluginproto.Tx{}
+	txWithOutStatus.SenderAddress = tx.SenderAddress
+	txWithOutStatus.RecieverAddress = tx.RecieverAddress
+	txWithOutStatus.Message = tx.Message
+	txWithOutStatus.Sign = tx.Sign
+	txWithOutStatus.Type = tx.Type
+	txWithOutStatus.SenderPubkey = tx.SenderPubkey
+	txWithOutStatus.Asset = tx.Asset
+	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
+	txID := cmn.CreateTxID(txbzWithOutStatus)
+	return txID
 }
