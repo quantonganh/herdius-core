@@ -223,7 +223,7 @@ The Herdius Blockchain is an open-source project that welcomes source-code devel
 
 ### Pull Request Instructions
 
-All new pull requests should be submitted to the newest release branch. Release branches are indicated with a preceding `v` and then the release number (eg. `v1.0.0`). Note- no PRs will be accepted to the `master` branch, and will be requested to be redirected.
+All new pull requests should be submitted to `master` in GitHub. Stable releases are marked with a git tag and are indicated with a preceding `v` and then the release number (eg. `v1.0.0`).
 
 For a pull request to be review, apply the GitHub "Ready for Review" label.
 
