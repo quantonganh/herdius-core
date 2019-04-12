@@ -86,7 +86,7 @@ func newNode(i int, addDiscoveryPlugin bool, addBackoffPlugin bool) (*network.Ne
 		keys[addr] = ed25519.RandomKeyPair()
 	}
 
-	builder := network.NewBuilder()
+	builder := network.NewBuilder("dev")
 	builder.SetKeys(keys[addr])
 	builder.SetAddress(addr)
 
