@@ -290,14 +290,8 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 
 // getTxIDWithoutStatus creates TxID without the status
 func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
-	txWithOutStatus := pluginproto.Tx{}
-	txWithOutStatus.SenderAddress = tx.SenderAddress
-	txWithOutStatus.RecieverAddress = tx.RecieverAddress
-	txWithOutStatus.Message = tx.Message
-	txWithOutStatus.Sign = tx.Sign
-	txWithOutStatus.Type = tx.Type
-	txWithOutStatus.SenderPubkey = tx.SenderPubkey
-	txWithOutStatus.Asset = tx.Asset
+	txWithOutStatus := *tx
+	txWithOutStatus.Status = ""
 	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
 	txID := cmn.CreateTxID(txbzWithOutStatus)
 	return txID
