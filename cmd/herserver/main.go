@@ -13,6 +13,7 @@ import (
 
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
+	"github.com/herdius/herdius-core/config"
 	cryptokey "github.com/herdius/herdius-core/crypto"
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
 	"github.com/herdius/herdius-core/hbi/message"
@@ -188,23 +189,20 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 func main() {
 	// process other flags
-	portFlag := flag.Int("port", 3000, "port to listen to")
-	hostFlag := flag.String("host", "localhost", "host to listen to")
-	protocolFlag := flag.String("protocol", "tcp", "protocol to use (kcp/tcp)")
 	peersFlag := flag.String("peers", "", "peers to connect to")
-	supervisorFlag := flag.Bool("supervisor", false, "Is supervisor host?")
+	supervisorFlag := flag.Bool("supervisor", false, "run as supervisor")
 	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
+	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	flag.Parse()
 
-	port := uint16(*portFlag)
-	host := *hostFlag
-	protocol := *protocolFlag
+	env := *envFlag
+	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
 
 	// Generate or Load Keys
 
-	nodeAddress := host + ":" + strconv.Itoa(*portFlag)
+	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(confg.SelfBroadcastPort)
 
 	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
@@ -232,10 +230,10 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TxRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TxResponse{})
 
-	builder := network.NewBuilder()
+	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
 
-	builder.SetAddress(network.FormatAddress(protocol, host, port))
+	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(confg.SelfBroadcastPort)))
 
 	// Register peer discovery plugin.
 	builder.AddPlugin(new(discovery.Plugin))

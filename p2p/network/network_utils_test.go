@@ -54,7 +54,7 @@ func newTest(t *testing.T, e env, opts ...network.BuilderOption) *testSuite {
 
 func (te *testSuite) startBoostrap(numNodes int, plugins ...network.PluginInterface) {
 	for i := 0; i < numNodes; i++ {
-		builder := network.NewBuilderWithOptions(te.builderOptions...)
+		builder := network.NewBuilderWithOptions("dev", te.builderOptions...)
 		builder.SetKeys(te.e.signature.RandomKeyPair())
 		builder.SetAddress(network.FormatAddress(te.e.networkType, "localhost", uint16(network.GetRandomUnusedPort())))
 

@@ -22,7 +22,7 @@ func TestCreateAndVerifyVote(t *testing.T) {
 		PubKey:     pubKey,
 	}
 
-	builder := network.NewBuilder()
+	builder := network.NewBuilder("dev")
 	builder.SetKeys(keys)
 
 	net, err := builder.Build()

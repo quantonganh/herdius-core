@@ -1,20 +1,28 @@
-[development]
-server = "121.0.0.1"
-port = 8080
-connection_max = 100
-enabled = true
+[dev]
+selfbroadcastip = "121.0.0.1"
+selfbroadcastport = 3000
+protocol = "tcp"
 chaindbpath = "./herdius/chaindb"
 statedbpath = "./herdius/statedb"
-badgerDb = "badger"
-levelDb = "goleveldb"
-nodeKeydir = "./supervisor/testdata/"
+badgerdb = "badger"
+leveldb = "goleveldb"
+nodekeydir = "./supervisor/testdata/"
+
+[staging]
+selfbroadcastip = "10.0.1.159"
+selfbroadcastport = 3000
+protocol = "tcp"
+chaindbpath = "./herdius/chaindb"
+statedbpath = "./herdius/statedb"
+badgerdb = "badger"
+leveldb = "goleveldb"
+nodekeydir = "./supervisor/testdata/"
 
 [prod]
-server = "121.0.0.1"
-port = 8080
-connection_max = 100
-enabled = true
+selfbroadcastip = "not supported"
+selfbroadcastport = 3000
+protocol = "tcp"
 chaindbpath = "./herdius/chaindb"
 statedbpath = "./herdius/statedb"
-badgerDb = "badger"
-levelDb = "goleveldb"
+badgerdb = "badger"
+leveldb = "goleveldb"
