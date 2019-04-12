@@ -225,10 +225,10 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1114), &protoplugin.BlockResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1115), &protoplugin.AccountRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1116), &protoplugin.AccountResponse{})
-	//opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TransactionRequest{})
-	//opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TransactionResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TxRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TxResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1119), &protoplugin.TxDetailRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1120), &protoplugin.TxDetailResponse{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
