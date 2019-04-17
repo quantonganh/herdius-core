@@ -23,6 +23,8 @@ const (
 	Update TxType = iota
 )
 
+var messageNum uint64 = 1
+
 func (t TxType) String() string {
 	return [...]string{"Update"}[t]
 }
@@ -74,11 +76,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
 
 		if err != nil {
-			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Couldn't find the account due to : " + err.Error(),
 				})
+			messageNum++
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -90,11 +93,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
 				failedVerificationMsg := "Transaction nonce (" + string(msg.Tx.GetAsset().Nonce) +
 					") should be greater than account nonce (" + string(account.Nonce) + ")"
-				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 					&protoplugin.TxResponse{
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
+				messageNum++
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -113,11 +117,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
 		if !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value, tx.GetAsset().GetSymbol()) {
-			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Not enough balance: " + string(msg.Tx.GetAsset().Value),
 				})
+			messageNum++
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 			}
@@ -129,11 +134,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		txbz, err := cdc.MarshalJSON(tx)
 
 		if err != nil {
-			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
 				})
+			messageNum++
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 			}
@@ -149,10 +155,11 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		log.Info().Msgf("Tx ID : %v", txID)
 
 		// Send Tx ID to client who sent the TX
-		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 			&protoplugin.TxResponse{
 				TxId: txID, Status: "success", Queued: 0, Pending: 0,
 			})
+		messageNum++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -167,11 +174,12 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
 
 	if err != nil {
-		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 			&protoplugin.TxResponse{
 				TxId: "", Status: "failed", Queued: 0, Pending: 0,
 				Message: "Transaction format incorrect : " + err.Error(),
 			})
+		messageNum++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -187,7 +195,7 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 	log.Info().Msgf("Tx ID : %v", txID)
 
 	// Send Tx ID to client who sent the TX
-	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 		&protoplugin.TxResponse{
 			TxId: txID, Status: "success", Queued: 0, Pending: 0,
 		})
@@ -228,7 +236,8 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 
 		log.Info().Msgf("Block Response at processor: %v", blockRes)
 
-		err = pc.Reply(network.WithSignMessage(context.Background(), true), 1, &blockRes)
+		err = pc.Reply(network.WithSignMessage(context.Background(), true), messageNum, &blockRes)
+		messageNum++
 
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
@@ -236,7 +245,8 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 		return nil
 	}
 
-	err = pc.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.BlockResponse{})
+	err = pc.Reply(network.WithSignMessage(context.Background(), true), messageNum, &protoplugin.BlockResponse{})
+	messageNum++
 
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
@@ -256,7 +266,8 @@ func getAccount(address string, ctx *network.PluginContext) error {
 	}
 
 	if account == nil {
-		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &protoplugin.AccountResponse{})
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum, &protoplugin.AccountResponse{})
+		messageNum++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -272,7 +283,8 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			Balances:    account.Balances,
 		}
 
-		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, &accountResp)
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum, &accountResp)
+		messageNum++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -287,15 +299,17 @@ func getTx(id string, ctx *network.PluginContext) error {
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
 
 	if err != nil {
-		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1,
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum,
 			&protoplugin.TxDetailResponse{})
+		messageNum++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
 		return errors.New("Failed due to: " + err.Error())
 	}
 
-	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), 1, txDetailRes)
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), messageNum, txDetailRes)
+	messageNum++
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
