@@ -1,5 +1,5 @@
 [dev]
-selfbroadcastip = "121.0.0.1"
+selfbroadcastip = "127.0.0.1"
 selfbroadcastport = 3000
 protocol = "tcp"
 chaindbpath = "./herdius/chaindb"
