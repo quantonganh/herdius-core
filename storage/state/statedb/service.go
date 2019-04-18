@@ -1,7 +1,6 @@
 package statedb
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -49,9 +48,21 @@ type state struct {
 func GetState(dir string) Trie {
 	log.Println("dir:", dir)
 	once.Do(func() {
-		_, db := createGoLevelDB(dir)
-		t, _ := trie.New(common.Hash{}, db)
-		singleton = &state{trie: t, db: db}
+		var (
+			err error
+			ldb = new(ethdb.LDBDatabase)
+			t   = new(trie.Trie)
+		)
+		ldb, err = loadLevelDB(dir)
+		if err != nil {
+			log.Fatalf("Error Loading LevelDB %v", err)
+		}
+		triedb := trie.NewDatabase(ldb)
+		t, err = trie.New(common.Hash{}, triedb)
+		if err != nil {
+			log.Fatalf("Error Getting TrieDB %v", err)
+		}
+		singleton = &state{trie: t, db: triedb}
 	})
 	return singleton
 }
@@ -104,6 +115,7 @@ func (s *state) Commit(onleaf trie.LeafCallback) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.db.Commit(root, true)
 
 	return root.Bytes(), nil
 }
@@ -120,10 +132,6 @@ func (s *state) GetKey([]byte) []byte {
 	return nil
 }
 
-func createGoLevelDB(dir string) (string, *trie.Database) {
-	diskdb, err := ethdb.NewLDBDatabase(dir, 0, 0)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("can't create state database: %v", err))
-	}
-	return dir, trie.NewDatabase(diskdb)
+func loadLevelDB(dir string) (*ethdb.LDBDatabase, error) {
+	return ethdb.NewLDBDatabase(dir, 0, 0)
 }
