@@ -46,7 +46,7 @@ run-test:
 
 all: install run-test create_db_dirs
 
-start-supervisor: create_db_dirs
+start-supervisor:
 	@echo "Starting supervisor node"$(GOPARAMETERS)
 	@$(GORUN) cmd/herserver/main.go -supervisor=true$(GOPARAMETERS)
 
