@@ -490,7 +490,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	return nil, nil
 }
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
-	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
+	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
@@ -705,7 +705,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		Block_ID:    &protobuf.BlockID{},
 		LastBlockID: lastBlock.GetHeader().GetBlock_ID(),
 		Height:      lastBlock.Header.Height + 1,
-		StateRoot:   root.Bytes(),
+		StateRoot:   root,
 		Time: &protobuf.Timestamp{
 			Seconds: ts.Unix(),
 			Nanos:   ts.UnixNano(),
