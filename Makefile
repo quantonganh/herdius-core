@@ -36,7 +36,7 @@ delete-db-dirs:
 	@ rm -R ./herdius
 
 create_db_dirs:
-	@ mkdir ./herdius && mkdir ./herdius/chaindb/ && mkdir ./herdius/statedb/
+	@ mkdir -p ./herdius && mkdir -p ./herdius/chaindb/ && mkdir -p ./herdius/statedb/
 
 build: 
 	$(GOBUILD) ./...
@@ -46,7 +46,7 @@ run-test:
 
 all: install run-test create_db_dirs
 
-start-supervisor: delete-db-dirs create_db_dirs
+start-supervisor:
 	@echo "Starting supervisor node"$(GOPARAMETERS)
 	@$(GORUN) cmd/herserver/main.go -supervisor=true$(GOPARAMETERS)
 
