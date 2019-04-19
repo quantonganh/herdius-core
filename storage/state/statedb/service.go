@@ -67,6 +67,18 @@ func GetState(dir string) Trie {
 	return singleton
 }
 
+//NewTrie
+func NewTrie(hash common.Hash) (Trie, error) {
+	state := new(state)
+	t, err := trie.New(hash, singleton.db)
+	if err != nil {
+		return nil, err
+	}
+	state.db = singleton.db
+	state.trie = t
+	return state, nil
+}
+
 var singleton *state
 
 func (s *state) GetTrie() *trie.Trie {
