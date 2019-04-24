@@ -21,6 +21,25 @@ type Tx struct {
 	Signature     []byte `json:"sign"`
 	Message       string `json:"message"`
 }
+type Asset struct {
+	category string
+	symbol   string
+	network  string
+	value    uint64
+	fee      uint64
+	Nonce    uint64
+}
+
+type Tx struct {
+	sender_address string
+	sender_pubkey  string
+	reciever_addressstring
+	asset   Asset
+	message string
+	sign    string
+	stype   string
+	status  string
+}
 
 // TxList : List of Transactions
 // Batches are to be created for 500-1000 Transactions

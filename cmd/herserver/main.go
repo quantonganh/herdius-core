@@ -26,7 +26,6 @@ import (
 	"github.com/herdius/herdius-core/p2p/network/discovery"
 	"github.com/herdius/herdius-core/p2p/types/opcode"
 	sup "github.com/herdius/herdius-core/supervisor/service"
-	"github.com/herdius/herdius-core/supervisor/transaction"
 	validator "github.com/herdius/herdius-core/validator/service"
 	amino "github.com/tendermint/go-amino"
 )
@@ -45,11 +44,13 @@ var mcb = &blockProtobuf.ChildBlockMessage{}
 // firstPingFromValidator checks whether a connection is established betweer supervisor and validator.
 // And it is used to send a message on established connection.
 var firstPingFromValidator = 0
-
 var nodeKeydir = "./cmd/testdata/secp205k1Accts/"
-
 var t1 time.Time
 var t2 time.Time
+var addresses = make([]string, 0)
+
+// HerdiusMessagePlugin will receive all trasnmitted messages.
+type HerdiusMessagePlugin struct{ *network.Plugin }
 
 func init() {
 	nlog.SetFlags(nlog.LstdFlags | nlog.Lshortfile)
@@ -67,11 +68,6 @@ func RegisterAminoService(cdc *amino.Codec) {
 	cryptoAmino.RegisterAmino(cdc)
 
 }
-
-// HerdiusMessagePlugin will receive all trasnmitted messages.
-type HerdiusMessagePlugin struct{ *network.Plugin }
-
-var addresses = make([]string, 0)
 
 // Receive handles each received message for both Supervisor and Validator
 func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
@@ -201,17 +197,13 @@ func main() {
 	noOfPeersInGroup := *groupSizeFlag
 
 	// Generate or Load Keys
-
 	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(confg.SelfBroadcastPort)
-
 	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
 		log.Error().Msgf("Failed to create or load node key: %v", err)
 	}
 	privKey := nodekey.PrivKey
-
 	pubKey := privKey.PubKey()
-
 	keys := &crypto.KeyPair{
 		PublicKey:  pubKey.Bytes(),
 		PrivateKey: privKey.Bytes(),
@@ -306,13 +298,13 @@ func main() {
 					}
 				}
 			}
-			//go func() {
+
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			// Blocks will be created every 3 seconds
-			time.Sleep(3 * time.Second)
-			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
+			time.Sleep(19 * time.Second)
 
+			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
@@ -341,10 +333,6 @@ func main() {
 				stateRoot = baseBlock.GetHeader().GetStateRoot()
 				log.Info().Msgf("State root : %v", stateRoot)
 			}
-			//	}()
-			//TODO: It needs to be implemented for Child blocks. Currently it
-			// Loads transactions from a File.
-			//supervisorProcessor(net, reader, stateRoot, noOfPeersInGroup)
 		} else {
 
 			validatorProcessor(net, reader, peers)
@@ -352,102 +340,6 @@ func main() {
 		}
 
 	}
-}
-
-//supervisorProcessor processes all the incoming transactions
-func supervisorProcessor(net *network.Network, reader *bufio.Reader, stateRoot []byte, noOfPeersInGroup int) {
-	log.Info().Msg("Please press 'y' to load transactions from file. ")
-	input, _ := reader.ReadString('\n')
-
-	// skip blank lines
-	// Right now this process only handles the txs loaded from a file
-	// TODO: It has to be implemented in a more generic way so that it can handle txs arriving in various ways
-	if len(strings.TrimSpace(input)) == 0 || strings.TrimRight(input, "\n") != "y" {
-		return
-	}
-	totalNoOfPeers := len(addresses)
-
-	totalTXsToBeValidated := 3000
-	numberOfTXsInEachBatch := 500
-	numberOfBatches := totalTXsToBeValidated / numberOfTXsInEachBatch
-
-	txFilePath := "./cmd/testdata/txs-sec.json"
-	err := supsvc.CreateTxBatchesFromFile(txFilePath, numberOfBatches, numberOfTXsInEachBatch, stateRoot)
-	if err != nil {
-		log.Error().Msgf("Failed while batching the transactions: %v", err)
-		return
-	}
-	batches := *supsvc.TxBatches
-
-	counter := 0
-	var txService transaction.Service
-
-	numOfValidatorGroups := calcNoOfGroups(totalNoOfPeers, noOfPeersInGroup)
-
-	batchCount := 0
-	previousBlockHash := make([]byte, 0)
-
-	var broadcastCount int
-	broadcastCount = 0
-	t1 = time.Now()
-	for _, batch := range batches {
-
-		txService = transaction.TxService()
-		for i := 0; i < numberOfTXsInEachBatch; i++ {
-			txbz := batch[i]
-
-			tx := transaction.Tx{}
-			cdc.UnmarshalJSON(txbz, &tx)
-
-			txService.AddTx(tx)
-			counter++
-		}
-
-		txList := *(txService.GetTxList())
-
-		cb := supsvc.CreateChildBlock(net, &txList, int64(batchCount), previousBlockHash)
-
-		previousBlockHash = cb.GetHeader().GetBlockID().BlockHash
-
-		supsvc.ChildBlock = append(supsvc.ChildBlock, cb)
-		cbmsg := &blockProtobuf.ChildBlockMessage{
-			ChildBlock: cb,
-		}
-
-		if batchCount > 0 {
-			cb.GetHeader().GetLastBlockID().BlockHash = previousBlockHash
-		}
-
-		ctx := network.WithSignMessage(context.Background(), true)
-
-		if totalNoOfPeers <= noOfPeersInGroup {
-
-			net.BroadcastByAddresses(ctx, cbmsg, addresses...)
-			batchCount++
-		} else {
-			for i := broadcastCount; i < totalNoOfPeers; i++ {
-				if i+noOfPeersInGroup <= totalNoOfPeers {
-
-					net.BroadcastByAddresses(ctx, cbmsg, addresses[i:i+noOfPeersInGroup]...)
-					i = (i + noOfPeersInGroup) - 1
-
-				} else {
-					net.BroadcastByAddresses(ctx, cbmsg, addresses[i:totalNoOfPeers]...)
-					i = (i + noOfPeersInGroup) - 1
-				}
-				broadcastCount = i + 1
-				break
-			}
-			batchCount++
-		}
-
-		//break for batch loop in case it equals number of validator groups
-
-		if numOfValidatorGroups == batchCount {
-			break
-		}
-	}
-
 }
 
 // validatorProcessor checks and validates all the new child blocks
@@ -495,17 +387,4 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		net.Broadcast(ctx, mcb)
 		isChildBlockReceivedByValidator = false
 	}
-
-}
-func calcNoOfGroups(totalPeers, gpc int) int {
-	// gpc : Group peer count
-	if (totalPeers % gpc) != 0 {
-		noOfGrps := totalPeers % gpc
-		if noOfGrps < gpc {
-			return (totalPeers / gpc) + 1
-		}
-		return noOfGrps + (totalPeers / gpc)
-
-	}
-	return (totalPeers / gpc)
 }
