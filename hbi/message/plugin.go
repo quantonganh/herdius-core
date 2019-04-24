@@ -69,7 +69,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		getTx(txID, ctx)
 
 	case *protoplugin.TxRequest:
-		fmt.Printf("Nonce Value is :: %v\n", nonce)
 		tx := msg.GetTx()
 		accSrv := account.NewAccountService()
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
