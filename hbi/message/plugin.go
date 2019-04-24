@@ -91,8 +91,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		//Check Tx.Nonce > account.Nonce
 		if account != nil {
 			if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
-				failedVerificationMsg := "Transaction nonce (" + string(msg.Tx.GetAsset().Nonce) +
-					") should be greater than account nonce (" + string(account.Nonce) + ")"
+
+				txNonce := strconv.FormatUint(msg.Tx.GetAsset().Nonce, 10)
+				accountNonce := strconv.FormatUint(account.Nonce, 10)
+				failedVerificationMsg := "Transaction nonce " + txNonce +
+					" should be greater than account nonce " + accountNonce
+
 				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 					&protoplugin.TxResponse{
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
@@ -199,6 +203,7 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 		&protoplugin.TxResponse{
 			TxId: txID, Status: "success", Queued: 0, Pending: 0,
 		})
+	nonce++
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 	}
