@@ -729,7 +729,7 @@ func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, sta
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal tx: %v", err)
 		}
-		log.Println("txStr = %+v", txStr)
+		log.Printf("txStr = %+v", txStr)
 	}
 	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)

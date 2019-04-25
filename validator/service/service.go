@@ -78,13 +78,13 @@ func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 
 		msg := txValue.Message
 		var pubkey crypto.PubKey
-		err = cdc.UnmarshalBinaryBare(txValue.Senderpubkey, &pubkey)
+		err = cdc.UnmarshalBinaryBare([]byte(txValue.SenderPubKey), &pubkey)
 
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Pub Key Unmarshaling failed: %v.", err))
 		}
 
-		isVerified := pubkey.VerifyBytes([]byte(msg), txValue.Signature)
+		isVerified := pubkey.VerifyBytes([]byte(msg), []byte(txValue.Signature))
 		if !isVerified {
 			return fmt.Errorf(fmt.Sprintf("TX signature verification failed: %v.", isVerified))
 		}
