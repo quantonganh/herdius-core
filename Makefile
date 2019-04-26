@@ -9,20 +9,26 @@ GORUN=$(GOCMD) run
 GOPEERS=''
 GOPARAMETERS=''
 
-ifeq (,$(subst ",,$(PEERS)))
-    GOPEERS=''
+ifeq (,$(subst ,,$(PEERS)))
+	GOPEERS=''
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-peers='$(PEERS)
 endif
 
-ifeq (,$(subst ",,$(GROUPSIZE)))
-    GOPARAMETERS := $(GOPARAMETERS) '-groupsize=3'
+ifeq (,$(subst ,,$(GROUPSIZE)))
+	GOPARAMETERS := $(GOPARAMETERS) '-groupsize=3'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-groupsize='$(GROUPSIZE)
 endif
 
-ifeq (,$(subst ",,$(ENV)))
-    GOPARAMETERS := $(GOPARAMETERS) '-env=dev'
+ifeq (,$(subst ,,$(PORT)))
+	GOPARAMETERS := $(GOPARAMETERS) '-port=0'
+else
+	GOPARAMETERS := $(GOPARAMETERS) '-port='$(PORT)
+endif
+
+ifeq (,$(subst ,,$(ENV)))
+	GOPARAMETERS := $(GOPARAMETERS) '-env=dev'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-env='$(ENV)
 endif

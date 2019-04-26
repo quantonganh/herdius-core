@@ -362,7 +362,8 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	// TODO set at 100 but maybe change?
 	if len(*txs) < 0 {
 		return nil, errors.New("cannot process transaction because transaction list from MemPool < 0 entries")
-		// TODO CHANGE THIS BACK TO 0
+
+		// TODO CHANGE THIS BACK TO 1 (1 because if there's just a single validator, we only want a base block w/out child blocks)
 	} else if len(s.Validator) <= -1 {
 		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 		if err != nil {
@@ -687,7 +688,6 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 }
 
 func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
-	// 1. Determine how many validators there are
 	// 2. Create validator groups
 	// 3. Assign batch of tx (tx.txs == ([][]byte)) to individual validator groups
 	// 		// Or maybe need to convert to protobuf.Txs or something?
@@ -706,7 +706,9 @@ func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, sta
 	} else {
 		numGrps = numValds / 3
 	}
+	numCbs = numGrps
 
+	log.Println("Number of validators:", len(s.Validator))
 	log.Println("Number of validator groups to be created:", numGrps)
 	log.Println("Number of child blocks to be created:", numCbs)
 	log.Println("Number of transactions:", numTxs)
@@ -717,26 +719,31 @@ func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, sta
 	if err != nil {
 		return fmt.Errorf("unable to retrieve state trie while attempting to shard: %v", err)
 	}
-	log.Println("statetrie:", stateTrie)
+	log.Printf("statetrie: %+v", stateTrie)
 
 	previousBlockHash := make([]byte, 0)
 	txStr := transaction.Tx{}
 	txlist := &transaction.TxList{}
-	for i, txb := range *txs {
-		log.Println("i:", i)
-		log.Println("txb:", string(txb))
+	for _, txb := range *txs {
 		err := cdc.UnmarshalJSON(txb, &txStr)
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal tx: %v", err)
 		}
-		log.Printf("txStr = %+v", txStr)
 	}
+	log.Println("Last Nonce in txStr:", txStr.Asset.Nonce)
+
 	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)
 	cbmsg := &protobuf.ChildBlockMessage{
 		ChildBlock: cb,
 	}
-	net.BroadcastByAddresses(ctx, cbmsg, "localhost:80")
+
+	log.Println("About to broadcase to address, hopefully validator")
+	if len(s.Validator) > 0 {
+		log.Println("Validator address:", s.Validator[0].Address)
+	}
+	//TODO figure out what this address is supposed to be
+	net.BroadcastByAddresses(ctx, cbmsg, "localhost:3002")
 	//net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
 
 	return nil

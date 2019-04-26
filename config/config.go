@@ -30,7 +30,6 @@ func GetConfiguration(env string) *detail {
 	}
 	once.Do(func() {
 		dirname := os.Getenv("GOPATH")
-		log.Println("current dir:", dirname)
 		viper.SetConfigName("config")                                                // Config file name without extension
 		viper.AddConfigPath(dirname + "/src/github.com/herdius/herdius-core/config") // Path to config file
 		err := viper.ReadInConfig()

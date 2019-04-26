@@ -5,6 +5,7 @@
 package network
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -219,6 +220,7 @@ func (builder *Builder) Build() (*Network, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("unifiedAddress:", unifiedAddress)
 
 	id := peer.CreateID(unifiedAddress, builder.keys.PublicKey)
 

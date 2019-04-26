@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
+	"strconv"
 
 	nlog "log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -90,6 +91,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		supsvc.ValidatorChildblock[address] = &blockProtobuf.BlockID{}
 		mx.Unlock()
 	case *blockProtobuf.ChildBlockMessage:
+		fmt.Println("I just receieved a child block message!")
 
 		mcb = msg
 		vote := mcb.GetVote()
@@ -188,16 +190,22 @@ func main() {
 	peersFlag := flag.String("peers", "", "peers to connect to")
 	supervisorFlag := flag.Bool("supervisor", false, "run as supervisor")
 	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
+	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	flag.Parse()
 
 	env := *envFlag
+	port := *portFlag
 	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
 
+	if port == 0 {
+		port = confg.SelfBroadcastPort
+	}
+
 	// Generate or Load Keys
-	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(confg.SelfBroadcastPort)
+	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(port)
 	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
 		log.Error().Msgf("Failed to create or load node key: %v", err)
@@ -228,7 +236,7 @@ func main() {
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
 
-	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(confg.SelfBroadcastPort)))
+	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(port)))
 
 	// Register peer discovery plugin.
 	builder.AddPlugin(new(discovery.Plugin))
