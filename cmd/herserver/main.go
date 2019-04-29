@@ -90,11 +90,24 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		mx.Lock()
 		supsvc.ValidatorChildblock[address] = &blockProtobuf.BlockID{}
 		mx.Unlock()
+
+		sender, _ := ctx.Network().Client(ctx.Client().Address)
+		var nonce = 1
+		fmt.Println("sender " + sender.Address)
+		err = sender.Reply(network.WithSignMessage(context.Background(), true), uint64(nonce),
+			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
+		//nonce++
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
 	case *blockProtobuf.ChildBlockMessage:
 		fmt.Println("I just receieved a child block message!")
 
 		mcb = msg
+		fmt.Println("msg:", msg)
+		fmt.Printf("msg: %+v\n", msg)
 		vote := mcb.GetVote()
+		fmt.Println("vote:", vote)
 
 		if vote != nil {
 			// Increment the vote count of validator group
@@ -254,10 +267,12 @@ func main() {
 	}
 
 	go net.Listen()
+	defer net.Close()
 
-	if len(peers) > 0 {
-		net.Bootstrap(peers...)
-	}
+	c := new(network.ConnTester)
+	go func() {
+		c.IsConnected(net, peers)
+	}()
 
 	// As of now Databases will only be loaded for Supervisor.
 	// Chain data and state information will be stored at supervisor's node.
@@ -354,22 +369,13 @@ func main() {
 func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
-		net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
+		fmt.Println("peers in validator", peers[0])
+		supervisorClient, _ := net.Client(peers[0])
+		reply, _ := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
+		//net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
+		fmt.Println("reply from sup: " + reply.String())
 		firstPingFromValidator++
 		return
-	}
-
-	// Check if connection state of supervisor node is down
-	// Send a bootstrap request and wait until bootstrap is completed.
-	// Finally broadcast a message to supervisor on re-connection state
-	// TODO: Can we make it something better and maintainable?
-	if firstPingFromValidator == 1 {
-		_, ok := net.ConnectionState(peers[0])
-		if !ok {
-			net.Bootstrap(peers...)
-			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection re-established"})
-			return
-		}
 	}
 
 	// Check if a new child block has arrived
@@ -377,7 +383,18 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		vService := validator.Validator{}
 
 		//Get all the transaction data included in the child block
-		txs := mcb.GetChildBlock().GetTxsData().Tx
+		txsData := mcb.GetChildBlock().GetTxsData()
+		fmt.Println("mcb:", mcb)
+		fmt.Printf("mcb.GetChildBlock: %+v\n", mcb.GetChildBlock())
+		fmt.Printf("mcb.GetChildBlock.GetTxsData: %+v\n", mcb.GetChildBlock().GetTxsData())
+
+		if txsData == nil {
+			fmt.Println("No txsData")
+			isChildBlockReceivedByValidator = false
+			return
+		}
+		fmt.Println("Found txsData contents")
+		txs := txsData.Tx
 
 		//Get Root hash of the transactions
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()

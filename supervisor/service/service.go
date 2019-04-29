@@ -360,7 +360,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 
 	// Check if transactions to be added in Singular Block
 	// TODO set at 100 but maybe change?
-	if len(*txs) < 0 {
+	if len(*txs) < 1 {
 		return nil, errors.New("cannot process transaction because transaction list from MemPool < 0 entries")
 
 		// TODO CHANGE THIS BACK TO 1 (1 because if there's just a single validator, we only want a base block w/out child blocks)
@@ -687,11 +687,8 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 	return root, nil
 }
 
-func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
-	// 2. Create validator groups
-	// 3. Assign batch of tx (tx.txs == ([][]byte)) to individual validator groups
-	// 		// Or maybe need to convert to protobuf.Txs or something?
-	// 4. Don't expect anything back from them
+// ShardToValidators distributes a series of childblocks to a series of validators
+func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
 	numTxs := len(*txs)
 	numCbs := len(s.ChildBlock)
 	numValds := len(s.Validator)
@@ -712,7 +709,7 @@ func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, sta
 	log.Println("Number of validator groups to be created:", numGrps)
 	log.Println("Number of child blocks to be created:", numCbs)
 	log.Println("Number of transactions:", numTxs)
-	log.Println("Supervisor struct, txbatches:", s.TxBatches) // results in nil
+	log.Println("Supervisor struct, txbatches:", s.TxBatches)
 	numCbs = numGrps
 
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
@@ -732,19 +729,21 @@ func (s Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, sta
 	}
 	log.Println("Last Nonce in txStr:", txStr.Asset.Nonce)
 
+	// TODO this cb is nil
+	// because txlist never got the txstr added to it
 	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
+	log.Printf("childblock from super service: %+v", cb)
 	ctx := network.WithSignMessage(context.Background(), true)
 	cbmsg := &protobuf.ChildBlockMessage{
 		ChildBlock: cb,
 	}
 
-	log.Println("About to broadcase to address, hopefully validator")
+	log.Println("About to broadcast to address, hopefully validator")
 	if len(s.Validator) > 0 {
 		log.Println("Validator address:", s.Validator[0].Address)
 	}
-	//TODO figure out what this address is supposed to be
-	net.BroadcastByAddresses(ctx, cbmsg, "localhost:3002")
-	//net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
+	fmt.Printf("Connection state: %v\n", net.ConnectionStateExists("tcp://127.0.0.1:3002"))
+	net.BroadcastByAddresses(ctx, cbmsg, "tcp://127.0.0.1:3002")
 
 	return nil
 }
