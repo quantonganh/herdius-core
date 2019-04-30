@@ -72,6 +72,7 @@ func RegisterAminoService(cdc *amino.Codec) {
 
 // Receive handles each received message for both Supervisor and Validator
 func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
+	fmt.Printf("ctx.message: %+v\n", ctx.Message())
 
 	switch msg := ctx.Message().(type) {
 	case *blockProtobuf.ConnectionMessage:
@@ -370,8 +371,14 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
 		fmt.Println("peers in validator", peers[0])
-		supervisorClient, _ := net.Client(peers[0])
-		reply, _ := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
+		supervisorClient, err := net.Client(peers[0])
+		if err != nil {
+			log.Printf("unable to get supervisor client: %+v", err)
+		}
+		reply, err := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
+		if err != nil {
+			log.Printf("unable to request from client: %+v", err)
+		}
 		//net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
 		fmt.Println("reply from sup: " + reply.String())
 		firstPingFromValidator++
@@ -400,7 +407,8 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
 		err := vService.VerifyTxs(cbRootHash, txs)
 		if err != nil {
-			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
+			//net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
+			fmt.Println("Failed to verify transaction:", err)
 		}
 
 		// Sign and vote the child block

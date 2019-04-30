@@ -42,7 +42,8 @@ var (
 func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 	rootHash2, proofs := merkle.SimpleProofsFromByteSlices(txs)
 	// # of Txs in each batch
-	total := 500
+	//total := 500
+	total := 3
 
 	if rootHash2 == nil || proofs == nil {
 		return fmt.Errorf(fmt.Sprintf("Unmatched root hashes: %X vs %X", rootHash, rootHash2))

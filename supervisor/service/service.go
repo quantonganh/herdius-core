@@ -726,8 +726,10 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal tx: %v", err)
 		}
+		txlist.Transactions = append(txlist.Transactions, &txStr)
 	}
 	log.Println("Last Nonce in txStr:", txStr.Asset.Nonce)
+	log.Println("txlist:", txlist)
 
 	// TODO this cb is nil
 	// because txlist never got the txstr added to it
