@@ -147,7 +147,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		//Check Tx.Nonce > account.Nonce
 		if account != nil {
 			if !accSrv.VerifyAccountNonce(account, tx.GetAsset().Nonce) {
-<<<<<<< HEAD
 
 				txNonce := strconv.FormatUint(msg.Tx.GetAsset().Nonce, 10)
 				accountNonce := strconv.FormatUint(account.Nonce, 10)
