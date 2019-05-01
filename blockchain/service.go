@@ -329,7 +329,7 @@ func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 
 				// Get all the transaction from the base block
 				txs := baseBlock.GetTxsData().GetTx()
-				//fmt.Printf("Len is : %v\n", len(txs))
+
 				for _, txbz := range txs {
 					var tx pluginproto.Tx
 					err := cdc.UnmarshalJSON(txbz, &tx)
@@ -395,7 +395,7 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 
 				// Get all the transaction from the base block
 				txs := baseBlock.GetTxsData().GetTx()
-				//fmt.Printf("Len is : %v\n", len(txs))
+
 				for _, txbz := range txs {
 					var tx pluginproto.Tx
 					err := cdc.UnmarshalJSON(txbz, &tx)
