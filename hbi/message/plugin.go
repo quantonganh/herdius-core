@@ -62,6 +62,63 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 // Receive to handle transaction requests
 func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
+	case *protoplugin.TxsByAssetAndAddressRequest:
+		address := msg.GetAddress()
+		asset := msg.GetAsset()
+		accSrv := account.NewAccountService()
+		account, err := accSrv.GetAccountByAddress(address)
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
+
+		if err != nil {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxsResponse{})
+			nonce++
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+			}
+			return errors.New("Couldn't find the account due to: " + err.Error())
+		}
+		if account != nil && strings.EqualFold(account.Address, address) {
+			getTxsByAssetAndAccount(asset, address, ctx)
+		} else {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxsResponse{})
+			nonce++
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+			}
+			return nil
+		}
+
+	case *protoplugin.TxsByAddressRequest:
+		address := msg.GetAddress()
+		accSrv := account.NewAccountService()
+		account, err := accSrv.GetAccountByAddress(address)
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
+
+		if err != nil {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxsResponse{})
+			nonce++
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+			}
+			return errors.New("Couldn't find the account due to: " + err.Error())
+		}
+
+		if account != nil &&
+			strings.EqualFold(account.Address, address) {
+			getTxs(address, ctx)
+		} else {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxsResponse{})
+			nonce++
+			if err != nil {
+				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+			}
+			return nil
+		}
+
 	case *protoplugin.TxDetailRequest:
 
 		txID := msg.GetTxId()
@@ -314,6 +371,54 @@ func getTx(id string, ctx *network.PluginContext) error {
 	}
 
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txDetailRes)
+	nonce++
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+	}
+	return nil
+}
+
+func getTxs(address string, ctx *network.PluginContext) error {
+	txSvc := &blockchain.TxService{}
+	txs, err := txSvc.GetTxs(address)
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+
+	if err != nil {
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+			&protoplugin.TxDetailResponse{})
+		nonce++
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
+		return errors.New("Failed due to: " + err.Error())
+	}
+
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
+	nonce++
+	if err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+	}
+	return nil
+}
+
+func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) error {
+	txSvc := &blockchain.TxService{}
+	txs, err := txSvc.GetTxsByAssetAndAddress(asset, address)
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+
+	if err != nil {
+		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+			&protoplugin.TxDetailResponse{})
+		nonce++
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
+		return errors.New("Failed due to: " + err.Error())
+	}
+
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
 	nonce++
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))

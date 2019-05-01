@@ -229,6 +229,9 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TxResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1119), &protoplugin.TxDetailRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1120), &protoplugin.TxDetailResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1121), &protoplugin.TxsByAddressRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1122), &protoplugin.TxsResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1123), &protoplugin.TxsByAssetAndAddressRequest{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)

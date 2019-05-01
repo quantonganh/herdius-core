@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dgraph-io/badger"
@@ -220,6 +221,8 @@ func (s *Service) GetTx(txID string) ([]byte, error) {
 // TxServiceI is transaction service interface over blockchain
 type TxServiceI interface {
 	GetTx(id string) (*pluginproto.TxDetailResponse, error)
+	GetTxs(address string) (*pluginproto.TxsResponse, error)
+	GetTxsByAssetAndAddress(assetName, address string) (*pluginproto.TxsResponse, error)
 }
 
 // TxService ...
@@ -295,4 +298,140 @@ func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
 	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
 	txID := cmn.CreateTxID(txbzWithOutStatus)
 	return txID
+}
+
+// GetTxs : Get all the txs by account address
+func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
+
+	txDetails := make([]*pluginproto.TxDetailResponse, 0)
+
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+
+			var baseBlock protobuf.BaseBlock
+			err = cdc.UnmarshalJSON(v, &baseBlock)
+			if err != nil {
+				return nil
+			}
+
+			// Check if base block has an transaction in it
+			if baseBlock.GetTxsData() != nil &&
+				len(baseBlock.GetTxsData().GetTx()) > 0 {
+
+				// Get all the transaction from the base block
+				txs := baseBlock.GetTxsData().GetTx()
+				//fmt.Printf("Len is : %v\n", len(txs))
+				for _, txbz := range txs {
+					var tx pluginproto.Tx
+					err := cdc.UnmarshalJSON(txbz, &tx)
+					if err != nil {
+						log.Printf("Failed to Unmarshal tx: %v", err)
+						continue
+					}
+					if strings.EqualFold(address, tx.SenderAddress) ||
+						strings.EqualFold(address, tx.RecieverAddress) {
+						txDetailRes := &pluginproto.TxDetailResponse{}
+						txDetailRes.Tx = &tx
+						txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+						ts := &pluginproto.Timestamp{
+							Seconds: baseBlock.GetHeader().Time.Seconds,
+							Nanos:   baseBlock.GetHeader().Time.Nanos,
+						}
+						txDetailRes.CreationDt = ts
+						txID := getTxIDWithoutStatus(&tx)
+						txDetailRes.TxId = txID
+
+						txDetails = append(txDetails, txDetailRes)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+	}
+	txs := &pluginproto.TxsResponse{
+		Txs: txDetails,
+	}
+	return txs, nil
+}
+
+// GetTxsByAssetAndAddress : Get all the txs by account address and asset name
+func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginproto.TxsResponse, error) {
+	txDetails := make([]*pluginproto.TxDetailResponse, 0)
+
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+
+			var baseBlock protobuf.BaseBlock
+			err = cdc.UnmarshalJSON(v, &baseBlock)
+			if err != nil {
+				return nil
+			}
+
+			// Check if base block has an transaction in it
+			if baseBlock.GetTxsData() != nil &&
+				len(baseBlock.GetTxsData().GetTx()) > 0 {
+
+				// Get all the transaction from the base block
+				txs := baseBlock.GetTxsData().GetTx()
+				//fmt.Printf("Len is : %v\n", len(txs))
+				for _, txbz := range txs {
+					var tx pluginproto.Tx
+					err := cdc.UnmarshalJSON(txbz, &tx)
+					if err != nil {
+						log.Printf("Failed to Unmarshal tx: %v", err)
+						continue
+					}
+					if strings.EqualFold(assetName, tx.Asset.Symbol) {
+						if strings.EqualFold(address, tx.SenderAddress) ||
+							strings.EqualFold(address, tx.RecieverAddress) {
+							txDetailRes := &pluginproto.TxDetailResponse{}
+							txDetailRes.Tx = &tx
+							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+							ts := &pluginproto.Timestamp{
+								Seconds: baseBlock.GetHeader().Time.Seconds,
+								Nanos:   baseBlock.GetHeader().Time.Nanos,
+							}
+							txDetailRes.CreationDt = ts
+							txID := getTxIDWithoutStatus(&tx)
+							txDetailRes.TxId = txID
+
+							txDetails = append(txDetails, txDetailRes)
+						}
+					}
+
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+	}
+	txs := &pluginproto.TxsResponse{
+		Txs: txDetails,
+	}
+	return txs, nil
 }

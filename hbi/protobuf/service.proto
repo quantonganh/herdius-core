@@ -118,3 +118,19 @@ message TransactionResponse {
   string status = 4;
 }
 
+// Send request to retrieve all transactions of an address committed in herdius blockchain
+message TxsByAddressRequest {
+  string address          = 1;   
+}
+
+// Transactions details response from herdius blockchain
+message TxsResponse{
+  repeated TxDetailResponse txs = 1;
+}
+
+// Send request to retrieve all transactions of an address and asset committed in herdius blockchain
+message TxsByAssetAndAddressRequest {
+  string address          = 1;   
+  string asset            = 2;
+}
+
