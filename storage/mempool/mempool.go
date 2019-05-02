@@ -9,10 +9,9 @@ import (
 
 // Service ...
 type Service interface {
-	//AddTxs(tx.Service) (int, error)
 	AddTx(tx.Tx) int
 	GetTxs() (tx.Txs, error)
-	RemoveTxs()
+	RemoveTxs(int)
 }
 
 // MemPool ...
@@ -66,11 +65,10 @@ func (m *MemPool) GetTxs() *tx.Txs {
 }
 
 // RemoveTxs transactions from the MemPool
-func (m *MemPool) RemoveTxs() {
-	// TODO: 500 needs to be configurable
-	if len(m.txs) < 500 {
+func (m *MemPool) RemoveTxs(i int) {
+	if len(m.txs) < i {
 		m.txs = m.txs[len(m.txs):]
 		return
 	}
-	m.txs = m.txs[500:]
+	m.txs = m.txs[i:]
 }

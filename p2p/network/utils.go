@@ -85,15 +85,20 @@ func (c *ConnTester) IsConnected(netw *Network, peers []string) {
 				client, err := netw.Client(peer)
 				if err != nil {
 					fmt.Errorf("error trying connection: %v", err)
+					continue
 				}
 				if client == nil {
 					continue
 				}
-				reply, _ := client.Request(ctx, &protobuf.ConnectionMessage{Message: "Connection established with Validator"})
+				reply, err := client.Request(ctx, &protobuf.ConnectionMessage{Message: "Connection established with peer"})
+				if err != nil {
+					fmt.Errorf("error getting reply from client: %v", err)
+					continue
+				}
+
 				log.Println("reply:", reply.String())
 				continue
 			}
-			log.Println("Peer in network:", peer)
 			*c = true
 			break
 		}

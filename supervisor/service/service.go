@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -124,7 +123,7 @@ func (s *Supervisor) GetChildBlockMerkleHash() ([]byte, error) {
 
 		return merkle.SimpleHashFromByteSlices(cbBzs), nil
 	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	return nil, fmt.Errorf("no Child block available: %v", s.ChildBlock)
 }
 
 // GetValidatorGroupHash creates merkle hash of all the validators
@@ -167,7 +166,7 @@ func (s *Supervisor) GetNextValidatorGroupHash() ([]byte, error) {
 
 // CreateBaseBlock creates the base block with all the child blocks
 func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error) {
-
+	fmt.Println("stateroot:", s.StateRoot)
 	// Create the merkle hash of all the child blocks
 	cbMerkleHash, err := s.GetChildBlockMerkleHash()
 
@@ -208,7 +207,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	vcbz, err := cdc.MarshalJSON(votecommits)
-
 	if err != nil {
 		plog.Error().Msgf("Vote commits marshaling failed.: %v", err)
 	}
@@ -230,7 +228,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	blockHashBz, err := cdc.MarshalJSON(baseHeader)
-
 	if err != nil {
 		plog.Error().Msgf("Base Header marshaling failed.: %v", err)
 	}
@@ -239,7 +236,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	baseHeader.GetBlock_ID().BlockHash = blockHash
 
 	childBlocksBz, err := cdc.MarshalJSON(s.ChildBlock)
-
 	if err != nil {
 		plog.Error().Msgf("Child blocks marshaling failed.: %v", err)
 	}
@@ -253,7 +249,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	// Validators marshaling
 
 	valsBz, err := cdc.MarshalJSON(s.Validator)
-
 	if err != nil {
 		plog.Error().Msgf("Validators marshaling failed.: %v", err)
 	}
@@ -353,29 +348,30 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
-	// Get the Memory pool pointer Memory Pool
 	mp := mempool.GetMemPool()
-	// Check if transactions are available in Memory pool
 	txs := mp.GetTxs()
 
+	reqdTxs := 3
 	// Check if transactions to be added in Singular Block
 	// TODO set at 100 but maybe change?
-	if len(*txs) < 1 {
-		return nil, errors.New("cannot process transaction because transaction list from MemPool < 0 entries")
+	if len(*txs) < reqdTxs {
+		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
+		return nil, nil
 
 		// TODO CHANGE THIS BACK TO 1 (1 because if there's just a single validator, we only want a base block w/out child blocks)
-	} else if len(s.Validator) <= -1 {
+	} else if len(s.Validator) <= 0 {
 		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create base block: %v", err)
 		}
+		mp.RemoveTxs(len(*txs))
 		return baseBlock, nil
 	}
-	log.Println("about to shard to validators")
 	err := s.ShardToValidators(txs, net, stateRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 	}
+	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
@@ -620,7 +616,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	s.writerMutex.Unlock()
 
 	// Remove processed transactions from Memory Pool
-	mp.RemoveTxs()
+	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
 
@@ -731,8 +727,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	log.Println("Last Nonce in txStr:", txStr.Asset.Nonce)
 	log.Println("txlist:", txlist)
 
-	// TODO this cb is nil
-	// because txlist never got the txstr added to it
+	// TODO what should this 33 be
 	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
 	log.Printf("childblock from super service: %+v", cb)
 	ctx := network.WithSignMessage(context.Background(), true)
@@ -740,7 +735,6 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		ChildBlock: cb,
 	}
 
-	log.Println("About to broadcast to address, hopefully validator")
 	if len(s.Validator) > 0 {
 		log.Println("Validator address:", s.Validator[0].Address)
 	}

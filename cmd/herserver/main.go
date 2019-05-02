@@ -72,8 +72,6 @@ func RegisterAminoService(cdc *amino.Codec) {
 
 // Receive handles each received message for both Supervisor and Validator
 func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
-	fmt.Printf("ctx.message: %+v\n", ctx.Message())
-
 	switch msg := ctx.Message().(type) {
 	case *blockProtobuf.ConnectionMessage:
 		address := ctx.Client().ID.Address
@@ -94,7 +92,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 		sender, _ := ctx.Network().Client(ctx.Client().Address)
 		var nonce = 1
-		fmt.Println("sender " + sender.Address)
 		err = sender.Reply(network.WithSignMessage(context.Background(), true), uint64(nonce),
 			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
 		//nonce++
@@ -102,14 +99,8 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
 	case *blockProtobuf.ChildBlockMessage:
-		fmt.Println("I just receieved a child block message!")
-
 		mcb = msg
-		fmt.Println("msg:", msg)
-		fmt.Printf("msg: %+v\n", msg)
 		vote := mcb.GetVote()
-		fmt.Println("vote:", vote)
-
 		if vote != nil {
 			// Increment the vote count of validator group
 			voteCount++
@@ -142,10 +133,13 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 				// TODO: It needs to be implemented in a proper way
 				// It should probably be a part of the consensus on child block
 				// How can we do that?
+				fmt.Println("votecount, len validators, ==?", voteCount, len(supsvc.Validator))
 				if voteCount == len(supsvc.Validator) {
 
 					lastBlock := blockchainSvc.GetLastBlock()
 
+					fmt.Println("about to create base block")
+					supsvc.ChildBlock = append(supsvc.ChildBlock, mcb.GetChildBlock())
 					baseBlock, err := supsvc.CreateBaseBlock(lastBlock)
 
 					err = blockchainSvc.AddBaseBlock(baseBlock)
@@ -326,6 +320,7 @@ func main() {
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			// Blocks will be created every 3 seconds
+			// TODO put back at 3 seconds
 			time.Sleep(19 * time.Second)
 
 			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
@@ -374,13 +369,14 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		supervisorClient, err := net.Client(peers[0])
 		if err != nil {
 			log.Printf("unable to get supervisor client: %+v", err)
+			return
 		}
 		reply, err := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
 		if err != nil {
 			log.Printf("unable to request from client: %+v", err)
+			return
 		}
-		//net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
-		fmt.Println("reply from sup: " + reply.String())
+		fmt.Println("Supervsior reply: " + reply.String())
 		firstPingFromValidator++
 		return
 	}
