@@ -10,17 +10,6 @@ const (
 	tab   = "\t"
 )
 
-// Tx : Transaction Detail
-//type Tx struct {
-//	Nonce         uint64 `json:"nonce"`
-//	Senderpubkey  []byte `json:"senderpubkey"`
-//	Fee           []byte `json:"fee"`
-//	Assetcategory string `json:"assetcategory"`
-//	Assetname     string `json:"assetname"`
-//	Value         []byte `json:"value"`
-//	Signature     []byte `json:"sign"`
-//	Message       string `json:"message"`
-//}
 type Asset struct {
 	Category string `json:"category"`
 	Symbol   string `json:"symbol"`

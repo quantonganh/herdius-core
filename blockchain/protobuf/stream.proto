@@ -70,7 +70,7 @@ message TxsData{
 
 // Validator
 message Validator {
-    string Address                   = 1;
+    string address                   = 1;
     bytes pub_key                   = 2 [(gogoproto.nullable)=false];
     int64 stakingpower              = 3;
 }

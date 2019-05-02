@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
@@ -26,6 +27,7 @@ import (
 	"github.com/herdius/herdius-core/p2p/network"
 	"github.com/herdius/herdius-core/p2p/network/discovery"
 	"github.com/herdius/herdius-core/p2p/types/opcode"
+	"github.com/herdius/herdius-core/storage/state/statedb"
 	sup "github.com/herdius/herdius-core/supervisor/service"
 	validator "github.com/herdius/herdius-core/validator/service"
 	amino "github.com/tendermint/go-amino"
@@ -91,10 +93,9 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		mx.Unlock()
 
 		sender, _ := ctx.Network().Client(ctx.Client().Address)
-		var nonce = 1
+		nonce := 1
 		err = sender.Reply(network.WithSignMessage(context.Background(), true), uint64(nonce),
 			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
-		//nonce++
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
@@ -133,12 +134,17 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 				// TODO: It needs to be implemented in a proper way
 				// It should probably be a part of the consensus on child block
 				// How can we do that?
-				fmt.Println("votecount, len validators, ==?", voteCount, len(supsvc.Validator))
 				if voteCount == len(supsvc.Validator) {
 
 					lastBlock := blockchainSvc.GetLastBlock()
 
-					fmt.Println("about to create base block")
+					var stateRoot cmn.HexBytes
+					stateRoot = lastBlock.GetHeader().GetStateRoot()
+					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
+					if err != nil {
+						log.Error().Msgf("Failed to create new state trie: %v", err)
+					}
+					supsvc.StateRoot, err = stateTrie.Commit(nil)
 					supsvc.ChildBlock = append(supsvc.ChildBlock, mcb.GetChildBlock())
 					baseBlock, err := supsvc.CreateBaseBlock(lastBlock)
 
@@ -158,7 +164,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					ts := time.Unix(s, 0)
 					log.Info().Msgf("Timestamp : %v", ts)
 
-					var stateRoot cmn.HexBytes
 					stateRoot = baseBlock.GetHeader().GetStateRoot()
 					log.Info().Msgf("State root : %v", stateRoot)
 					// Once new base block is added to be block chain
@@ -185,10 +190,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 		} else {
 			isChildBlockReceivedByValidator = true
-			noOfTxs := mcb.GetChildBlock().GetHeader().GetNumTxs()
-			log.Info().Msgf("<%s> #Txs: %v", ctx.Client().ID.Address, noOfTxs)
 		}
-
 	}
 	return nil
 }
@@ -320,8 +322,7 @@ func main() {
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			// Blocks will be created every 3 seconds
-			// TODO put back at 3 seconds
-			time.Sleep(19 * time.Second)
+			time.Sleep(3 * time.Second)
 
 			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
 			if err != nil {
@@ -365,7 +366,6 @@ func main() {
 func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
-		fmt.Println("peers in validator", peers[0])
 		supervisorClient, err := net.Client(peers[0])
 		if err != nil {
 			log.Printf("unable to get supervisor client: %+v", err)
@@ -387,24 +387,19 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 
 		//Get all the transaction data included in the child block
 		txsData := mcb.GetChildBlock().GetTxsData()
-		fmt.Println("mcb:", mcb)
-		fmt.Printf("mcb.GetChildBlock: %+v\n", mcb.GetChildBlock())
-		fmt.Printf("mcb.GetChildBlock.GetTxsData: %+v\n", mcb.GetChildBlock().GetTxsData())
-
 		if txsData == nil {
 			fmt.Println("No txsData")
 			isChildBlockReceivedByValidator = false
 			return
 		}
-		fmt.Println("Found txsData contents")
 		txs := txsData.Tx
 
 		//Get Root hash of the transactions
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
 		err := vService.VerifyTxs(cbRootHash, txs)
 		if err != nil {
-			//net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
 			fmt.Println("Failed to verify transaction:", err)
+			return
 		}
 
 		// Sign and vote the child block

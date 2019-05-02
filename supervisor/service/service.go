@@ -166,24 +166,20 @@ func (s *Supervisor) GetNextValidatorGroupHash() ([]byte, error) {
 
 // CreateBaseBlock creates the base block with all the child blocks
 func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error) {
-	fmt.Println("stateroot:", s.StateRoot)
 	// Create the merkle hash of all the child blocks
 	cbMerkleHash, err := s.GetChildBlockMerkleHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the validators
 	vgHash, err := s.GetValidatorGroupHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the next validators
 	nvgHash, err := s.GetNextValidatorGroupHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Next Validators: %v", err)
 	}
@@ -191,9 +187,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	height := lastBlock.GetHeader().GetHeight()
 
 	// create array of vote commits
-
 	votecommits := make([]protobuf.VoteCommit, 0)
-
 	for _, v := range s.ChildBlock {
 		var cbh cmn.HexBytes
 		cbh = v.GetHeader().GetBlockID().GetBlockHash()
@@ -247,7 +241,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	// Validators marshaling
-
 	valsBz, err := cdc.MarshalJSON(s.Validator)
 	if err != nil {
 		plog.Error().Msgf("Validators marshaling failed.: %v", err)
@@ -351,14 +344,13 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
-	reqdTxs := 3
+	reqdTxs := 10
 	// Check if transactions to be added in Singular Block
-	// TODO set at 100 but maybe change?
 	if len(*txs) < reqdTxs {
 		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
 		return nil, nil
 
-		// TODO CHANGE THIS BACK TO 1 (1 because if there's just a single validator, we only want a base block w/out child blocks)
+		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
 	} else if len(s.Validator) <= 0 {
 		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 		if err != nil {
@@ -700,19 +692,12 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		numGrps = numValds / 3
 	}
 	numCbs = numGrps
+	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
 
-	log.Println("Number of validators:", len(s.Validator))
-	log.Println("Number of validator groups to be created:", numGrps)
-	log.Println("Number of child blocks to be created:", numCbs)
-	log.Println("Number of transactions:", numTxs)
-	log.Println("Supervisor struct, txbatches:", s.TxBatches)
-	numCbs = numGrps
-
-	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
-	if err != nil {
-		return fmt.Errorf("unable to retrieve state trie while attempting to shard: %v", err)
-	}
-	log.Printf("statetrie: %+v", stateTrie)
+	//stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
+	//if err != nil {
+	//return fmt.Errorf("unable to retrieve state trie while attempting to shard: %v", err)
+	//}
 
 	previousBlockHash := make([]byte, 0)
 	txStr := transaction.Tx{}
@@ -724,12 +709,8 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		}
 		txlist.Transactions = append(txlist.Transactions, &txStr)
 	}
-	log.Println("Last Nonce in txStr:", txStr.Asset.Nonce)
-	log.Println("txlist:", txlist)
 
-	// TODO what should this 33 be
 	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
-	log.Printf("childblock from super service: %+v", cb)
 	ctx := network.WithSignMessage(context.Background(), true)
 	cbmsg := &protobuf.ChildBlockMessage{
 		ChildBlock: cb,
@@ -738,8 +719,6 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	if len(s.Validator) > 0 {
 		log.Println("Validator address:", s.Validator[0].Address)
 	}
-	fmt.Printf("Connection state: %v\n", net.ConnectionStateExists("tcp://127.0.0.1:3002"))
 	net.BroadcastByAddresses(ctx, cbmsg, "tcp://127.0.0.1:3002")
-
 	return nil
 }

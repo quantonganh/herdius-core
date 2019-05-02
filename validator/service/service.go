@@ -45,9 +45,6 @@ var (
 // VerifyTxs verifies the merkel root hash of the Txs
 func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 	rootHash2, proofs := merkle.SimpleProofsFromByteSlices(txs)
-	// # of Txs in each batch
-	//total := 500
-	total := 3
 
 	if rootHash2 == nil || proofs == nil {
 		return fmt.Errorf(fmt.Sprintf("Unmatched root hashes: %X vs %X", rootHash, rootHash2))
@@ -58,12 +55,6 @@ func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 
 		if proof.Index != i {
 			return fmt.Errorf(fmt.Sprintf("Unmatched indicies: %d vs %d", proof.Index, i))
-		}
-
-		// TODO: pass total number of transactions in the batch
-		// Right now it is 500 txs
-		if proof.Total != total {
-			return fmt.Errorf(fmt.Sprintf("Unmatched totals: %d vs %d", proof.Total, total))
 		}
 
 		// Verify success
@@ -79,22 +70,25 @@ func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 			return fmt.Errorf(fmt.Sprintf("TX Unmarshaling failed: %v.", err))
 		}
 
-		fmt.Printf("txValue: %+v\n", txValue)
-		fmt.Printf("txValueSunderPubKey: %+v\n", txValue.SenderPubKey)
-		fmt.Printf("txValueSunderPubKey byte(): %+v\n", []byte(txValue.SenderPubKey))
-		//var pubkey crypto.PubKey
 		var pubKey secp256k1.PubKeySecp256k1
 		pubKeyS, err := base64.StdEncoding.DecodeString(txValue.SenderPubKey)
-		//err = cdc.UnmarshalBinaryBare([]byte(txValue.SenderPubKey), &pubkey)
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Pub Key Unmarshaling failed: %v.", err))
 		}
 
 		copy(pubKey[:], pubKeyS)
-		val, _ := strconv.ParseUint(txValue.Asset.Value, 10, 64)
-		fee, _ := strconv.ParseUint(txValue.Asset.Fee, 10, 64)
-		nonc, _ := strconv.ParseUint(txValue.Asset.Nonce, 10, 64)
-		//var tx pluginproto.Tx
+		val, err := strconv.ParseUint(txValue.Asset.Value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse transaction value: %v", err)
+		}
+		fee, err := strconv.ParseUint(txValue.Asset.Fee, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse transaction fee: %v", err)
+		}
+		nonc, err := strconv.ParseUint(txValue.Asset.Nonce, 10, 64)
+		if err != nil {
+			return fmt.Errorf("Failed to parse transaction nonce: %v", err)
+		}
 		asset := &pluginproto.Asset{
 			Category: txValue.Asset.Category,
 			Symbol:   txValue.Asset.Symbol,
@@ -126,14 +120,12 @@ func (v *Validator) VerifyTxs(rootHash []byte, txs [][]byte) error {
 		if !signVerificationRes {
 			return fmt.Errorf("tx signature verification failed: %v", signVerificationRes)
 		}
-		fmt.Println("Holy shit it worked")
 	}
 	return nil
 }
 
 // Vote adds validator details and it's sign
 func (v *Validator) Vote(net *network.Network, address string, cbm *protobuf.ChildBlockMessage) error {
-
 	keys := net.GetKeys()
 
 	// TODO: Staking power needs to be checked and updated from the state db and updated

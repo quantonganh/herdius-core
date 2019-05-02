@@ -7,7 +7,6 @@ package network
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -696,14 +695,12 @@ func (n *Network) BroadcastChildBlock(ctx context.Context, message proto.Message
 
 // BroadcastByAddresses broadcasts a message to a set of peer clients denoted by their addresses.
 func (n *Network) BroadcastByAddresses(ctx context.Context, message proto.Message, addresses ...string) {
-	fmt.Println("broadcasting by addresses")
 	signed, err := n.PrepareMessage(ctx, message)
 	if err != nil {
 		return
 	}
 
 	for _, address := range addresses {
-		fmt.Println("broadcasting to:", address)
 		n.Write(address, signed)
 	}
 }
