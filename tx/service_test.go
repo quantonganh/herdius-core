@@ -134,14 +134,20 @@ func getTx(nonce int) transaction.Tx {
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
+	asset := transaction.Asset{
+		Nonce:    string(nonce),
+		Fee:      "100",
+		Category: "Crypto",
+		Symbol:   "BTC",
+		Value:    "10",
+		Network:  "Herdius",
+	}
 	tx := transaction.Tx{
-		Nonce:         uint64(nonce),
-		Senderpubkey:  pubKey.Bytes(),
-		Fee:           []byte("100"),
-		Assetcategory: "Crypto",
-		Assetname:     "BTC",
-		Value:         []byte("10"),
-		Signature:     sign,
+		SenderPubKey:  string(pubKey.Bytes()),
+		SenderAddress: string(pubKey.Address()),
+		Asset:         asset,
+		Signature:     string(sign),
+		Type:          "update",
 	}
 
 	return tx
