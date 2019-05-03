@@ -149,18 +149,22 @@ func getTx(nonce int) transaction.Tx {
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
+	asset := transaction.Asset{
+		Nonce:    string(nonce),
+		Fee:      "100",
+		Category: "Crypto",
+		Symbol:   "BTC",
+		Value:    "10",
+		Network:  "Herdius",
+	}
 	tx := transaction.Tx{
-		Nonce:         uint64(nonce),
-		Senderpubkey:  pubKey.Bytes(),
-		Fee:           []byte("100"),
-		Assetcategory: "Crypto",
-		Assetname:     "BTC",
-		Value:         []byte("10"),
-		Signature:     sign,
+		SenderPubKey:  string(pubKey.Bytes()),
+		SenderAddress: string(pubKey.Address()),
+		Asset:         asset,
+		Signature:     string(sign),
+		Type:          "update",
 	}
 
-	// pp, _ := transaction.PrettyPrint(tx)
-	// fmt.Println(pp)
 	return tx
 }
 
@@ -187,16 +191,21 @@ func getTxSecp256k1Account(nonce int) transaction.Tx {
 	privKey := secp256k1.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
-	tx := transaction.Tx{
-		Nonce:         uint64(nonce),
-		Senderpubkey:  pubKey.Bytes(),
-		Fee:           []byte("100"),
-		Assetcategory: "Crypto",
-		Assetname:     "BTC",
-		Value:         []byte("10"),
-		Signature:     sign,
+	asset := transaction.Asset{
+		Nonce:    string(nonce),
+		Fee:      "100",
+		Category: "Crypto",
+		Symbol:   "BTC",
+		Value:    "10",
+		Network:  "Herdius",
 	}
-
+	tx := transaction.Tx{
+		SenderPubKey:  string(pubKey.Bytes()),
+		SenderAddress: string(pubKey.Address()),
+		Asset:         asset,
+		Signature:     string(sign),
+		Type:          "update",
+	}
 	// pp, _ := transaction.PrettyPrint(tx)
 	// fmt.Println(pp)
 	return tx
