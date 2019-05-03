@@ -15,6 +15,7 @@ require (
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.2.1-0.20181127190454-8d0c54c12466
 	github.com/julienschmidt/httprouter v1.2.0
+	github.com/magiconair/properties v1.8.0
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/mr-tron/base58 v1.1.0
 	github.com/perlin-network/noise v1.1.0

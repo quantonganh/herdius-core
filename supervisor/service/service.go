@@ -694,11 +694,6 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	numCbs = numGrps
 	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
 
-	//stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
-	//if err != nil {
-	//return fmt.Errorf("unable to retrieve state trie while attempting to shard: %v", err)
-	//}
-
 	previousBlockHash := make([]byte, 0)
 	txStr := transaction.Tx{}
 	txlist := &transaction.TxList{}
