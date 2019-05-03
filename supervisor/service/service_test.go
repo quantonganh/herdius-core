@@ -1,7 +1,6 @@
 package service
 
 import (
-	"log"
 	"testing"
 
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
