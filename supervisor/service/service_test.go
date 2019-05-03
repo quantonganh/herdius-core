@@ -122,5 +122,5 @@ func TestShardToValidators(t *testing.T) {
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	err := supsvc.ShardToValidators(txs, nil, nil)
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 }

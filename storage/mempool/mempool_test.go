@@ -7,6 +7,6 @@ import (
 )
 
 func TestGetMemPool(t *testing.T) {
-	//m := GetMemPool()
-	assert.Implements(t, (*Service)(nil), new(MemPool))
+	m := GetMemPool()
+	assert.Implements(t, (*Service)(nil), m)
 }

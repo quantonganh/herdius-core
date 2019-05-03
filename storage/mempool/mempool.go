@@ -10,7 +10,7 @@ import (
 // Service ...
 type Service interface {
 	AddTx(tx.Tx) int
-	GetTxs() (tx.Txs, error)
+	GetTxs() *tx.Txs
 	RemoveTxs(int)
 }
 
