@@ -119,6 +119,8 @@ func getTxSecp256k1Account(nonce int) transaction.Tx {
 
 func TestShardToValidators(t *testing.T) {
 	supsvc := &Supervisor{}
+	supsvc.AddValidator([]byte{1}, "add-01")
+	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	err := supsvc.ShardToValidators(txs, nil, nil)

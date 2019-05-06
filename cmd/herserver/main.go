@@ -186,7 +186,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					log.Info().Msgf("Total time : %v", diff)
 
 				} else {
-					log.Info().Msgf("Vote count mismatch, votes (%v) of validators %(v)", voteCount, len(supsvc.Validator))
+					log.Info().Msgf("Vote count mismatch, votes (%d) of validators (%d)", voteCount, len(supsvc.Validator))
 				}
 			} else {
 				log.Info().Msgf("<%s> Validator verification or signature verification failed: %v", ctx.Client().ID.Address, isVerified)
