@@ -92,7 +92,10 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		supsvc.ValidatorChildblock[address] = &blockProtobuf.BlockID{}
 		mx.Unlock()
 
-		sender, _ := ctx.Network().Client(ctx.Client().Address)
+		sender, err := ctx.Network().Client(ctx.Client().Address)
+		if err != nil {
+			return fmt.Errorf("failed to get client network: %v", err)
+		}
 		nonce := 1
 		err = sender.Reply(network.WithSignMessage(context.Background(), true), uint64(nonce),
 			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
@@ -182,8 +185,9 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 					log.Info().Msgf("Total time : %v", diff)
 
+				} else {
+					log.Info().Msgf("Vote count mismatch, votes (%v) of validators %(v)", voteCount, len(supsvc.Validator))
 				}
-
 			} else {
 				log.Info().Msgf("<%s> Validator verification or signature verification failed: %v", ctx.Client().ID.Address, isVerified)
 			}

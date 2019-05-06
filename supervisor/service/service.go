@@ -677,9 +677,12 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 
 // ShardToValidators distributes a series of childblocks to a series of validators
 func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
+	numValds := len(s.Validator)
+	if numValds <= 0 {
+		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
+	}
 	numTxs := len(*txs)
 	numCbs := len(s.ChildBlock)
-	numValds := len(s.Validator)
 	var numGrps int
 
 	if numValds <= 3 {
@@ -705,15 +708,13 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		txlist.Transactions = append(txlist.Transactions, &txStr)
 	}
 
-	cb := s.CreateChildBlock(net, txlist, 33, previousBlockHash)
+	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)
 	cbmsg := &protobuf.ChildBlockMessage{
 		ChildBlock: cb,
 	}
 
-	if len(s.Validator) > 0 {
-		log.Println("Validator address:", s.Validator[0].Address)
-	}
-	net.BroadcastByAddresses(ctx, cbmsg, "tcp://127.0.0.1:3002")
+	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
+	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
 	return nil
 }
