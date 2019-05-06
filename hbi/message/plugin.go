@@ -122,7 +122,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 	case *protoplugin.TxDetailRequest:
 
 		txID := msg.GetTxId()
-		log.Printf("Tx ID: %v", txID)
 		getTx(txID, ctx)
 
 	case *protoplugin.TxRequest:

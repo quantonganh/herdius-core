@@ -28,8 +28,6 @@ func LoadDB() {
 	} else {
 		dir = viper.GetString("dev.chaindbpath")
 		dbName = viper.GetString("dev.badgerDb")
-		fmt.Println("Dir Name :" + dir)
-		fmt.Println("dbName Name :" + dbName)
 	}
 
 	badgerDB = db.NewDB(dbName, db.GoBadgerBackend, dir)

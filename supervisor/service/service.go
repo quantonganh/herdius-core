@@ -1,10 +1,9 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"path/filepath"
 	"strconv"
@@ -18,9 +17,7 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/ethereum/go-ethereum/common"
-	ethtrie "github.com/ethereum/go-ethereum/trie"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
-	"github.com/herdius/herdius-core/crypto"
 	hehash "github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
 	"github.com/herdius/herdius-core/crypto/secp256k1"
@@ -41,7 +38,6 @@ type SupervisorI interface {
 	AddValidator(publicKey []byte, address string) error
 	RemoveValidator(address string)
 	CreateChildBlock(net *network.Network, txs *transaction.TxList, height int64, previousBlockHash []byte) *protobuf.ChildBlock
-	CreateTxBatchesFromFile(filename string, numOfBatches, txsNum int, stateRoot []byte) error
 	SetWriteMutex()
 	GetChildBlockMerkleHash() ([]byte, error)
 	GetValidatorGroupHash() ([]byte, error)
@@ -49,6 +45,7 @@ type SupervisorI interface {
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
 	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
+	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
 var (
@@ -126,7 +123,7 @@ func (s *Supervisor) GetChildBlockMerkleHash() ([]byte, error) {
 
 		return merkle.SimpleHashFromByteSlices(cbBzs), nil
 	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	return nil, fmt.Errorf("no Child block available: %v", s.ChildBlock)
 }
 
 // GetValidatorGroupHash creates merkle hash of all the validators
@@ -167,144 +164,22 @@ func (s *Supervisor) GetNextValidatorGroupHash() ([]byte, error) {
 	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
 }
 
-// CreateTxBatchesFromFile loads transactions from a local file.
-func (s *Supervisor) CreateTxBatchesFromFile(filename string, numOfBatches, txsNum int, stateRoot []byte) error {
-
-	fileReader, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer fileReader.Close()
-
-	// Get Trie Root of state db from last block
-	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
-
-	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
-	}
-
-	dec := json.NewDecoder(fileReader)
-	var txService transaction.Service
-	txService = transaction.TxService()
-
-	for {
-		var tx transaction.Tx
-		err := dec.Decode(&tx)
-		if err == io.EOF {
-			// all txs are done
-			break
-		}
-
-		if err != nil {
-			plog.Error().Msgf("Failed while reading the file: %v", err)
-		}
-
-		// Verify the account state from Tx and update it in state trie
-		var pubKey crypto.PubKey
-
-		err = cdc.UnmarshalBinaryBare(tx.Senderpubkey, &pubKey)
-		if err != nil {
-			plog.Error().Msgf("Failed to Unmarshal senderkey: %v", err)
-		}
-		pubKeyBytes := []byte(pubKey.GetAddress())
-		actbz, _ := stateTrie.TryGet(pubKeyBytes)
-
-		var account statedb.Account
-		err = cdc.UnmarshalJSON(actbz, &account)
-
-		if err != nil {
-			plog.Error().Msgf("Failed to Unmarshal the account from state trie: %v", err)
-		}
-
-		// Increment the Account nonce by 1
-		account.Nonce = account.Nonce + 1
-		txFee, _ := strconv.Atoi(string(tx.Fee))
-
-		bal, _ := strconv.Atoi(string(account.Balance))
-
-		//Check if tx fee is less than available balance otherwise proceed to next tx
-		if txFee > bal {
-			continue
-		}
-
-		//Deduct transaction fee from the available balance in the account
-		bal = bal - txFee
-		account.Balance = uint64(bal)
-
-		actbz, _ = cdc.MarshalJSON(account)
-
-		err = stateTrie.TryUpdate(pubKeyBytes, actbz)
-		if err != nil {
-			plog.Error().Msgf("Failed to update the account to state trie: %v", err)
-		}
-		txService.AddTx(tx)
-
-	}
-
-	newStateRoot, err := stateTrie.Commit(nil)
-
-	s.StateRoot = newStateRoot.Bytes()
-
-	txList := txService.GetTxList()
-	var txNum int
-	if txList == nil {
-		return nil
-	}
-
-	//Number of transactions loaded from the json file
-	txNum = len((*txList).Transactions)
-
-	if txNum == 0 {
-
-		return nil
-	}
-
-	allTxs := (*txList).Transactions
-	var txCounter int
-	txCounter = 0
-	txBatches := make([]txbyte.Txs, 0)
-
-	for b := 1; b <= numOfBatches; b++ {
-		txs := make([][]byte, txsNum)
-		for i := 0; i < txsNum; i++ {
-			tx := *allTxs[txCounter]
-
-			txbz, err := cdc.MarshalJSON(tx)
-
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal the Tx: %v", err)
-			}
-			txs[i] = txbz
-			txCounter++
-		}
-		txBatches = append(txBatches, txs)
-
-	}
-
-	s.TxBatches = &txBatches
-	return nil
-}
-
 // CreateBaseBlock creates the base block with all the child blocks
 func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error) {
-
 	// Create the merkle hash of all the child blocks
 	cbMerkleHash, err := s.GetChildBlockMerkleHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the validators
 	vgHash, err := s.GetValidatorGroupHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Validators: %v", err)
 	}
 
 	// Create the merkle hash of all the next validators
 	nvgHash, err := s.GetNextValidatorGroupHash()
-
 	if err != nil {
 		plog.Error().Msgf("Failed to create Merkle Hash of Next Validators: %v", err)
 	}
@@ -312,9 +187,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	height := lastBlock.GetHeader().GetHeight()
 
 	// create array of vote commits
-
 	votecommits := make([]protobuf.VoteCommit, 0)
-
 	for _, v := range s.ChildBlock {
 		var cbh cmn.HexBytes
 		cbh = v.GetHeader().GetBlockID().GetBlockHash()
@@ -328,7 +201,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	vcbz, err := cdc.MarshalJSON(votecommits)
-
 	if err != nil {
 		plog.Error().Msgf("Vote commits marshaling failed.: %v", err)
 	}
@@ -350,7 +222,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	blockHashBz, err := cdc.MarshalJSON(baseHeader)
-
 	if err != nil {
 		plog.Error().Msgf("Base Header marshaling failed.: %v", err)
 	}
@@ -359,7 +230,6 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	baseHeader.GetBlock_ID().BlockHash = blockHash
 
 	childBlocksBz, err := cdc.MarshalJSON(s.ChildBlock)
-
 	if err != nil {
 		plog.Error().Msgf("Child blocks marshaling failed.: %v", err)
 	}
@@ -371,9 +241,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	}
 
 	// Validators marshaling
-
 	valsBz, err := cdc.MarshalJSON(s.Validator)
-
 	if err != nil {
 		plog.Error().Msgf("Validators marshaling failed.: %v", err)
 	}
@@ -473,20 +341,29 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
-	// Get the Memory pool pointer Memory Pool
 	mp := mempool.GetMemPool()
-	// Check if transactions are available in Memory pool
 	txs := mp.GetTxs()
 
+	reqdTxs := 10
 	// Check if transactions to be added in Singular Block
-	if len(txs) > 0 && len(txs) < 500 {
-		baseBlock, err := s.createSingularBlock(lastBlock, net, txs, mp, stateRoot)
-		if err != nil {
-			return nil, errors.New("Failed to create base block: " + err.Error())
-		}
+	if len(*txs) < reqdTxs {
+		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
+		return nil, nil
 
+		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
+	} else if len(s.Validator) <= 0 {
+		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create base block: %v", err)
+		}
+		mp.RemoveTxs(len(*txs))
 		return baseBlock, nil
 	}
+	err := s.ShardToValidators(txs, net, stateRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
+	}
+	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
@@ -731,7 +608,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	s.writerMutex.Unlock()
 
 	// Remove processed transactions from Memory Pool
-	mp.RemoveTxs()
+	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
 
@@ -791,9 +668,53 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 	}
 
 	root, err := trie.Commit(nil)
-
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
 	}
+
 	return root, nil
+}
+
+// ShardToValidators distributes a series of childblocks to a series of validators
+func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
+	numValds := len(s.Validator)
+	if numValds <= 0 {
+		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
+	}
+	numTxs := len(*txs)
+	numCbs := len(s.ChildBlock)
+	var numGrps int
+
+	if numValds <= 3 {
+		numGrps = numValds
+	} else if numValds%3 == 0 {
+		numGrps = numValds % 3
+	} else if numValds%2 == 0 {
+		numGrps = numValds % 2
+	} else {
+		numGrps = numValds / 3
+	}
+	numCbs = numGrps
+	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
+
+	previousBlockHash := make([]byte, 0)
+	txStr := transaction.Tx{}
+	txlist := &transaction.TxList{}
+	for _, txb := range *txs {
+		err := cdc.UnmarshalJSON(txb, &txStr)
+		if err != nil {
+			return fmt.Errorf("unable to unmarshal tx: %v", err)
+		}
+		txlist.Transactions = append(txlist.Transactions, &txStr)
+	}
+
+	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
+	ctx := network.WithSignMessage(context.Background(), true)
+	cbmsg := &protobuf.ChildBlockMessage{
+		ChildBlock: cb,
+	}
+
+	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
+	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
+	return nil
 }

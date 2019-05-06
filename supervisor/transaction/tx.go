@@ -10,16 +10,24 @@ const (
 	tab   = "\t"
 )
 
-// Tx : Transaction Detail
+type Asset struct {
+	Category string `json:"category"`
+	Symbol   string `json:"symbol"`
+	Network  string `json:"network"`
+	Value    string `json:"value"`
+	Fee      string `json:"fee"`
+	Nonce    string `json:"nonce"`
+}
+
 type Tx struct {
-	Nonce         uint64 `json:"nonce"`
-	Senderpubkey  []byte `json:"senderpubkey"`
-	Fee           []byte `json:"fee"`
-	Assetcategory string `json:"assetcategory"`
-	Assetname     string `json:"assetname"`
-	Value         []byte `json:"value"`
-	Signature     []byte `json:"sign"`
-	Message       string `json:"message"`
+	SenderAddress   string `json:"sender_address"`
+	SenderPubKey    string `json:"sender_pubkey"`
+	ReceiverAddress string `json:"reciever_address"`
+	Asset           Asset  `json:"asset"`
+	Message         string `json:"message"`
+	Signature       string `json:"sign"`
+	Type            string `json:"type"`
+	Status          string `json:"status"`
 }
 
 // TxList : List of Transactions

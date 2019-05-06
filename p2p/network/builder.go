@@ -219,7 +219,6 @@ func (builder *Builder) Build() (*Network, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	id := peer.CreateID(unifiedAddress, builder.keys.PublicKey)
 
 	net := &Network{

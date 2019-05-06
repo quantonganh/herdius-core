@@ -89,6 +89,9 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 // This only has to be verified and called for HER crypto asset
 func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string) bool {
 	// Get the balance of required asset
+	if a.Balances == nil {
+		return false
+	}
 	balance := a.Balances[assetSymbol]
 
 	// Check asset has enough balance in account

@@ -20,8 +20,8 @@ func TestAddTx(t *testing.T) {
 	txList := txService.GetTxList()
 	assert.NotNil(t, txList)
 	assert.Equal(t, 1, len((*txList).Transactions))
-	assert.Equal(t, uint64(1), (*txList).Transactions[0].Nonce)
-	assert.Equal(t, tx.Senderpubkey, (*txList).Transactions[0].Senderpubkey)
+	assert.Equal(t, string(1), (*txList).Transactions[0].Asset.Nonce)
+	assert.Equal(t, tx.SenderPubKey, (*txList).Transactions[0].SenderPubKey)
 	assert.Equal(t, tx.Signature, (*txList).Transactions[0].Signature)
 }
 
@@ -36,8 +36,8 @@ func TestAddTxSecp256k1(t *testing.T) {
 	txList := txService.GetTxList()
 	assert.NotNil(t, txList)
 	assert.Equal(t, 1, len((*txList).Transactions))
-	assert.Equal(t, uint64(1), (*txList).Transactions[0].Nonce)
-	assert.Equal(t, tx.Senderpubkey, (*txList).Transactions[0].Senderpubkey)
+	assert.Equal(t, string(1), (*txList).Transactions[0].Asset.Nonce)
+	assert.Equal(t, tx.SenderPubKey, (*txList).Transactions[0].SenderPubKey)
 	assert.Equal(t, tx.Signature, (*txList).Transactions[0].Signature)
 }
 
@@ -70,14 +70,21 @@ func getTx(nonce int) transaction.Tx {
 	privKey := ed25519.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
+
+	asset := transaction.Asset{
+		Nonce:    string(nonce),
+		Fee:      "100",
+		Category: "Crypto",
+		Symbol:   "BTC",
+		Value:    "10",
+		Network:  "Herdius",
+	}
 	tx := transaction.Tx{
-		Nonce:         uint64(nonce),
-		Senderpubkey:  pubKey.Bytes(),
-		Fee:           []byte("100"),
-		Assetcategory: "Crypto",
-		Assetname:     "BTC",
-		Value:         []byte("10"),
-		Signature:     sign,
+		SenderPubKey:  string(pubKey.Bytes()),
+		SenderAddress: string(pubKey.Address()),
+		Asset:         asset,
+		Signature:     string(sign),
+		Type:          "update",
 	}
 
 	return tx
@@ -88,14 +95,20 @@ func getTxUsingSecp256k1Account(nonce int) transaction.Tx {
 	privKey := secp256k1.GenPrivKey()
 	pubKey := privKey.PubKey()
 	sign, _ := privKey.Sign(msg)
+	asset := transaction.Asset{
+		Nonce:    string(nonce),
+		Fee:      "100",
+		Category: "Crypto",
+		Symbol:   "BTC",
+		Value:    "10",
+		Network:  "Herdius",
+	}
 	tx := transaction.Tx{
-		Nonce:         uint64(nonce),
-		Senderpubkey:  pubKey.Bytes(),
-		Fee:           []byte("100"),
-		Assetcategory: "Crypto",
-		Assetname:     "BTC",
-		Value:         []byte("10"),
-		Signature:     sign,
+		SenderPubKey:  string(pubKey.Bytes()),
+		SenderAddress: string(pubKey.Address()),
+		Asset:         asset,
+		Signature:     string(sign),
+		Type:          "update",
 	}
 
 	return tx

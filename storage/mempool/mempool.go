@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"log"
 	"sync"
 	"sync/atomic"
 
@@ -10,10 +9,9 @@ import (
 
 // Service ...
 type Service interface {
-	//AddTxs(tx.Service) (int, error)
 	AddTx(tx.Tx) int
-	GetTxs() (tx.Txs, error)
-	RemoveTxs()
+	GetTxs() *tx.Txs
+	RemoveTxs(int)
 }
 
 // MemPool ...
@@ -58,22 +56,19 @@ func (m *MemPool) AddTx(tx tx.Tx) int {
 }
 
 // GetTxs gets all transactions from the MemPool
-func (m *MemPool) GetTxs() tx.Txs {
-	txs := make(tx.Txs, 0)
+func (m *MemPool) GetTxs() *tx.Txs {
+	txs := &tx.Txs{}
 	for _, mt := range m.txs {
-		txs = append(txs, mt.tx)
+		*txs = append(*txs, mt.tx)
 	}
 	return txs
 }
 
 // RemoveTxs transactions from the MemPool
-func (m *MemPool) RemoveTxs() {
-	// TODO: 500 needs to be configurable
-	if len(m.txs) < 500 {
+func (m *MemPool) RemoveTxs(i int) {
+	if len(m.txs) < i {
 		m.txs = m.txs[len(m.txs):]
-		log.Println("mempool txcount after remove:", len(m.txs))
 		return
 	}
-	log.Println("mempool txcount after remove:", len(m.txs))
-	m.txs = m.txs[500:]
+	m.txs = m.txs[i:]
 }

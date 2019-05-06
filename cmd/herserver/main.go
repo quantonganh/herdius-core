@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
+	"strconv"
 
 	nlog "log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
@@ -25,8 +27,8 @@ import (
 	"github.com/herdius/herdius-core/p2p/network"
 	"github.com/herdius/herdius-core/p2p/network/discovery"
 	"github.com/herdius/herdius-core/p2p/types/opcode"
+	"github.com/herdius/herdius-core/storage/state/statedb"
 	sup "github.com/herdius/herdius-core/supervisor/service"
-	"github.com/herdius/herdius-core/supervisor/transaction"
 	validator "github.com/herdius/herdius-core/validator/service"
 	amino "github.com/tendermint/go-amino"
 )
@@ -45,11 +47,13 @@ var mcb = &blockProtobuf.ChildBlockMessage{}
 // firstPingFromValidator checks whether a connection is established betweer supervisor and validator.
 // And it is used to send a message on established connection.
 var firstPingFromValidator = 0
-
 var nodeKeydir = "./cmd/testdata/secp205k1Accts/"
-
 var t1 time.Time
 var t2 time.Time
+var addresses = make([]string, 0)
+
+// HerdiusMessagePlugin will receive all trasnmitted messages.
+type HerdiusMessagePlugin struct{ *network.Plugin }
 
 func init() {
 	nlog.SetFlags(nlog.LstdFlags | nlog.Lshortfile)
@@ -68,14 +72,8 @@ func RegisterAminoService(cdc *amino.Codec) {
 
 }
 
-// HerdiusMessagePlugin will receive all trasnmitted messages.
-type HerdiusMessagePlugin struct{ *network.Plugin }
-
-var addresses = make([]string, 0)
-
 // Receive handles each received message for both Supervisor and Validator
 func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
-
 	switch msg := ctx.Message().(type) {
 	case *blockProtobuf.ConnectionMessage:
 		address := ctx.Client().ID.Address
@@ -93,11 +91,20 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 		mx.Lock()
 		supsvc.ValidatorChildblock[address] = &blockProtobuf.BlockID{}
 		mx.Unlock()
-	case *blockProtobuf.ChildBlockMessage:
 
+		sender, err := ctx.Network().Client(ctx.Client().Address)
+		if err != nil {
+			return fmt.Errorf("failed to get client network: %v", err)
+		}
+		nonce := 1
+		err = sender.Reply(network.WithSignMessage(context.Background(), true), uint64(nonce),
+			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
+	case *blockProtobuf.ChildBlockMessage:
 		mcb = msg
 		vote := mcb.GetVote()
-
 		if vote != nil {
 			// Increment the vote count of validator group
 			voteCount++
@@ -134,6 +141,14 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 					lastBlock := blockchainSvc.GetLastBlock()
 
+					var stateRoot cmn.HexBytes
+					stateRoot = lastBlock.GetHeader().GetStateRoot()
+					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
+					if err != nil {
+						log.Error().Msgf("Failed to create new state trie: %v", err)
+					}
+					supsvc.StateRoot, err = stateTrie.Commit(nil)
+					supsvc.ChildBlock = append(supsvc.ChildBlock, mcb.GetChildBlock())
 					baseBlock, err := supsvc.CreateBaseBlock(lastBlock)
 
 					err = blockchainSvc.AddBaseBlock(baseBlock)
@@ -152,7 +167,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					ts := time.Unix(s, 0)
 					log.Info().Msgf("Timestamp : %v", ts)
 
-					var stateRoot cmn.HexBytes
 					stateRoot = baseBlock.GetHeader().GetStateRoot()
 					log.Info().Msgf("State root : %v", stateRoot)
 					// Once new base block is added to be block chain
@@ -171,18 +185,16 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 					log.Info().Msgf("Total time : %v", diff)
 
+				} else {
+					log.Info().Msgf("Vote count mismatch, votes (%d) of validators (%d)", voteCount, len(supsvc.Validator))
 				}
-
 			} else {
 				log.Info().Msgf("<%s> Validator verification or signature verification failed: %v", ctx.Client().ID.Address, isVerified)
 			}
 
 		} else {
 			isChildBlockReceivedByValidator = true
-			noOfTxs := mcb.GetChildBlock().GetHeader().GetNumTxs()
-			log.Info().Msgf("<%s> #Txs: %v", ctx.Client().ID.Address, noOfTxs)
 		}
-
 	}
 	return nil
 }
@@ -192,26 +204,28 @@ func main() {
 	peersFlag := flag.String("peers", "", "peers to connect to")
 	supervisorFlag := flag.Bool("supervisor", false, "run as supervisor")
 	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
+	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	flag.Parse()
 
 	env := *envFlag
+	port := *portFlag
 	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
 
+	if port == 0 {
+		port = confg.SelfBroadcastPort
+	}
+
 	// Generate or Load Keys
-
-	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(confg.SelfBroadcastPort)
-
+	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(port)
 	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
 		log.Error().Msgf("Failed to create or load node key: %v", err)
 	}
 	privKey := nodekey.PrivKey
-
 	pubKey := privKey.PubKey()
-
 	keys := &crypto.KeyPair{
 		PublicKey:  pubKey.Bytes(),
 		PrivateKey: privKey.Bytes(),
@@ -236,7 +250,7 @@ func main() {
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
 
-	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(confg.SelfBroadcastPort)))
+	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(port)))
 
 	// Register peer discovery plugin.
 	builder.AddPlugin(new(discovery.Plugin))
@@ -254,10 +268,12 @@ func main() {
 	}
 
 	go net.Listen()
+	defer net.Close()
 
-	if len(peers) > 0 {
-		net.Bootstrap(peers...)
-	}
+	c := new(network.ConnTester)
+	go func() {
+		c.IsConnected(net, peers)
+	}()
 
 	// As of now Databases will only be loaded for Supervisor.
 	// Chain data and state information will be stored at supervisor's node.
@@ -306,13 +322,13 @@ func main() {
 					}
 				}
 			}
-			//go func() {
+
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			// Blocks will be created every 3 seconds
 			time.Sleep(3 * time.Second)
-			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
 
+			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
@@ -341,10 +357,6 @@ func main() {
 				stateRoot = baseBlock.GetHeader().GetStateRoot()
 				log.Info().Msgf("State root : %v", stateRoot)
 			}
-			//	}()
-			//TODO: It needs to be implemented for Child blocks. Currently it
-			// Loads transactions from a File.
-			//supervisorProcessor(net, reader, stateRoot, noOfPeersInGroup)
 		} else {
 
 			validatorProcessor(net, reader, peers)
@@ -354,122 +366,23 @@ func main() {
 	}
 }
 
-//supervisorProcessor processes all the incoming transactions
-func supervisorProcessor(net *network.Network, reader *bufio.Reader, stateRoot []byte, noOfPeersInGroup int) {
-	log.Info().Msg("Please press 'y' to load transactions from file. ")
-	input, _ := reader.ReadString('\n')
-
-	// skip blank lines
-	// Right now this process only handles the txs loaded from a file
-	// TODO: It has to be implemented in a more generic way so that it can handle txs arriving in various ways
-	if len(strings.TrimSpace(input)) == 0 || strings.TrimRight(input, "\n") != "y" {
-		return
-	}
-	totalNoOfPeers := len(addresses)
-
-	totalTXsToBeValidated := 3000
-	numberOfTXsInEachBatch := 500
-	numberOfBatches := totalTXsToBeValidated / numberOfTXsInEachBatch
-
-	txFilePath := "./cmd/testdata/txs-sec.json"
-	err := supsvc.CreateTxBatchesFromFile(txFilePath, numberOfBatches, numberOfTXsInEachBatch, stateRoot)
-	if err != nil {
-		log.Error().Msgf("Failed while batching the transactions: %v", err)
-		return
-	}
-	batches := *supsvc.TxBatches
-
-	counter := 0
-	var txService transaction.Service
-
-	numOfValidatorGroups := calcNoOfGroups(totalNoOfPeers, noOfPeersInGroup)
-
-	batchCount := 0
-	previousBlockHash := make([]byte, 0)
-
-	var broadcastCount int
-	broadcastCount = 0
-	t1 = time.Now()
-	for _, batch := range batches {
-
-		txService = transaction.TxService()
-		for i := 0; i < numberOfTXsInEachBatch; i++ {
-			txbz := batch[i]
-
-			tx := transaction.Tx{}
-			cdc.UnmarshalJSON(txbz, &tx)
-
-			txService.AddTx(tx)
-			counter++
-		}
-
-		txList := *(txService.GetTxList())
-
-		cb := supsvc.CreateChildBlock(net, &txList, int64(batchCount), previousBlockHash)
-
-		previousBlockHash = cb.GetHeader().GetBlockID().BlockHash
-
-		supsvc.ChildBlock = append(supsvc.ChildBlock, cb)
-		cbmsg := &blockProtobuf.ChildBlockMessage{
-			ChildBlock: cb,
-		}
-
-		if batchCount > 0 {
-			cb.GetHeader().GetLastBlockID().BlockHash = previousBlockHash
-		}
-
-		ctx := network.WithSignMessage(context.Background(), true)
-
-		if totalNoOfPeers <= noOfPeersInGroup {
-
-			net.BroadcastByAddresses(ctx, cbmsg, addresses...)
-			batchCount++
-		} else {
-			for i := broadcastCount; i < totalNoOfPeers; i++ {
-				if i+noOfPeersInGroup <= totalNoOfPeers {
-
-					net.BroadcastByAddresses(ctx, cbmsg, addresses[i:i+noOfPeersInGroup]...)
-					i = (i + noOfPeersInGroup) - 1
-
-				} else {
-					net.BroadcastByAddresses(ctx, cbmsg, addresses[i:totalNoOfPeers]...)
-					i = (i + noOfPeersInGroup) - 1
-				}
-				broadcastCount = i + 1
-				break
-			}
-			batchCount++
-		}
-
-		//break for batch loop in case it equals number of validator groups
-
-		if numOfValidatorGroups == batchCount {
-			break
-		}
-	}
-
-}
-
 // validatorProcessor checks and validates all the new child blocks
 func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
-		net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established"})
-		firstPingFromValidator++
-		return
-	}
-
-	// Check if connection state of supervisor node is down
-	// Send a bootstrap request and wait until bootstrap is completed.
-	// Finally broadcast a message to supervisor on re-connection state
-	// TODO: Can we make it something better and maintainable?
-	if firstPingFromValidator == 1 {
-		_, ok := net.ConnectionState(peers[0])
-		if !ok {
-			net.Bootstrap(peers...)
-			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection re-established"})
+		supervisorClient, err := net.Client(peers[0])
+		if err != nil {
+			log.Printf("unable to get supervisor client: %+v", err)
 			return
 		}
+		reply, err := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
+		if err != nil {
+			log.Printf("unable to request from client: %+v", err)
+			return
+		}
+		fmt.Println("Supervsior reply: " + reply.String())
+		firstPingFromValidator++
+		return
 	}
 
 	// Check if a new child block has arrived
@@ -477,13 +390,20 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		vService := validator.Validator{}
 
 		//Get all the transaction data included in the child block
-		txs := mcb.GetChildBlock().GetTxsData().Tx
+		txsData := mcb.GetChildBlock().GetTxsData()
+		if txsData == nil {
+			fmt.Println("No txsData")
+			isChildBlockReceivedByValidator = false
+			return
+		}
+		txs := txsData.Tx
 
 		//Get Root hash of the transactions
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
 		err := vService.VerifyTxs(cbRootHash, txs)
 		if err != nil {
-			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to verify the transactions"})
+			fmt.Println("Failed to verify transaction:", err)
+			return
 		}
 
 		// Sign and vote the child block
@@ -495,17 +415,4 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		net.Broadcast(ctx, mcb)
 		isChildBlockReceivedByValidator = false
 	}
-
-}
-func calcNoOfGroups(totalPeers, gpc int) int {
-	// gpc : Group peer count
-	if (totalPeers % gpc) != 0 {
-		noOfGrps := totalPeers % gpc
-		if noOfGrps < gpc {
-			return (totalPeers / gpc) + 1
-		}
-		return noOfGrps + (totalPeers / gpc)
-
-	}
-	return (totalPeers / gpc)
 }
