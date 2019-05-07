@@ -246,6 +246,8 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1121), &protoplugin.TxsByAddressRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1122), &protoplugin.TxsResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1123), &protoplugin.TxsByAssetAndAddressRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1124), &protoplugin.TxCancelRequest{})
+	//opcode.RegisterMessageType(opcode.Opcode(1125), &protoplugin.TxCancelResponse{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)

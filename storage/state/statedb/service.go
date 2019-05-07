@@ -46,7 +46,6 @@ type state struct {
 // GetState :
 // once.Do function ensures that the singleton is only instantiated once
 func GetState(dir string) Trie {
-	log.Println("dir:", dir)
 	once.Do(func() {
 		var (
 			err error

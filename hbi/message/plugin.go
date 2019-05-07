@@ -221,8 +221,11 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			})
 		nonce++
 		if err != nil {
-			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
+	case *protoplugin.TxCancelRequest:
+		fmt.Println("cancellation request received")
+		return nil
 	}
 	return nil
 }
