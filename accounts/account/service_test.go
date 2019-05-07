@@ -29,6 +29,30 @@ func TestVerifyAccountBalanceFalse(t *testing.T) {
 	assert.False(t, accService.VerifyAccountBalance(account, 5, "HER"))
 }
 
+func TestVerifyAccountNonceHighFalse(t *testing.T) {
+	acc := &protobuf.Account{Nonce: 1}
+	txNonce := uint64(3)
+	s := NewAccountService()
+	res := s.VerifyAccountNonce(acc, txNonce)
+	assert.False(t, res)
+}
+
+func TestVerifyAccountNonceLowFalse(t *testing.T) {
+	acc := &protobuf.Account{Nonce: 1}
+	txNonce := uint64(0)
+	s := NewAccountService()
+	res := s.VerifyAccountNonce(acc, txNonce)
+	assert.False(t, res)
+}
+
+func TestVerifyAccountNonceTrue(t *testing.T) {
+	acc := &protobuf.Account{Nonce: 1}
+	txNonce := uint64(2)
+	s := NewAccountService()
+	res := s.VerifyAccountNonce(acc, txNonce)
+	assert.True(t, res)
+}
+
 func TestPublicAddressCreation(t *testing.T) {
 	privKey := secp256k1.GenPrivKey()
 

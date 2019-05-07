@@ -104,7 +104,7 @@ func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, asse
 // VerifyAccountNonce verifies initiated transaction has Nonce value greater than
 // Nonce value in account
 func (s *Service) VerifyAccountNonce(a *protobuf.Account, txNonce uint64) bool {
-	if txNonce > a.Nonce {
+	if txNonce == a.Nonce+1 {
 		return true
 	}
 	return false
