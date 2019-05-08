@@ -1,10 +1,15 @@
 package mempool
 
 import (
+	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 
+	"github.com/herdius/herdius-core/hbi/protobuf"
+	"github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/tx"
+	"github.com/tendermint/go-amino"
 )
 
 // Service ...
@@ -65,15 +70,22 @@ func (m *MemPool) GetTxs() *tx.Txs {
 }
 
 // GetTx returns a Tx for the given ID
-func (m *MemPool) GetTx(id string) (*tx.Tx, error) {
+func (m *MemPool) GetTx(id string) (*protobuf.Tx, error) {
+	log.Println("Retrieving MemPool Tx's")
 	for _, txbz := range m.txs {
-		// unmarshal tx-bytes into txstr
-		txStr := cdc.Unmars(txs)
+		var cdc = amino.NewCodec()
+		txStr := &protobuf.Tx{}
+		err := cdc.UnmarshalJSON(txbz.tx, txStr)
+		if err != nil {
+			return nil, fmt.Errorf("unable to unmarshal tx bytes to txStr: %v", err)
+		}
 
-		// check txstr.id against id
-
+		txbzID := common.CreateTxID(txbz.tx)
+		if txbzID == id {
+			log.Println("Matching transaction found for Tx ID:", id)
+			return txStr, nil
+		}
 	}
-
 	return nil, nil
 }
 
