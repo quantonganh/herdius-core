@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
@@ -130,7 +131,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
-
 		if err != nil {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
@@ -223,8 +223,29 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		if err != nil {
 			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
-	case *protoplugin.TxCancelRequest:
-		fmt.Println("cancellation request received")
+	case *protoplugin.TxUpdateRequest:
+		fmt.Println("Update request received")
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
+		if err != nil {
+			return fmt.Errorf("can't find requesting API client: %v", apiClient)
+		}
+		fmt.Println("Request ingress from API node IP:", apiClient.Address)
+		id := msg.GetTxId()
+		newTx := msg.GetTx()
+		fmt.Println("Processing request to update Tx, ID:", id)
+		err = putTxUpdateRequest(id, newTx)
+		if err != nil {
+			errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxUpdateResponse{
+					Error:  err.Error(),
+					Status: false,
+				})
+			if errRep != nil {
+				return fmt.Errorf("could not reply to API client: %v", errRep)
+			}
+			nonce++
+			return fmt.Errorf("could not update request: %v", err)
+		}
 		return nil
 	}
 	return nil
@@ -317,6 +338,7 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 	}
 	return nil
 }
+
 func getAccount(address string, ctx *network.PluginContext) error {
 	accountSvc := &account.Service{}
 	account, err := accountSvc.GetAccountByAddress(address)
@@ -425,5 +447,22 @@ func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) 
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
+	return nil
+}
+
+func putTxUpdateRequest(id string, newTx *protoplugin.Tx) error {
+	mp := mempool.GetMemPool()
+	origTx, err := mp.GetTx(id)
+	if err != nil {
+		return fmt.Errorf("failed to get original transaction details (id: %v), err: %v", id, err)
+	}
+	if origTx == nil {
+		return fmt.Errorf("requested Tx (id: %v) does not exist in memory pool; it may have been flushed from the memory pool into a block", id)
+	}
+	spew.Dump(origTx)
+	spew.Dump(newTx)
+	// newTxBz := convertToBz(newTx)
+	//updatedTx := mp.UpdateTx(origTx, newTx)
+	//newTx =
 	return nil
 }

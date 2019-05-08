@@ -124,13 +124,15 @@ message TxsByAssetAndAddressRequest {
 }
 
 // TxCancelRequest contains the TX ID of the transaction in the MemPool to cancel
-message TxCancelRequest {
+message TxUpdateRequest {
     string tx_id = 1;
+    Tx tx = 2;
 }
 
 
 // TxCancelResponse details status of cancellation request
-message TxCancelResponse {
+message TxUpdateResponse {
     bool status = 1;
-    string error = 2;
+    Tx tx = 2;
+    string error = 3;
 }

@@ -64,6 +64,17 @@ func (m *MemPool) GetTxs() *tx.Txs {
 	return txs
 }
 
+// GetTx returns a Tx for the given ID
+func (m *MemPool) GetTx(id string) (*tx.Tx, error) {
+	return nil, nil
+}
+
+// UpdateTx receives a Tx (newTx) and updates the corresponding Tx (origTx)
+// with all non-empty fields in newTx
+func (m *MemPool) UpdateTx(tx *tx.Tx) *tx.Tx {
+	return nil
+}
+
 // RemoveTxs transactions from the MemPool
 func (m *MemPool) RemoveTxs(i int) {
 	if len(m.txs) < i {
