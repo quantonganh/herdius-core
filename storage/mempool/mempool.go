@@ -66,6 +66,14 @@ func (m *MemPool) GetTxs() *tx.Txs {
 
 // GetTx returns a Tx for the given ID
 func (m *MemPool) GetTx(id string) (*tx.Tx, error) {
+	for _, txbz := range m.txs {
+		// unmarshal tx-bytes into txstr
+		txStr := cdc.Unmars(txs)
+
+		// check txstr.id against id
+
+	}
+
 	return nil, nil
 }
 
