@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
 
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
+	"github.com/herdius/herdius-core/libs/common"
 	cmn "github.com/herdius/herdius-core/libs/common"
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
@@ -233,7 +233,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		id := msg.GetTxId()
 		newTx := msg.GetTx()
 		fmt.Println("Processing request to update Tx, ID:", id)
-		err = putTxUpdateRequest(id, newTx)
+		updatedID, updatedTx, err := putTxUpdateRequest(id, newTx)
 		if err != nil {
 			errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxUpdateResponse{
@@ -241,11 +241,21 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 					Status: false,
 				})
 			if errRep != nil {
-				return fmt.Errorf("could not reply to API client: %v", errRep)
+				return fmt.Errorf("could not reply to API client, transaction not updated: %v", errRep)
 			}
 			nonce++
 			return fmt.Errorf("could not update request: %v", err)
 		}
+		errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+			&protoplugin.TxUpdateResponse{
+				Status: true,
+				TxId:   updatedID,
+				Tx:     updatedTx,
+			})
+		if errRep != nil {
+			return fmt.Errorf("could not reply to API client, but transaction was updated: %v", errRep)
+		}
+		nonce++
 		return nil
 	}
 	return nil
@@ -450,21 +460,24 @@ func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) 
 	return nil
 }
 
-func putTxUpdateRequest(id string, newTx *protoplugin.Tx) error {
+// putTxUpdateRequest upates the Tx with the input string. After updating, calculates new Tx ID
+func putTxUpdateRequest(id string, newTx *protoplugin.Tx) (string, *protoplugin.Tx, error) {
 	mp := mempool.GetMemPool()
-	origTx, err := mp.GetTx(id)
+	i, origTx, err := mp.GetTx(id)
 	if err != nil {
-		return fmt.Errorf("failed to get original transaction details (id: %v), err: %v", id, err)
+		return "", nil, fmt.Errorf("failed to get original transaction details (id: %v), err: %v", id, err)
 	}
 	if origTx == nil {
-		return fmt.Errorf("requested Tx (id: %v) does not exist in memory pool; it may have been flushed from the memory pool into a block", id)
+		return "", nil, fmt.Errorf("requested Tx (id: %v) does not exist in memory pool; it may have been flushed from the memory pool into a block", id)
 	}
-	spew.Dump(origTx)
-	spew.Dump(newTx)
-	updatedTx, err := mp.UpdateTx(origTx, newTx)
+	updatedTx, err := mp.UpdateTx(i, newTx)
 	if err != nil {
-		return fmt.Errorf("failed to update Tx in MemPool with new values: %v", err)
+		return "", nil, fmt.Errorf("failed to update Tx in MemPool with new values: %v", err)
 	}
-	spew.Dump(updatedTx)
-	return nil
+	updatedBz, err := cdc.MarshalJSON(updatedTx)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not marshal updated transaction back into memory pool: %v", err)
+	}
+	newID := common.CreateTxID(updatedBz)
+	return newID, updatedTx, nil
 }

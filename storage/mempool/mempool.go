@@ -3,8 +3,6 @@ package mempool
 import (
 	"fmt"
 	"log"
-	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -72,55 +70,75 @@ func (m *MemPool) GetTxs() *tx.Txs {
 }
 
 // GetTx returns a Tx for the given ID
-func (m *MemPool) GetTx(id string) (*protobuf.Tx, error) {
+func (m *MemPool) GetTx(id string) (int, *protobuf.Tx, error) {
 	log.Println("Retrieving MemPool Tx's")
-	for _, txbz := range m.txs {
+	for i, txbz := range m.txs {
 		var cdc = amino.NewCodec()
 		txStr := &protobuf.Tx{}
 		err := cdc.UnmarshalJSON(txbz.tx, txStr)
 		if err != nil {
-			return nil, fmt.Errorf("unable to unmarshal tx bytes to txStr: %v", err)
+			return 0, nil, fmt.Errorf("unable to unmarshal tx bytes to txStr: %v", err)
 		}
 
 		txbzID := common.CreateTxID(txbz.tx)
 		if txbzID == id {
 			log.Println("Matching transaction found for Tx ID:", id)
-			return txStr, nil
+			return i, txStr, nil
 		}
 	}
-	return nil, nil
+	return 0, nil, nil
 }
 
 // UpdateTx receives a Tx (newTx) and updates the corresponding Tx (origTx)
 // with all non-empty fields in newTx
-func (m *MemPool) UpdateTx(orig, updated *protobuf.Tx) (*protobuf.Tx, error) {
+func (m *MemPool) UpdateTx(origI int, updated *protobuf.Tx) (*protobuf.Tx, error) {
 	log.Println("Beginning update of transaction")
-	ref := reflect.TypeOf(*updated)
-	values := make([]interface{}, v.NumField())
+	origBz := m.txs[origI].tx
+	var cdc = amino.NewCodec()
+	orig := &protobuf.Tx{}
+	err := cdc.UnmarshalJSON(origBz, orig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal orig tx bytes to structured: %v", err)
+	}
+	if updated.RecieverAddress != "" && updated.RecieverAddress != orig.RecieverAddress {
+		orig.RecieverAddress = updated.RecieverAddress
+		log.Println("updated receiver address")
+	}
+	if updated.Message != "" && updated.Message != orig.Message {
+		orig.Message = updated.Message
+		log.Println("updated message")
+	}
+	if updated.Asset != nil && updated.Asset.Fee != 0 && updated.Asset.Fee != orig.Asset.Fee {
+		orig.Asset.Fee = updated.Asset.Fee
+		log.Println("updated tx fee")
+	}
+	if updated.Asset != nil && updated.Asset.Value != 0 && updated.Asset.Value != orig.Asset.Value {
+		log.Println("updated tx value")
+		orig.Asset.Value = updated.Asset.Value
+	}
+	if updated.Asset != nil && updated.Asset.Category != "" && updated.Asset.Category != orig.Asset.Category {
+		log.Println("updated tx category")
+		orig.Asset.Category = updated.Asset.Category
+	}
+	if updated.Asset != nil && updated.Asset.Symbol != "" && updated.Asset.Symbol != orig.Asset.Symbol {
+		log.Println("updated tx symbol")
+		orig.Asset.Symbol = updated.Asset.Symbol
+	}
+	if updated.Asset != nil && updated.Asset.Network != "" && updated.Asset.Network != orig.Asset.Network {
+		log.Println("updated tx network")
+		orig.Asset.Network = updated.Asset.Network
+	}
+	if updated.Type != "" && updated.Type != orig.Type {
+		log.Println("updated type")
+		orig.Type = updated.Type
+	}
+	updatedBz, err := cdc.MarshalJSON(orig)
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal updated transaction back into memory pool: %v", err)
+	}
 
-	examiner(ref, 0)
-	//values := make([]interface{}, ref.NumField())
-	//for i := 0; i < ref.NumField(); i++ {
-	//	val := ref.Field(i).Interface()
-	//	log.Println("attempting reflect. field value:", val)
-	//	log.Println("val type:", reflect.TypeOf(val))
-	//	log.Println("val kind:", reflect.TypeOf(val).Kind())
-	//	switch reflect.TypeOf(val).Kind() {
-	//	case reflect.String:
-	//		if val != "" {
-	//			log.Println("non-empty val:", val)
-	//		}
-	//	case reflect.Struct:
-	//		if val != nil {
-	//			log.Println("non-empty nil:", val)
-	//		}
-	//	case reflect.Slice:
-	//		if len(val) >= 0 {
-	//			log.Println("non-empty val:", val)
-	//		}
-	//	}
-	//}
-	return nil, nil
+	m.txs[origI].tx = updatedBz
+	return orig, nil
 }
 
 // RemoveTxs transactions from the MemPool
@@ -130,19 +148,4 @@ func (m *MemPool) RemoveTxs(i int) {
 		return
 	}
 	m.txs = m.txs[i:]
-}
-
-func examiner(t reflect.Type, depth int) {
-	for i := 0; i < t.NumField(); i++ {
-		switch t.Kind() {
-		case reflect.Array, reflect.Chan, reflect.Map, reflect.Ptr, reflect.Slice:
-			fmt.Println(strings.Repeat("\t", depth+1), "Contained type:")
-			examiner(t, depth+1)
-		case reflect.Struct:
-			for i := 0; i < t.NumField(); i++ {
-				f := t.Field(i)
-				fmt.Println(strings.Repeat("\t", depth+1), "Field", i+1, "name is", f.Name, "type is", f.Type.Name(), "and kind is", f.Type.Kind())
-			}
-		}
-	}
 }
