@@ -461,8 +461,10 @@ func putTxUpdateRequest(id string, newTx *protoplugin.Tx) error {
 	}
 	spew.Dump(origTx)
 	spew.Dump(newTx)
-	// newTxBz := convertToBz(newTx)
-	//updatedTx := mp.UpdateTx(origTx, newTx)
-	//newTx =
+	updatedTx, err := mp.UpdateTx(origTx, newTx)
+	if err != nil {
+		return fmt.Errorf("failed to update Tx in MemPool with new values: %v", err)
+	}
+	spew.Dump(updatedTx)
 	return nil
 }

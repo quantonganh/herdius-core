@@ -3,6 +3,8 @@ package mempool
 import (
 	"fmt"
 	"log"
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -91,8 +93,34 @@ func (m *MemPool) GetTx(id string) (*protobuf.Tx, error) {
 
 // UpdateTx receives a Tx (newTx) and updates the corresponding Tx (origTx)
 // with all non-empty fields in newTx
-func (m *MemPool) UpdateTx(tx *tx.Tx) *tx.Tx {
-	return nil
+func (m *MemPool) UpdateTx(orig, updated *protobuf.Tx) (*protobuf.Tx, error) {
+	log.Println("Beginning update of transaction")
+	ref := reflect.TypeOf(*updated)
+	values := make([]interface{}, v.NumField())
+
+	examiner(ref, 0)
+	//values := make([]interface{}, ref.NumField())
+	//for i := 0; i < ref.NumField(); i++ {
+	//	val := ref.Field(i).Interface()
+	//	log.Println("attempting reflect. field value:", val)
+	//	log.Println("val type:", reflect.TypeOf(val))
+	//	log.Println("val kind:", reflect.TypeOf(val).Kind())
+	//	switch reflect.TypeOf(val).Kind() {
+	//	case reflect.String:
+	//		if val != "" {
+	//			log.Println("non-empty val:", val)
+	//		}
+	//	case reflect.Struct:
+	//		if val != nil {
+	//			log.Println("non-empty nil:", val)
+	//		}
+	//	case reflect.Slice:
+	//		if len(val) >= 0 {
+	//			log.Println("non-empty val:", val)
+	//		}
+	//	}
+	//}
+	return nil, nil
 }
 
 // RemoveTxs transactions from the MemPool
@@ -102,4 +130,19 @@ func (m *MemPool) RemoveTxs(i int) {
 		return
 	}
 	m.txs = m.txs[i:]
+}
+
+func examiner(t reflect.Type, depth int) {
+	for i := 0; i < t.NumField(); i++ {
+		switch t.Kind() {
+		case reflect.Array, reflect.Chan, reflect.Map, reflect.Ptr, reflect.Slice:
+			fmt.Println(strings.Repeat("\t", depth+1), "Contained type:")
+			examiner(t, depth+1)
+		case reflect.Struct:
+			for i := 0; i < t.NumField(); i++ {
+				f := t.Field(i)
+				fmt.Println(strings.Repeat("\t", depth+1), "Field", i+1, "name is", f.Name, "type is", f.Type.Name(), "and kind is", f.Type.Kind())
+			}
+		}
+	}
 }
