@@ -50,10 +50,11 @@ func TestGetTxsByAddressAndAsset(t *testing.T) {
 	txs, err := txSrv.GetTxsByAssetAndAddress("HER", privKey.PubKey().GetAddress())
 	require.Nil(t, err)
 
-	assert.Equal(t, 20, len(txs.GetTxs()), "Total HER transactions should be 20")
+	assert.Equal(t, 1, len(txs.GetTxs()), "Total HER transactions should be 1")
 
 	btcTxs, err := txSrv.GetTxsByAssetAndAddress("BTC", privKey.PubKey().GetAddress())
 	require.Nil(t, err)
+
 	assert.Equal(t, 0, len(btcTxs.GetTxs()), "Total BTC transactions should be 0")
 }
 

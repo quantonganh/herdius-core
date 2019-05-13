@@ -462,6 +462,48 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		}
 
 		// Check if tx is of type account update
+		if strings.EqualFold(tx.Type, "External") {
+			senderAccount.Address = tx.SenderAddress
+			senderAccount.Balance = 0
+			senderAccount.Nonce = tx.Asset.Nonce
+			senderAccount.PublicKey = tx.SenderPubkey
+
+			// By default each of the new account will have HER token (with balance 0)
+			// added to the map object balances
+
+			balances := senderAccount.Balances
+			if balances == nil {
+				balances = make(map[string]uint64)
+			}
+			balances[strings.ToUpper(tx.Asset.Symbol)] -= tx.Asset.Value
+
+			senderAccount.Balances = balances
+			sactbz, err := cdc.MarshalJSON(senderAccount)
+			if err != nil {
+				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+				continue
+			}
+			addressBytes := []byte(pubKey.GetAddress())
+			err = stateTrie.TryUpdate(addressBytes, sactbz)
+			if err != nil {
+				plog.Error().Msgf("Failed to store account in state db: %v", err)
+				tx.Status = "failed"
+				txbz, err = cdc.MarshalJSON(&tx)
+				txs[i] = txbz
+				if err != nil {
+					plog.Error().Msgf("Failed to encode failed tx: %v", err)
+				}
+			}
+			tx.Status = "success"
+			txbz, err = cdc.MarshalJSON(&tx)
+			txs[i] = txbz
+			if err != nil {
+				plog.Error().Msgf("Failed to encode failed tx: %v", err)
+			}
+			continue
+		}
+
+		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "Update") {
 			senderAccount.Address = tx.SenderAddress
 			senderAccount.Balance = 0
@@ -479,7 +521,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
 				balances["HER"] = 0
 			} else {
-				balances[strings.ToUpper(tx.Asset.Symbol)] = tx.Asset.Value
+				balances[strings.ToUpper(tx.Asset.Symbol)] += tx.Asset.Value
 			}
 
 			senderAccount.Balances = balances
