@@ -376,6 +376,9 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 		opts.PrefetchSize = 10
 		it := txn.NewIterator(opts)
 		defer it.Close()
+
+		var duplicateTxTracker map[string]uint8
+		duplicateTxTracker = make(map[string]uint8)
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			v, err := item.Value()
@@ -415,6 +418,12 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 							}
 							txDetailRes.CreationDt = ts
 							txID := getTxIDWithoutStatus(&tx)
+							//Remove duplicate transactions from the array
+							//TODO: needs to be fixed
+							if duplicateTxTracker[txID] == 1 {
+								continue
+							}
+							duplicateTxTracker[txID] = 1
 							txDetailRes.TxId = txID
 
 							txDetails = append(txDetails, txDetailRes)
