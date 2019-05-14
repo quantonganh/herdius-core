@@ -7,6 +7,7 @@ import (
 	"log"
 	"encoding/json"
 	"github.com/herdius/herdius-core/libs/common"
+	"github.com/herdius/herdius-core/hbi/protobuf"
 	"github.com/herdius/herdius-core/supervisor/transaction"
 
 	"github.com/stretchr/testify/assert"
@@ -40,13 +41,38 @@ func TestGetTxTrue(t *testing.T) {
 	assert.Equal(t, fmt.Sprint(tx.Asset.Nonce), nonce)
 	assert.NoError(t, err)
 }
-//
-//func TestUpdateTxFalse(t *testing.T) {
-//	// TODO
-//}
-//func TestUpdateTxTrue(t *testing.T) {
-//	// TODO
-//}
+
+func TestUpdateTxTrue(t *testing.T) {
+	m := &MemPool{}
+	fee := uint64(2)
+	m.createTx("1")
+	asset := &protobuf.Asset{
+		Fee: fee,
+	}
+	tx := &protobuf.Tx{
+		Asset: asset,
+	}
+	updated, err := m.UpdateTx(0, tx)
+	assert.Equal(t, updated.Asset.Fee, fee)
+	assert.NoError(t, err)
+}
+
+// TestUpdateTxFalse makes sure the Nonce value can't be updated
+func TestUpdateTxFalse(t *testing.T) {
+	m := &MemPool{}
+	attemptNonce := uint64(2)
+	originalNonce := "1"
+	m.createTx(originalNonce)
+	asset := &protobuf.Asset{
+		Nonce: attemptNonce,
+	}
+	tx := &protobuf.Tx{
+		Asset: asset,
+	}
+	updated, err := m.UpdateTx(0, tx)
+	assert.Equal(t, fmt.Sprint(updated.Asset.Nonce), originalNonce)
+	assert.NoError(t, err)
+}
 
 func (m *MemPool) createTx(i string) string {
 	asset := &transaction.Asset{
