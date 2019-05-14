@@ -69,7 +69,8 @@ func (m *MemPool) GetTxs() *tx.Txs {
 	return txs
 }
 
-// GetTx returns a Tx for the given ID
+// GetTx returns a Tx for the given ID or nil if the corresponding TX exists
+// Returns empty if Tx not found
 func (m *MemPool) GetTx(id string) (int, *protobuf.Tx, error) {
 	log.Println("Retrieving MemPool Tx's")
 	for i, txbz := range m.txs {
