@@ -3,7 +3,8 @@ module github.com/herdius/herdius-core
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
 	github.com/allegro/bigcache v1.1.0 // indirect
-	github.com/btcsuite/btcutil v0.0.0-20190316010144-3ac1210f4b38
+	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
+	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
 	github.com/ethereum/go-ethereum v1.8.22

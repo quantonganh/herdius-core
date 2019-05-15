@@ -7,17 +7,6 @@ option java_multiple_files = true;
 option java_package = "com.herdius.proto";
 option java_outer_classname = "HerdiusProto";
 
-// import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-
-// option (gogoproto.equal_all) = true;
-// option (gogoproto.goproto_stringer_all) = false;
-// option (gogoproto.gostring_all) = true;
-// option (gogoproto.marshaler_all) = true;
-// option (gogoproto.sizer_all) = true;
-// option (gogoproto.stringer_all) = true;
-// option (gogoproto.unmarshaler_all) = true;
-// option (gogoproto.verbose_equal_all) = true;
-
 message Timestamp {
     int64 seconds                   = 1;
     int64 nanos                     = 2;
@@ -134,3 +123,17 @@ message TxsByAssetAndAddressRequest {
   string asset            = 2;
 }
 
+// TxCancelRequest contains the TX ID of the transaction in the MemPool to cancel
+message TxUpdateRequest {
+    string tx_id = 1;
+    Tx tx = 2;
+}
+
+
+// TxCancelResponse details status of cancellation request
+message TxUpdateResponse {
+    bool status = 1;
+    string tx_id = 2;
+    Tx tx = 3;
+    string error = 4;
+}

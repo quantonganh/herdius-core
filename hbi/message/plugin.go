@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -12,8 +13,9 @@ import (
 	"github.com/herdius/herdius-core/storage/mempool"
 
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
+	"github.com/herdius/herdius-core/libs/common"
 	cmn "github.com/herdius/herdius-core/libs/common"
-	"github.com/herdius/herdius-core/p2p/log"
+	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 )
 
@@ -42,7 +44,7 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 		getAccount(msg.Address, ctx)
 
 	case *protoplugin.AccountResponse:
-		log.Info().Msgf("Account Response: %v", msg)
+		plog.Info().Msgf("Account Response: %v", msg)
 	}
 	return nil
 }
@@ -54,7 +56,7 @@ func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 		getBlock(msg.BlockHeight, ctx)
 
 	case *protoplugin.BlockResponse:
-		log.Info().Msgf("Block Response: %v", msg)
+		plog.Info().Msgf("Block Response: %v", msg)
 	}
 	return nil
 }
@@ -130,7 +132,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
-
 		if err != nil {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
@@ -208,11 +209,11 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		txCount := mp.AddTx(txbz)
 
-		log.Info().Msgf("Remaining mempool txcount: %v", txCount)
+		plog.Info().Msgf("Remaining mempool txcount: %v", txCount)
 
 		// Create the Transaction ID
 		txID := cmn.CreateTxID(txbz)
-		log.Info().Msgf("Tx ID : %v", txID)
+		plog.Info().Msgf("Tx ID : %v", txID)
 
 		// Send Tx ID to client who sent the TX
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
@@ -221,8 +222,42 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			})
 		nonce++
 		if err != nil {
-			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
+	case *protoplugin.TxUpdateRequest:
+		log.Println("Update request received")
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
+		if err != nil {
+			return fmt.Errorf("can't find requesting API client: %v", apiClient)
+		}
+		log.Println("Request ingress from API node IP:", apiClient.Address)
+		id := msg.GetTxId()
+		newTx := msg.GetTx()
+		log.Println("Processing request to update Tx, ID:", id)
+		updatedID, updatedTx, err := putTxUpdateRequest(id, newTx)
+		if err != nil {
+			errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxUpdateResponse{
+					Error:  err.Error(),
+					Status: false,
+				})
+			if errRep != nil {
+				return fmt.Errorf("could not reply to API client, transaction not updated: %v", errRep)
+			}
+			nonce++
+			return fmt.Errorf("could not update request: %v", err)
+		}
+		errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+			&protoplugin.TxUpdateResponse{
+				Status: true,
+				TxId:   updatedID,
+				Tx:     updatedTx,
+			})
+		if errRep != nil {
+			return fmt.Errorf("could not reply to API client, but transaction was updated: %v", errRep)
+		}
+		nonce++
+		return nil
 	}
 	return nil
 }
@@ -248,11 +283,11 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 
 	txCount := mp.AddTx(txbz)
 
-	log.Info().Msgf("Remaining mempool txcount: %v", txCount)
+	plog.Info().Msgf("Remaining mempool txcount: %v", txCount)
 
 	// Create the Transaction ID
 	txID := cmn.CreateTxID(txbz)
-	log.Info().Msgf("Tx ID : %v", txID)
+	plog.Info().Msgf("Tx ID : %v", txID)
 
 	// Send Tx ID to client who sent the TX
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
@@ -295,7 +330,7 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 			SupervisorAddress: supervisorAdd,
 		}
 
-		log.Info().Msgf("Block Response at processor: %v", blockRes)
+		plog.Info().Msgf("Block Response at processor: %v", blockRes)
 
 		err = pc.Reply(network.WithSignMessage(context.Background(), true), nonce, &blockRes)
 		nonce++
@@ -314,11 +349,12 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 	}
 	return nil
 }
+
 func getAccount(address string, ctx *network.PluginContext) error {
 	accountSvc := &account.Service{}
 	account, err := accountSvc.GetAccountByAddress(address)
 	if err != nil {
-		log.Error().Msgf("Failed to retreive the Account: %v", err)
+		plog.Error().Msgf("Failed to retreive the Account: %v", err)
 	}
 
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
@@ -423,4 +459,26 @@ func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) 
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
 	return nil
+}
+
+// putTxUpdateRequest upates the Tx with the input string. After updating, calculates new Tx ID
+func putTxUpdateRequest(id string, newTx *protoplugin.Tx) (string, *protoplugin.Tx, error) {
+	mp := mempool.GetMemPool()
+	i, origTx, err := mp.GetTx(id)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get original transaction details (id: %v), err: %v", id, err)
+	}
+	if origTx == nil {
+		return "", nil, fmt.Errorf("requested Tx (id: %v) does not exist in memory pool; it may have been flushed from the memory pool into a block", id)
+	}
+	updatedTx, err := mp.UpdateTx(i, newTx)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to update Tx in MemPool with new values: %v", err)
+	}
+	updatedBz, err := cdc.MarshalJSON(updatedTx)
+	if err != nil {
+		return "", nil, fmt.Errorf("could not marshal updated transaction back into memory pool: %v", err)
+	}
+	newID := common.CreateTxID(updatedBz)
+	return newID, updatedTx, nil
 }

@@ -5,7 +5,7 @@ import (
 
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
 	"github.com/herdius/herdius-core/crypto/secp256k1"
-	"github.com/herdius/herdius-core/supervisor/transaction"
+"github.com/herdius/herdius-core/supervisor/transaction"
 	"github.com/stretchr/testify/assert"
 )
 
