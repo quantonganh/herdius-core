@@ -379,7 +379,7 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			PublicKey:   account.PublicKey,
 			Balances:    account.Balances,
 		}
-
+		fmt.Printf("Account Response:::: %v\n", accountResp)
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &accountResp)
 		nonce++
 		if err != nil {

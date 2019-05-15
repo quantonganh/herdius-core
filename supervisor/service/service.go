@@ -345,6 +345,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	txs := mp.GetTxs()
 
 	reqdTxs := 10
+	reqdTxs = 1
 	// Check if transactions to be added in Singular Block
 	if len(*txs) < reqdTxs {
 		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
@@ -505,10 +506,38 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "Update") {
-			senderAccount.Address = tx.SenderAddress
-			senderAccount.Balance = 0
-			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.PublicKey = tx.SenderPubkey
+			if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+				len(senderAccount.Address) == 0 {
+				senderAccount.Address = tx.SenderAddress
+				senderAccount.Balance = 0
+				senderAccount.Nonce = 0
+				senderAccount.PublicKey = tx.SenderPubkey
+			} else if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+				tx.SenderAddress == senderAccount.Address {
+				senderAccount.Balance += tx.Asset.Value
+				senderAccount.Nonce = tx.Asset.Nonce
+			} else if !strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+				tx.SenderAddress == senderAccount.Address {
+				//Register External Asset Addresses
+				// Check if an entry already exist for an address
+				if eBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
+					//check if eBalance.Address matches with the asset.address in tx request
+					if tx.Asset.ExternalSenderAddress == senderAccount.EBalances[tx.Asset.Symbol].Address {
+						eBalance.Balance += tx.Asset.Value
+						if tx.Asset.ExternalBlockHeight > 0 {
+							eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
+						}
+						if tx.Asset.ExternalNonce > 0 {
+							eBalance.Nonce = tx.Asset.ExternalNonce
+						}
+
+					}
+				} else {
+					eBalance.Address = tx.Asset.ExternalSenderAddress
+					eBalance.Balance = 0
+					eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
+				}
+			}
 
 			// By default each of the new account will have HER token (with balance 0)
 			// added to the map object balances
@@ -518,11 +547,11 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 				balances = make(map[string]uint64)
 			}
 			//balances[strings.ToUpper(tx.Asset.Symbol)]
-			if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
-				balances["HER"] = 0
-			} else {
-				balances[strings.ToUpper(tx.Asset.Symbol)] += tx.Asset.Value
-			}
+			// if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
+			// 	balances["HER"] = 0
+			// } else {
+			// 	balances[strings.ToUpper(tx.Asset.Symbol)] += tx.Asset.Value
+			// }
 
 			senderAccount.Balances = balances
 			sactbz, err := cdc.MarshalJSON(senderAccount)
