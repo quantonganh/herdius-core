@@ -73,6 +73,20 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	if len(account.Address) == 0 {
 		return nil, nil
 	}
+	eBalances := make(map[string]*protobuf.EBalance)
+
+	if account.EBalances != nil && len(account.EBalances) > 0 {
+		for key := range account.EBalances {
+			eBalance := account.EBalances[key]
+			eBalanceRes := &protobuf.EBalance{
+				Address:         eBalance.Address,
+				Balance:         eBalance.Balance,
+				LastBlockHeight: eBalance.LastBlockHeight,
+				Nonce:           eBalance.Nonce,
+			}
+			eBalances[key] = eBalanceRes
+		}
+	}
 
 	acc := &protobuf.Account{
 		PublicKey:   account.PublicKey,
@@ -81,6 +95,7 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 		Balance:     account.Balance,
 		Balances:    account.Balances,
 		StorageRoot: stateRootHex.String(),
+		EBalances:   eBalances,
 	}
 	return acc, nil
 }

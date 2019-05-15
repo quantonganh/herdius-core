@@ -345,7 +345,6 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	txs := mp.GetTxs()
 
 	reqdTxs := 10
-	reqdTxs = 1
 	// Check if transactions to be added in Singular Block
 	if len(*txs) < reqdTxs {
 		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
@@ -523,19 +522,39 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 				if eBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
 					//check if eBalance.Address matches with the asset.address in tx request
 					if tx.Asset.ExternalSenderAddress == senderAccount.EBalances[tx.Asset.Symbol].Address {
-						eBalance.Balance += tx.Asset.Value
-						if tx.Asset.ExternalBlockHeight > 0 {
-							eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
-						}
-						if tx.Asset.ExternalNonce > 0 {
-							eBalance.Nonce = tx.Asset.ExternalNonce
+						if len(senderAccount.EBalances) == 0 {
+							eBalance = statedb.EBalance{}
+							eBalance.Address = tx.Asset.ExternalSenderAddress
+							eBalance.Balance = 0
+							eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+							eBalance.Nonce = 0
+							eBalances := make(map[string]statedb.EBalance)
+							eBalances[tx.Asset.Symbol] = eBalance
+							senderAccount.EBalances = eBalances
+							senderAccount.Nonce = tx.Asset.Nonce
+						} else {
+							eBalance.Balance += tx.Asset.Value
+							if tx.Asset.ExternalBlockHeight > 0 {
+								eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
+							}
+							if tx.Asset.ExternalNonce > 0 {
+								eBalance.Nonce = tx.Asset.ExternalNonce
+							}
+							senderAccount.EBalances[tx.Asset.Symbol] = eBalance
+							senderAccount.Nonce = tx.Asset.Nonce
 						}
 
 					}
 				} else {
+					eBalance = statedb.EBalance{}
 					eBalance.Address = tx.Asset.ExternalSenderAddress
 					eBalance.Balance = 0
-					eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
+					eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+					eBalance.Nonce = 0
+					eBalances := make(map[string]statedb.EBalance)
+					eBalances[tx.Asset.Symbol] = eBalance
+					senderAccount.EBalances = eBalances
+					senderAccount.Nonce = tx.Asset.Nonce
 				}
 			}
 
@@ -546,12 +565,6 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			if balances == nil {
 				balances = make(map[string]uint64)
 			}
-			//balances[strings.ToUpper(tx.Asset.Symbol)]
-			// if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
-			// 	balances["HER"] = 0
-			// } else {
-			// 	balances[strings.ToUpper(tx.Asset.Symbol)] += tx.Asset.Value
-			// }
 
 			senderAccount.Balances = balances
 			sactbz, err := cdc.MarshalJSON(senderAccount)

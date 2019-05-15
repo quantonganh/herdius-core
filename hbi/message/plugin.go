@@ -12,6 +12,7 @@ import (
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
 
+	"github.com/herdius/herdius-core/hbi/protobuf"
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
 	"github.com/herdius/herdius-core/libs/common"
 	cmn "github.com/herdius/herdius-core/libs/common"
@@ -371,6 +372,20 @@ func getAccount(address string, ctx *network.PluginContext) error {
 	}
 
 	if account != nil {
+		eBalances := make(map[string]*protoplugin.EBalance)
+
+		if account.EBalances != nil && len(account.EBalances) > 0 {
+			for key := range account.EBalances {
+				eBalance := account.EBalances[key]
+				eBalanceRes := &protobuf.EBalance{
+					Address:         eBalance.Address,
+					Balance:         eBalance.Balance,
+					LastBlockHeight: eBalance.LastBlockHeight,
+					Nonce:           eBalance.Nonce,
+				}
+				eBalances[key] = eBalanceRes
+			}
+		}
 		accountResp := protoplugin.AccountResponse{
 			Address:     address,
 			Nonce:       account.Nonce,
@@ -378,8 +393,8 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			StorageRoot: account.StorageRoot,
 			PublicKey:   account.PublicKey,
 			Balances:    account.Balances,
+			EBalances:   eBalances,
 		}
-		fmt.Printf("Account Response:::: %v\n", accountResp)
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &accountResp)
 		nonce++
 		if err != nil {
