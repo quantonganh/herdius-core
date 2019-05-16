@@ -116,6 +116,29 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
 	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
 }
+
+func TestIsExternalAssetAddressAvailableTrue(t *testing.T) {
+	eBal := statedb.EBalance{
+		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+	}
+	eBals := make(map[string]statedb.EBalance)
+	eBals["ETH"] = eBal
+	account := &statedb.Account{
+		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		EBalances: eBals,
+	}
+	assert.True(t, isExternalAssetAddressAvailable(account, "ETH"))
+}
+func TestIsExternalAssetAddressAvailableFalse(t *testing.T) {
+	eBal := statedb.EBalance{}
+	eBals := make(map[string]statedb.EBalance)
+	eBals["ETH"] = eBal
+	account := &statedb.Account{
+		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		EBalances: eBals,
+	}
+	assert.False(t, isExternalAssetAddressAvailable(account, "ETH"))
+}
 func TestRemoveValidator(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()
