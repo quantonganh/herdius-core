@@ -727,6 +727,10 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 // Debit Sender's Account
 func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
 	if strings.EqualFold(assetSymbol, "HER") {
+		balance := senderAccount.Balance
+		if balance >= txValue {
+			senderAccount.Balance -= txValue
+		}
 	} else {
 		// Get balance of the required external asset
 		eBalance := senderAccount.EBalances[strings.ToUpper(assetSymbol)]
@@ -740,6 +744,10 @@ func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64
 // Credit Receiver's Account
 func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint64) {
 	if strings.EqualFold(assetSymbol, "HER") {
+		balance := receiverAccount.Balance
+		if balance >= txValue {
+			receiverAccount.Balance += txValue
+		}
 	} else {
 		// Get balance of the required external asset
 		eBalance := receiverAccount.EBalances[strings.ToUpper(assetSymbol)]
