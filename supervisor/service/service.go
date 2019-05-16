@@ -345,10 +345,9 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	txs := mp.GetTxs()
 
 	reqdTxs := 10
-	reqdTxs = 1
 	// Check if transactions to be added in Singular Block
 	if len(*txs) < reqdTxs {
-		//log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
+		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
 		return nil, nil
 
 		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
@@ -403,12 +402,13 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		// if verification failed update the tx status as failed tx.
 		//Recreate the TX
 		asset := &pluginproto.Asset{
-			Category: tx.Asset.Category,
-			Symbol:   tx.Asset.Symbol,
-			Network:  tx.Asset.Network,
-			Value:    tx.Asset.Value,
-			Fee:      tx.Asset.Fee,
-			Nonce:    tx.Asset.Nonce,
+			Category:              tx.Asset.Category,
+			Symbol:                tx.Asset.Symbol,
+			Network:               tx.Asset.Network,
+			Value:                 tx.Asset.Value,
+			Fee:                   tx.Asset.Fee,
+			Nonce:                 tx.Asset.Nonce,
+			ExternalSenderAddress: tx.Asset.ExternalSenderAddress,
 		}
 		verifiableTx := pluginproto.Tx{
 			SenderAddress:   tx.SenderAddress,
