@@ -3,7 +3,10 @@ package service
 import (
 	"testing"
 
+	"github.com/herdius/herdius-core/storage/state/statedb"
+
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
+	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -11,6 +14,108 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRegisterNewHERAddress(t *testing.T) {
+	asset := &pluginproto.Asset{
+		Symbol: "HER",
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account := &statedb.Account{}
+	account = updateAccount(account, tx)
+	assert.Equal(t, tx.SenderAddress, account.Address)
+}
+
+func TestUpdateHERAccountBalance(t *testing.T) {
+	asset := &pluginproto.Asset{
+		Symbol: "HER",
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account := &statedb.Account{}
+	account = updateAccount(account, tx)
+	assert.Equal(t, tx.SenderAddress, account.Address)
+	assert.Equal(t, account.Balance, uint64(0))
+
+	// Update 10 HER tokens to existing HER Account
+	asset = &pluginproto.Asset{
+		Symbol: "HER",
+		Value:  10,
+		Nonce:  2,
+	}
+	tx = &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account = updateAccount(account, tx)
+	assert.Equal(t, tx.SenderAddress, account.Address)
+	assert.Equal(t, account.Balance, uint64(10))
+	assert.Equal(t, account.Nonce, uint64(2))
+}
+
+func TestRegisterNewETHAddress(t *testing.T) {
+	asset := &pluginproto.Asset{
+		Symbol:                "ETH",
+		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Nonce:                 1,
+		Network:               "Herdius",
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account := &statedb.Account{
+		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+	}
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) > 0)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+}
+
+func TestUpdateExternalAccountBalance(t *testing.T) {
+	asset := &pluginproto.Asset{
+		Symbol:                "ETH",
+		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Nonce:                 1,
+		Network:               "Herdius",
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account := &statedb.Account{
+		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+	}
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) > 0)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+
+	asset = &pluginproto.Asset{
+		Symbol:                "ETH",
+		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Nonce:                 2,
+		Network:               "Herdius",
+		Value:                 15,
+	}
+	tx = &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) > 0)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
+}
 func TestRemoveValidator(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()

@@ -402,12 +402,13 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		// if verification failed update the tx status as failed tx.
 		//Recreate the TX
 		asset := &pluginproto.Asset{
-			Category: tx.Asset.Category,
-			Symbol:   tx.Asset.Symbol,
-			Network:  tx.Asset.Network,
-			Value:    tx.Asset.Value,
-			Fee:      tx.Asset.Fee,
-			Nonce:    tx.Asset.Nonce,
+			Category:              tx.Asset.Category,
+			Symbol:                tx.Asset.Symbol,
+			Network:               tx.Asset.Network,
+			Value:                 tx.Asset.Value,
+			Fee:                   tx.Asset.Fee,
+			Nonce:                 tx.Asset.Nonce,
+			ExternalSenderAddress: tx.Asset.ExternalSenderAddress,
 		}
 		verifiableTx := pluginproto.Tx{
 			SenderAddress:   tx.SenderAddress,
@@ -505,26 +506,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "Update") {
-			senderAccount.Address = tx.SenderAddress
-			senderAccount.Balance = 0
-			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.PublicKey = tx.SenderPubkey
+			senderAccount = *(updateAccount(&senderAccount, &tx))
 
-			// By default each of the new account will have HER token (with balance 0)
-			// added to the map object balances
-
-			balances := senderAccount.Balances
-			if balances == nil {
-				balances = make(map[string]uint64)
-			}
-			//balances[strings.ToUpper(tx.Asset.Symbol)]
-			if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") {
-				balances["HER"] = 0
-			} else {
-				balances[strings.ToUpper(tx.Asset.Symbol)] += tx.Asset.Value
-			}
-
-			senderAccount.Balances = balances
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
 				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
@@ -653,7 +636,61 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
+func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
+	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+		len(senderAccount.Address) == 0 {
+		senderAccount.Address = tx.SenderAddress
+		senderAccount.Balance = 0
+		senderAccount.Nonce = 0
+		senderAccount.PublicKey = tx.SenderPubkey
+	} else if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+		tx.SenderAddress == senderAccount.Address {
+		senderAccount.Balance += tx.Asset.Value
+		senderAccount.Nonce = tx.Asset.Nonce
+	} else if !strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
+		tx.SenderAddress == senderAccount.Address {
+		//Register External Asset Addresses
+		// Check if an entry already exist for an address
+		if eBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
+			//check if eBalance.Address matches with the asset.address in tx request
+			if tx.Asset.ExternalSenderAddress == senderAccount.EBalances[tx.Asset.Symbol].Address {
+				if len(senderAccount.EBalances) == 0 {
+					eBalance = statedb.EBalance{}
+					eBalance.Address = tx.Asset.ExternalSenderAddress
+					eBalance.Balance = 0
+					eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+					eBalance.Nonce = 0
+					eBalances := make(map[string]statedb.EBalance)
+					eBalances[tx.Asset.Symbol] = eBalance
+					senderAccount.EBalances = eBalances
+					senderAccount.Nonce = tx.Asset.Nonce
+				} else {
+					eBalance.Balance += tx.Asset.Value
+					if tx.Asset.ExternalBlockHeight > 0 {
+						eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
+					}
+					if tx.Asset.ExternalNonce > 0 {
+						eBalance.Nonce = tx.Asset.ExternalNonce
+					}
+					senderAccount.EBalances[tx.Asset.Symbol] = eBalance
+					senderAccount.Nonce = tx.Asset.Nonce
+				}
 
+			}
+		} else {
+			eBalance = statedb.EBalance{}
+			eBalance.Address = tx.Asset.ExternalSenderAddress
+			eBalance.Balance = 0
+			eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+			eBalance.Nonce = 0
+			eBalances := make(map[string]statedb.EBalance)
+			eBalances[tx.Asset.Symbol] = eBalance
+			senderAccount.EBalances = eBalances
+			senderAccount.Nonce = tx.Asset.Nonce
+		}
+	}
+	return senderAccount
+}
 func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
 	// Get balance of the required asset
 	balance := senderAccount.Balances[strings.ToUpper(assetSymbol)]
