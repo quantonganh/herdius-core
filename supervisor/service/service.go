@@ -366,12 +366,13 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
+
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
-
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
+
 	for i, txbz := range txs {
 
 		var tx pluginproto.Tx
@@ -464,21 +465,22 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
-			senderAccount.Address = tx.SenderAddress
-			senderAccount.Balance = 0
-			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.PublicKey = tx.SenderPubkey
+			if tx.Asset.Symbol != "BTC" || tx.Asset.Symbol != "ETH" {
+				plog.Error().Msgf("Unsupported external asset symbol: %v", tx.Asset.Symbol)
+				continue
+			}
 
-			// By default each of the new account will have HER token (with balance 0)
+			// By default each of the new accounts will have HER token (with balance 0)
 			// added to the map object balances
-
-			balances := senderAccount.Balances
-			if balances == nil {
-				balances = make(map[string]uint64)
+			balances := senderAccount.EBalances
+			if len(balances) == 0 {
+				balances = make(map[string]Ebalance)
 			}
 			balances[strings.ToUpper(tx.Asset.Symbol)] -= tx.Asset.Value
 
-			senderAccount.Balances = balances
+			senderAccount.Nonce = tx.Asset.Nonce
+			senderAccount.EBalances[tx.Asset.Symbol] = balances
+
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
 				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
@@ -501,11 +503,10 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			if err != nil {
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
 			}
-			continue
-		}
 
-		// Check if tx is of type account update
-		if strings.EqualFold(tx.Type, "Update") {
+			continue
+
+		} else if strings.EqualFold(tx.Type, "Update") {
 			senderAccount = *(updateAccount(&senderAccount, &tx))
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
@@ -617,7 +618,6 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 	// State Root
 	root, err := stateTrie.Commit(nil)
-
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
 	}
@@ -645,7 +645,6 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	}
 
 	blockHash := hehash.Sum(blockHashBz)
-
 	baseHeader.GetBlock_ID().BlockHash = blockHash
 	// Add Header to Block
 
@@ -668,6 +667,7 @@ func isExternalAssetAddressExist(account *statedb.Account, assetSymbol string) b
 	}
 	return false
 }
+
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		len(senderAccount.Address) == 0 {
@@ -775,15 +775,20 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 		} else {
 			pubKey := nodeKey.PrivKey.PubKey()
 			b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
-			//All 10 intital accounts will have an initial balance of 10000 HER tokens
-			balances := make(map[string]uint64)
-			balances["HER"] = 10000
+			//All 10 intital accounts will have an initial balance of 10000 HER and ETH tokens
+			balances := make(map[string]statedb.EBalance)
+			balances["ETH"] = statedb.EBalance{
+				Address:         "0xc848655581670430fe7E9e9f2729650a3Dfaaaaa",
+				Balance:         10000,
+				LastBlockHeight: 1,
+				Nonce:           1,
+			}
 			account := statedb.Account{
 				PublicKey: b64PubKey,
 				Nonce:     0,
 				Address:   pubKey.GetAddress(),
 				Balance:   10000,
-				Balances:  balances,
+				EBalances: balances,
 			}
 
 			actbz, _ := cdc.MarshalJSON(account)
