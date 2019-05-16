@@ -465,21 +465,27 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
-			if tx.Asset.Symbol != "BTC" || tx.Asset.Symbol != "ETH" {
-				plog.Error().Msgf("Unsupported external asset symbol: %v", tx.Asset.Symbol)
+			symbol := tx.Asset.Symbol
+			if symbol != "BTC" && symbol != "ETH" {
+				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
 				continue
 			}
 
 			// By default each of the new accounts will have HER token (with balance 0)
 			// added to the map object balances
-			balances := senderAccount.EBalances
-			if len(balances) == 0 {
-				balances = make(map[string]Ebalance)
+			balance := senderAccount.EBalances[symbol]
+			if balance == (statedb.EBalance{}) {
+				plog.Error().Msgf("Sender has no assets for the given symbol: %v", symbol)
+				continue
 			}
-			balances[strings.ToUpper(tx.Asset.Symbol)] -= tx.Asset.Value
+			if balance.Balance <= tx.Asset.Value {
+				plog.Error().Msgf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
+				continue
+			}
+			balance.Balance -= tx.Asset.Value
 
 			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.EBalances[tx.Asset.Symbol] = balances
+			senderAccount.EBalances[symbol] = balance
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
