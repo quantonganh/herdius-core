@@ -392,7 +392,6 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			Balance:     account.Balance,
 			StorageRoot: account.StorageRoot,
 			PublicKey:   account.PublicKey,
-			Balances:    account.Balances,
 			EBalances:   eBalances,
 		}
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &accountResp)
