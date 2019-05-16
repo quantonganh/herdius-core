@@ -344,10 +344,10 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
-	reqdTxs := 1
+	reqdTxs := 10
 	// Check if transactions to be added in Singular Block
 	if len(*txs) < reqdTxs {
-		//log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
+		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
 		return nil, nil
 
 		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
