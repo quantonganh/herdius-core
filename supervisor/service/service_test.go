@@ -139,6 +139,30 @@ func TestIsExternalAssetAddressAvailableFalse(t *testing.T) {
 	}
 	assert.False(t, isExternalAssetAddressAvailable(account, "ETH"))
 }
+
+func TestWithdrawFromAnAccount(t *testing.T) {
+	eBal := statedb.EBalance{Balance: 10}
+	eBals := make(map[string]statedb.EBalance)
+	eBals["ETH"] = eBal
+	account := &statedb.Account{
+		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		EBalances: eBals,
+	}
+	withdraw(account, "ETH", 5)
+	assert.Equal(t, uint64(5), account.EBalances["ETH"].Balance)
+}
+
+func TestDepositToAnAccount(t *testing.T) {
+	eBal := statedb.EBalance{Balance: 10}
+	eBals := make(map[string]statedb.EBalance)
+	eBals["ETH"] = eBal
+	account := &statedb.Account{
+		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		EBalances: eBals,
+	}
+	deposit(account, "ETH", 5)
+	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
+}
 func TestRemoveValidator(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()

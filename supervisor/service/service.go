@@ -723,10 +723,12 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 	}
 	return senderAccount
 }
+
+// Debit Sender's Account
 func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
 	if strings.EqualFold(assetSymbol, "HER") {
 	} else {
-		// Get balance of the required asset
+		// Get balance of the required external asset
 		eBalance := senderAccount.EBalances[strings.ToUpper(assetSymbol)]
 		if eBalance.Balance >= txValue {
 			eBalance.Balance -= txValue
@@ -735,9 +737,17 @@ func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64
 	}
 }
 
+// Credit Receiver's Account
 func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint64) {
-	// Credit Receiver's Account
-	receiverAccount.Balances[strings.ToUpper(assetSymbol)] = receiverAccount.Balances[strings.ToUpper(assetSymbol)] + txValue
+	if strings.EqualFold(assetSymbol, "HER") {
+	} else {
+		// Get balance of the required external asset
+		eBalance := receiverAccount.EBalances[strings.ToUpper(assetSymbol)]
+		if eBalance.Balance >= txValue {
+			eBalance.Balance += txValue
+			receiverAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
+		}
+	}
 }
 
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
