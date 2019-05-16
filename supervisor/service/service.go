@@ -537,7 +537,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 			// Verify if sender has an address for corresponding external asset
 			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressAvailable(&senderAccount, tx.Asset.Symbol) {
+				!isExternalAssetAddressExists(&senderAccount, tx.Asset.Symbol) {
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				txs[i] = txbz
@@ -562,7 +562,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 			// Verify if Receiver has an address for corresponding external asset
 			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressAvailable(&rcvrAccount, tx.Asset.Symbol) {
+				!isExternalAssetAddressExists(&rcvrAccount, tx.Asset.Symbol) {
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				txs[i] = txbz
@@ -661,7 +661,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	return baseBlock, nil
 }
 
-func isExternalAssetAddressAvailable(account *statedb.Account, assetSymbol string) bool {
+func isExternalAssetAddressExists(account *statedb.Account, assetSymbol string) bool {
 	if account != nil && account.EBalances != nil &&
 		len(account.EBalances[assetSymbol].Address) > 0 {
 		return true
