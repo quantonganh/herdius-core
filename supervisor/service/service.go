@@ -781,20 +781,12 @@ func LoadStateDBWithInitialAccounts() ([]byte, error) {
 		} else {
 			pubKey := nodeKey.PrivKey.PubKey()
 			b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
-			//All 10 intital accounts will have an initial balance of 10000 HER and ETH tokens
-			balances := make(map[string]statedb.EBalance)
-			balances["ETH"] = statedb.EBalance{
-				Address:         "0xc848655581670430fe7E9e9f2729650a3Dfaaaaa",
-				Balance:         10000,
-				LastBlockHeight: 1,
-				Nonce:           1,
-			}
+			//All 10 intital accounts will have an initial balance of 10000 HER tokens
 			account := statedb.Account{
 				PublicKey: b64PubKey,
 				Nonce:     0,
 				Address:   pubKey.GetAddress(),
 				Balance:   10000,
-				EBalances: balances,
 			}
 
 			actbz, _ := cdc.MarshalJSON(account)
