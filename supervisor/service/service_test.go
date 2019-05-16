@@ -140,7 +140,7 @@ func TestIsExternalAssetAddressAvailableFalse(t *testing.T) {
 	assert.False(t, isExternalAssetAddressAvailable(account, "ETH"))
 }
 
-func TestWithdrawFromAnAccount(t *testing.T) {
+func TestExternalAssetWithdrawFromAnAccount(t *testing.T) {
 	eBal := statedb.EBalance{Balance: 10}
 	eBals := make(map[string]statedb.EBalance)
 	eBals["ETH"] = eBal
@@ -152,7 +152,7 @@ func TestWithdrawFromAnAccount(t *testing.T) {
 	assert.Equal(t, uint64(5), account.EBalances["ETH"].Balance)
 }
 
-func TestDepositToAnAccount(t *testing.T) {
+func TestExternalAssetDepositToAnAccount(t *testing.T) {
 	eBal := statedb.EBalance{Balance: 10}
 	eBals := make(map[string]statedb.EBalance)
 	eBals["ETH"] = eBal
