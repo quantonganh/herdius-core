@@ -117,7 +117,7 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
 }
 
-func TestisExternalAssetAddressExistsTrue(t *testing.T) {
+func TestisExternalAssetAddressExistTrue(t *testing.T) {
 	eBal := statedb.EBalance{
 		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
 	}
@@ -127,9 +127,9 @@ func TestisExternalAssetAddressExistsTrue(t *testing.T) {
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	assert.True(t, isExternalAssetAddressExists(account, "ETH"))
+	assert.True(t, isExternalAssetAddressExist(account, "ETH"))
 }
-func TestisExternalAssetAddressExistsFalse(t *testing.T) {
+func TestisExternalAssetAddressExistFalse(t *testing.T) {
 	eBal := statedb.EBalance{}
 	eBals := make(map[string]statedb.EBalance)
 	eBals["ETH"] = eBal
@@ -137,7 +137,7 @@ func TestisExternalAssetAddressExistsFalse(t *testing.T) {
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	assert.False(t, isExternalAssetAddressExists(account, "ETH"))
+	assert.False(t, isExternalAssetAddressExist(account, "ETH"))
 }
 
 func TestExternalAssetWithdrawFromAnAccount(t *testing.T) {
