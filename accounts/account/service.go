@@ -94,7 +94,6 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 		Address:     account.Address,
 		Nonce:       account.Nonce,
 		Balance:     account.Balance,
-		Balances:    account.Balances,
 		StorageRoot: stateRootHex.String(),
 		EBalances:   eBalances,
 	}
@@ -109,7 +108,7 @@ func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, asse
 		if a.Balance >= txValue {
 			return true
 		}
-	} else if a.EBalances != nil {
+	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[assetSymbol] != (&protobuf.EBalance{}) {
 		bal := a.EBalances[assetSymbol]
 		if bal.Balance >= txValue {
 			return true

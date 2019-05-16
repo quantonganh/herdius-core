@@ -12,7 +12,6 @@ message Account {
     uint64 nonce                = 3;
     uint64 balance              = 4;
     string storage_root         = 5;
-    map<string,uint64> balances = 6;
     map<string,EBalance> eBalances = 7;
 }
 

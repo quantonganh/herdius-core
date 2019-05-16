@@ -51,7 +51,6 @@ func (memTx *mempoolTx) Height() int64 {
 // number of current Transactions within the MemPool
 func (m *MemPool) AddTx(tx tx.Tx) int {
 	mpSize := len(m.txs)
-	fmt.Println("txbz:", tx)
 
 	mt := mempoolTx{
 		tx:     tx,
