@@ -94,7 +94,6 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 		Address:     account.Address,
 		Nonce:       account.Nonce,
 		Balance:     account.Balance,
-		Balances:    account.Balances,
 		StorageRoot: stateRootHex.String(),
 		EBalances:   eBalances,
 	}
