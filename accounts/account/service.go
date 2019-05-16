@@ -2,6 +2,7 @@ package account
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -104,16 +105,17 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 // This only has to be verified and called for HER crypto asset
 func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string) bool {
 	// Get the balance of required asset
-	if a.Balances == nil {
-		return false
+	if strings.EqualFold(assetSymbol, "HER") {
+		if a.Balance >= txValue {
+			return true
+		}
+	} else if a.EBalances != nil {
+		bal := a.EBalances[assetSymbol]
+		if bal.Balance >= txValue {
+			return true
+		}
 	}
-	balance := a.Balances[assetSymbol]
-
-	// Check asset has enough balance in account
-	if balance < txValue {
-		return false
-	}
-	return true
+	return false
 }
 
 // VerifyAccountNonce verifies initiated transaction has Nonce value greater than

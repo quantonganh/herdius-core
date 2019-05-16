@@ -535,9 +535,17 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 		if strings.EqualFold(tx.Asset.Network, "Herdius") {
 
-			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
-			//Withdraw fund from Sender Account
-			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
+			// Verify if sender has an address for corresponding external asset
+			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
+				!isExternalAssetAddressExist(&senderAccount, tx.Asset.Symbol) {
+				tx.Status = "failed"
+				txbz, err = cdc.MarshalJSON(&tx)
+				txs[i] = txbz
+				if err != nil {
+					plog.Error().Msgf("Failed to encode failed tx: %v", err)
+				}
+				continue
+			}
 
 			// Get Reciever's Account
 			rcvrAddressBytes := []byte(tx.RecieverAddress)
@@ -551,6 +559,22 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 				plog.Error().Msgf("Failed to Unmarshal receiver's account: %v", err)
 				continue
 			}
+
+			// Verify if Receiver has an address for corresponding external asset
+			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
+				!isExternalAssetAddressExist(&rcvrAccount, tx.Asset.Symbol) {
+				tx.Status = "failed"
+				txbz, err = cdc.MarshalJSON(&tx)
+				txs[i] = txbz
+				if err != nil {
+					plog.Error().Msgf("Failed to encode failed tx: %v", err)
+				}
+				continue
+			}
+
+			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
+			//Withdraw fund from Sender Account
+			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
 
 			// Credit Reciever's Account
 			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
@@ -636,6 +660,14 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
+
+func isExternalAssetAddressExist(account *statedb.Account, assetSymbol string) bool {
+	if account != nil && account.EBalances != nil &&
+		len(account.EBalances[assetSymbol].Address) > 0 {
+		return true
+	}
+	return false
+}
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		len(senderAccount.Address) == 0 {
@@ -691,20 +723,29 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 	}
 	return senderAccount
 }
-func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
-	// Get balance of the required asset
-	balance := senderAccount.Balances[strings.ToUpper(assetSymbol)]
-	if balance >= txValue {
-		// Debit Sender's Account
-		remainingBalance := balance - txValue
-		senderAccount.Balances[strings.ToUpper(assetSymbol)] = remainingBalance
-	}
 
+// Debit Sender's Account
+func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
+	if strings.EqualFold(assetSymbol, "HER") {
+	} else {
+		// Get balance of the required external asset
+		eBalance := senderAccount.EBalances[strings.ToUpper(assetSymbol)]
+		if eBalance.Balance >= txValue {
+			eBalance.Balance -= txValue
+			senderAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
+		}
+	}
 }
 
+// Credit Receiver's Account
 func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint64) {
-	// Credit Receiver's Account
-	receiverAccount.Balances[strings.ToUpper(assetSymbol)] = receiverAccount.Balances[strings.ToUpper(assetSymbol)] + txValue
+	if strings.EqualFold(assetSymbol, "HER") {
+	} else {
+		// Get balance of the required external asset
+		eBalance := receiverAccount.EBalances[strings.ToUpper(assetSymbol)]
+		eBalance.Balance += txValue
+		receiverAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
+	}
 }
 
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
