@@ -142,6 +142,18 @@ func (m *MemPool) UpdateTx(origI int, updated *protobuf.Tx) (*protobuf.Tx, error
 	return orig, nil
 }
 
+// CancelTx cancels a transaction currently in the MemPool by the transaction ID
+// Returns true if successfully cancelled, false if can't find or cancel the transaction
+func (m *MemPool) CancelTx(id string) bool {
+	for i, txStr := range m.txs {
+		mTxID := common.CreateTxID(txStr.tx)
+		if mTxID == id {
+			m.txs = append(m.txs[:i], m.txs[i+1:]...)
+		}
+	}
+	return false
+}
+
 // RemoveTxs transactions from the MemPool
 func (m *MemPool) RemoveTxs(i int) {
 	if len(m.txs) < i {

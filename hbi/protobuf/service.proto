@@ -149,3 +149,7 @@ message EBalance{
   uint64 last_block_height = 3;
   uint64 nonce = 4;
 }
+
+message TxCancelRequest {
+    string tx_id = 1;
+}

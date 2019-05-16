@@ -74,6 +74,28 @@ func TestUpdateTxFalse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCancelTxFalse(t *testing.T) {
+	m := &MemPool{}
+	fee := uint64(2)
+	id := m.createTx("1")
+	asset := &protobuf.Asset{
+		Fee: fee,
+	}
+	tx := &protobuf.Tx{
+		Asset: asset,
+	}
+	succ, err := m.CancelTx(id)
+	assert.True(t, succ)
+	assert.NoError(t, err)
+}
+
+func TestCancelTxTrue(t *testing.T) {
+	m := &MemPool{}
+	succ, err := m.CancelTx("abc")
+	assert.False(t, succ)
+	assert.Error(t, err)
+}
+
 func (m *MemPool) createTx(i string) string {
 	asset := &transaction.Asset{
 		Category: "crypto",
