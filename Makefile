@@ -22,9 +22,15 @@ else
 endif
 
 ifeq (,$(subst ,,$(PORT)))
-	GOPARAMETERS := $(GOPARAMETERS) '-port=0'
+	goparameters := $(goparameters) '-port=0'
 else
-	GOPARAMETERS := $(GOPARAMETERS) '-port='$(PORT)
+	goparameters := $(goparameters) '-port='$(port)
+endif
+
+ifeq (,$(subst ,,$(WAITTIME)))
+	GOPARAMETERS := $(GOPARAMETERS) '-waitTime=3'
+else
+	GOPARAMETERS := $(GOPARAMETERS) '-waitTime='$(WAITTIME)
 endif
 
 ifeq (,$(subst ,,$(ENV)))
