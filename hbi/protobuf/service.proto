@@ -150,6 +150,6 @@ message EBalance{
   uint64 nonce = 4;
 }
 
-message TxCancelRequest {
+message TxDeleteRequest {
     string tx_id = 1;
 }

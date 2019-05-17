@@ -74,26 +74,21 @@ func TestUpdateTxFalse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestCancelTxFalse(t *testing.T) {
+func TestDeleteTxTrue(t *testing.T) {
 	m := &MemPool{}
-	fee := uint64(2)
 	id := m.createTx("1")
-	asset := &protobuf.Asset{
-		Fee: fee,
-	}
-	tx := &protobuf.Tx{
-		Asset: asset,
-	}
-	succ, err := m.CancelTx(id)
+
+	succ := m.DeleteTx(id)
 	assert.True(t, succ)
-	assert.NoError(t, err)
+
+	succ = m.DeleteTx(id)
+	assert.False(t, succ)
 }
 
-func TestCancelTxTrue(t *testing.T) {
+func TestDeleteTxFalse(t *testing.T) {
 	m := &MemPool{}
-	succ, err := m.CancelTx("abc")
+	succ := m.DeleteTx("abc")
 	assert.False(t, succ)
-	assert.Error(t, err)
 }
 
 func (m *MemPool) createTx(i string) string {
