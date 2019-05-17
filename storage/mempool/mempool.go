@@ -153,8 +153,8 @@ func (m *MemPool) DeleteTx(id string) bool {
 			m.txs = append(m.txs[:i], m.txs[i+1:]...)
 			return true
 		}
-		log.Printf("Unable to find Tx (id: %v) in memory pool", id)
 	}
+	log.Printf("Unable to find Tx (id: %v) in memory pool", id)
 	return false
 }
 
