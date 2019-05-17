@@ -206,6 +206,7 @@ func main() {
 	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
 	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
+	waitTimeFlag := flag.Int("waitTime", 3, "time to wait before the Memory Pool is flushed to a new block")
 	flag.Parse()
 
 	env := *envFlag
@@ -213,6 +214,7 @@ func main() {
 	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
+	waitTime := *waitTimeFlag
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
@@ -330,7 +332,7 @@ func main() {
 			// Blocks will be created every 3 seconds
 			time.Sleep(3 * time.Second)
 
-			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, noOfPeersInGroup, stateRoot)
+			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, waitTime, noOfPeersInGroup, stateRoot)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
