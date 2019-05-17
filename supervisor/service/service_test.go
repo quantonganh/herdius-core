@@ -79,6 +79,44 @@ func TestRegisterNewETHAddress(t *testing.T) {
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
 }
 
+func TestRegisterMultipleExternalAssets(t *testing.T) {
+	// First add ETH
+	asset := &pluginproto.Asset{
+		Symbol:                "ETH",
+		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Nonce:                 1,
+		Network:               "Herdius",
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+	account := &statedb.Account{
+		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+	}
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) == 1)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+
+	// Second add BTC
+	asset = &pluginproto.Asset{
+		Symbol:                "BTC",
+		ExternalSenderAddress: "Bitcoin-Address",
+		Nonce:                 2,
+		Network:               "Herdius",
+	}
+	tx = &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) == 2)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["BTC"].Address)
+}
+
 func TestUpdateExternalAccountBalance(t *testing.T) {
 	asset := &pluginproto.Asset{
 		Symbol:                "ETH",
@@ -117,7 +155,7 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
 }
 
-func TestisExternalAssetAddressExistTrue(t *testing.T) {
+func TestIsExternalAssetAddressExistTrue(t *testing.T) {
 	eBal := statedb.EBalance{
 		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
 	}
@@ -129,7 +167,7 @@ func TestisExternalAssetAddressExistTrue(t *testing.T) {
 	}
 	assert.True(t, isExternalAssetAddressExist(account, "ETH"))
 }
-func TestisExternalAssetAddressExistFalse(t *testing.T) {
+func TestIsExternalAssetAddressExistFalse(t *testing.T) {
 	eBal := statedb.EBalance{}
 	eBals := make(map[string]statedb.EBalance)
 	eBals["ETH"] = eBal
