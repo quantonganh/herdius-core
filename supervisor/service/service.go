@@ -696,7 +696,7 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 					eBalance = statedb.EBalance{}
 					eBalance.Address = tx.Asset.ExternalSenderAddress
 					eBalance.Balance = 0
-					eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+					eBalance.LastBlockHeight = 0
 					eBalance.Nonce = 0
 					eBalances := make(map[string]statedb.EBalance)
 					eBalances[tx.Asset.Symbol] = eBalance
@@ -719,9 +719,12 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 			eBalance = statedb.EBalance{}
 			eBalance.Address = tx.Asset.ExternalSenderAddress
 			eBalance.Balance = 0
-			eBalance.LastBlockHeight = 0 //tx.Asset.ExternalBlockHeight
+			eBalance.LastBlockHeight = 0
 			eBalance.Nonce = 0
-			eBalances := make(map[string]statedb.EBalance)
+			eBalances := senderAccount.EBalances
+			if eBalances == nil || len(eBalances) == 0 {
+				eBalances = make(map[string]statedb.EBalance)
+			}
 			eBalances[tx.Asset.Symbol] = eBalance
 			senderAccount.EBalances = eBalances
 			senderAccount.Nonce = tx.Asset.Nonce
