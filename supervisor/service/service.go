@@ -376,6 +376,22 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
 
+	updateAccs := accountCache.GetAll()
+	for address, account := range updateAccs {
+		switch v := account.Object.(type) {
+		case statedb.Account:
+			{
+				sactbz, err := cdc.MarshalJSON(v)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
+				}
+				stateTrie.TryUpdate([]byte(address), sactbz)
+			}
+		}
+
+	}
+
 	for i, txbz := range txs {
 
 		var tx pluginproto.Tx

@@ -22,3 +22,7 @@ type EBalance struct {
 	LastBlockHeight uint64
 	Nonce           uint64
 }
+
+func (eb *EBalance) UpdateBalance(b uint64) {
+	eb.Balance = b
+}

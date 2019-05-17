@@ -27,7 +27,11 @@ import (
 	"github.com/herdius/herdius-core/p2p/network"
 	"github.com/herdius/herdius-core/p2p/network/discovery"
 	"github.com/herdius/herdius-core/p2p/types/opcode"
+	cache "github.com/herdius/herdius-core/storage/cache"
+	syncer "github.com/herdius/herdius-core/syncer"
+
 	"github.com/herdius/herdius-core/storage/state/statedb"
+
 	sup "github.com/herdius/herdius-core/supervisor/service"
 	validator "github.com/herdius/herdius-core/validator/service"
 	amino "github.com/tendermint/go-amino"
@@ -52,10 +56,14 @@ var t1 time.Time
 var t2 time.Time
 var addresses = make([]string, 0)
 
+var accountCache *cache.Cache
+
 // HerdiusMessagePlugin will receive all trasnmitted messages.
 type HerdiusMessagePlugin struct{ *network.Plugin }
 
 func init() {
+	accountCache = cache.New()
+
 	nlog.SetFlags(nlog.LstdFlags | nlog.Lshortfile)
 	supsvc = &sup.Supervisor{}
 	supsvc.SetWriteMutex()
@@ -200,6 +208,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 }
 
 func main() {
+
 	// process other flags
 	peersFlag := flag.String("peers", "", "peers to connect to")
 	supervisorFlag := flag.Bool("supervisor", false, "run as supervisor")
@@ -285,10 +294,12 @@ func main() {
 	var stateRoot []byte
 	if *supervisorFlag {
 		blockchain.LoadDB()
-		sup.LoadStateDB()
+		sup.LoadStateDB(accountCache)
 		blockchainSvc := &blockchain.Service{}
 
 		lastBlock := blockchainSvc.GetLastBlock()
+
+		go syncer.Sync(accountCache)
 
 		if err != nil {
 			log.Error().Msgf("Failed while getting last block: %v\n", err)
