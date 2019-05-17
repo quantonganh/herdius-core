@@ -389,8 +389,9 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 				stateTrie.TryUpdate([]byte(address), sactbz)
 			}
 		}
-
 	}
+
+	accountCache.DeleteAll()
 
 	for i, txbz := range txs {
 
