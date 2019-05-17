@@ -299,7 +299,11 @@ func main() {
 
 		lastBlock := blockchainSvc.GetLastBlock()
 
-		go syncer.Sync(accountCache)
+		// Run every 10 minues
+		for {
+			<-time.After(10 * time.Minute)
+			go syncer.Sync(accountCache)
+		}
 
 		if err != nil {
 			log.Error().Msgf("Failed while getting last block: %v\n", err)
