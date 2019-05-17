@@ -29,6 +29,7 @@ require (
 	github.com/tendermint/go-amino v0.14.1
 	github.com/uber-go/atomic v1.3.2
 	github.com/xtaci/kcp-go v5.0.7+incompatible
-	golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/tools v0.0.0-20190517003510-bffc5affc6df
 	google.golang.org/grpc v1.18.0
 )

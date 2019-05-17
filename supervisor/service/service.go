@@ -44,7 +44,7 @@ type SupervisorI interface {
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
-	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
+	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
@@ -340,30 +340,33 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // ProcessTxs will process transactions.
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
-func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
-	reqdTxs := 10
-	// Check if transactions to be added in Singular Block
-	if len(*txs) < reqdTxs {
-		log.Printf("Not enough transactions in pool to process: (%v/%v)", len(*txs), reqdTxs)
-		return nil, nil
-
+	select {
+	//case <-time.After(waitTime * time.Second):
+	case <-time.After(time.Duration(waitTime) * time.Second):
+		if len(*txs) <= 0 {
+			log.Printf("Block creation wait time (%ds) elapsed, but no transaction to process", waitTime)
+			return nil, nil
+		}
+		log.Printf("Block creation wait time (%d) elapsed, creating block", waitTime)
 		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
-	} else if len(s.Validator) <= 0 {
-		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+		if len(s.Validator) <= 0 {
+			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create base block: %v", err)
+			}
+			mp.RemoveTxs(len(*txs))
+			return baseBlock, nil
+		}
+		err := s.ShardToValidators(txs, net, stateRoot)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create base block: %v", err)
+			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 		}
 		mp.RemoveTxs(len(*txs))
-		return baseBlock, nil
 	}
-	err := s.ShardToValidators(txs, net, stateRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
-	}
-	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
 
