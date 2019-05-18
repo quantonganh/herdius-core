@@ -15,9 +15,15 @@ import (
 var cdc = amino.NewCodec()
 
 type EthSyncer struct {
-	ExtBalance *big.Int
-	Account    statedb.Account
-	Cache      *cache.Cache
+	LastExtBalance *big.Int
+	ExtBalance     *big.Int
+	Account        statedb.Account
+	Cache          *cache.Cache
+}
+
+type AccountCache struct {
+	Account        statedb.Account
+	LastExtBalance *big.Int
 }
 
 func (es *EthSyncer) GetExtBalance() {
@@ -43,10 +49,20 @@ func (es *EthSyncer) GetExtBalance() {
 func (es *EthSyncer) Update() {
 	value, ok := es.Account.EBalances["ETH"]
 	if ok {
-		value.UpdateBalance(es.ExtBalance.Uint64())
+		herEthBalance := *big.NewInt(int64(0))
 		es.Account.EBalances["ETH"] = value
-		es.Cache.Set(es.Account.Address, es.Account)
+		last, ok := es.Cache.Get(es.Account.Address)
+		if ok {
+			//last-balance < External-ETH
+			if last.(*AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
+				//herEth = exteth - lastEth
+				herEthBalance.Sub(es.ExtBalance, last.(*AccountCache).LastExtBalance)
+				herEthBalance.Add(&herEthBalance, es.ExtBalance)
+				value.UpdateBalance(herEthBalance.Uint64())
+			}
+		}
 
+		es.Cache.Set(es.Account.Address, &AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance})
 	}
 
 }
