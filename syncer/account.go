@@ -23,7 +23,7 @@ func sync(cache *cache.Cache) {
 
 	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
 	if err != nil {
-		fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+		fmt.Printf("Failed to retrieve the state trie: %v.", err)
 		return
 	}
 
@@ -34,14 +34,14 @@ func sync(cache *cache.Cache) {
 		senderAddressBytes := it.Key
 		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
 		if err != nil {
-			fmt.Println("Failed to retrieve account detail: %v", err)
+			fmt.Printf("Failed to retrieve account detail: %v", err)
 			continue
 		}
 
 		if len(senderActbz) > 0 {
 			err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
 			if err != nil {
-				fmt.Println("Failed to Unmarshal account: %v", err)
+				fmt.Printf("Failed to Unmarshal account: %v", err)
 				continue
 			}
 		}
