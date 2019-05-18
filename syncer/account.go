@@ -10,10 +10,15 @@ import (
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
 
-func Sync(cache *cache.Cache) {
+func SyncAllAccounts(cache *cache.Cache) {
+	for {
+		sync(cache)
+	}
+}
+
+func sync(cache *cache.Cache) {
 	blockchainSvc := &blockchain.Service{}
-	//TODO: get latest block
-	lastBlock, _ := blockchainSvc.GetBlockByHeight(int64(14))
+	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
 
 	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
