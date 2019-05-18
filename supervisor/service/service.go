@@ -27,6 +27,7 @@ import (
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
+	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -374,6 +375,32 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+	}
+
+	updateAccs := accountCache.GetAll()
+	for address, account := range updateAccs {
+
+		switch v := account.Object.(type) {
+
+		case cache.AccountCache:
+			{
+
+				account := account.Object.(cache.AccountCache).Account
+				log.Println("Updating Account from cache", account)
+
+				sactbz, err := cdc.MarshalJSON(account)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
+				}
+				stateTrie.TryUpdate([]byte(address), sactbz)
+			}
+		default:
+			{
+				log.Println("Failed to get cache", v)
+
+			}
+		}
 	}
 
 	for i, txbz := range txs {
