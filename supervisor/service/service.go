@@ -397,7 +397,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			}
 		default:
 			{
-				log.Printf("Failed to get cache", v)
+				log.Println("Failed to get cache", v)
 
 			}
 		}
