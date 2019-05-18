@@ -60,6 +60,8 @@ func (es *EthSyncer) Update() {
 				herEthBalance.Add(&herEthBalance, es.ExtBalance)
 				value.UpdateBalance(herEthBalance.Uint64())
 			}
+		} else {
+			value.UpdateBalance(es.ExtBalance.Uint64())
 		}
 
 		es.Cache.Set(es.Account.Address, &AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance})

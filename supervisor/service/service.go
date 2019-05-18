@@ -391,8 +391,6 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		}
 	}
 
-	accountCache.DeleteAll()
-
 	for i, txbz := range txs {
 
 		var tx pluginproto.Tx
