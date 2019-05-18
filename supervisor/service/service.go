@@ -27,6 +27,7 @@ import (
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
+	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -378,15 +379,26 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 	updateAccs := accountCache.GetAll()
 	for address, account := range updateAccs {
+
 		switch v := account.Object.(type) {
-		case statedb.Account:
+
+		case cache.AccountCache:
 			{
-				sactbz, err := cdc.MarshalJSON(v)
+
+				account := account.Object.(cache.AccountCache).Account
+				log.Println("Updating Account from cache", account)
+
+				sactbz, err := cdc.MarshalJSON(account)
 				if err != nil {
 					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
 					continue
 				}
 				stateTrie.TryUpdate([]byte(address), sactbz)
+			}
+		default:
+			{
+				log.Printf("Failed to get cache", v)
+
 			}
 		}
 	}

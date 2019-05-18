@@ -22,11 +22,6 @@ type EthSyncer struct {
 	RPC            string
 }
 
-type AccountCache struct {
-	Account        statedb.Account
-	LastExtBalance *big.Int
-}
-
 func (es *EthSyncer) GetExtBalance() {
 	client, err := ethclient.Dial(es.RPC)
 	if err != nil {
@@ -35,6 +30,7 @@ func (es *EthSyncer) GetExtBalance() {
 	// If ETH account exists
 	ethAccount, ok := es.Account.EBalances["ETH"]
 	if !ok {
+
 		return
 	}
 
@@ -51,21 +47,35 @@ func (es *EthSyncer) Update() {
 	value, ok := es.Account.EBalances["ETH"]
 	if ok {
 		herEthBalance := *big.NewInt(int64(0))
-		es.Account.EBalances["ETH"] = value
 		last, ok := es.Cache.Get(es.Account.Address)
 		if ok {
 			//last-balance < External-ETH
-			if last.(*AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
+			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
 				//herEth = exteth - lastEth
-				herEthBalance.Sub(es.ExtBalance, last.(*AccountCache).LastExtBalance)
+				herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
 				herEthBalance.Add(&herEthBalance, es.ExtBalance)
 				value.UpdateBalance(herEthBalance.Uint64())
+				es.Account.EBalances["ETH"] = value
+				val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+				es.Cache.Set(es.Account.Address, val)
+				return
+
+			}
+			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) == 0 {
+				value.UpdateBalance(es.ExtBalance.Uint64())
+				es.Account.EBalances["ETH"] = value
+				val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+				es.Cache.Set(es.Account.Address, val)
+				return
 			}
 		} else {
 			value.UpdateBalance(es.ExtBalance.Uint64())
+			es.Account.EBalances["ETH"] = value
+			val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+			es.Cache.Set(es.Account.Address, val)
+
 		}
 
-		es.Cache.Set(es.Account.Address, &AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance})
 	}
 
 }
