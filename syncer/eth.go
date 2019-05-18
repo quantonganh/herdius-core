@@ -19,6 +19,7 @@ type EthSyncer struct {
 	ExtBalance     *big.Int
 	Account        statedb.Account
 	Cache          *cache.Cache
+	RPC            string
 }
 
 type AccountCache struct {
@@ -27,11 +28,10 @@ type AccountCache struct {
 }
 
 func (es *EthSyncer) GetExtBalance() {
-	client, err := ethclient.Dial("https://mainnet.infura.io")
+	client, err := ethclient.Dial(es.RPC)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error connecting ETH RPC", err)
 	}
-
 	// If ETH account exists
 	ethAccount, ok := es.Account.EBalances["ETH"]
 	if !ok {
@@ -41,7 +41,8 @@ func (es *EthSyncer) GetExtBalance() {
 	account := common.HexToAddress(ethAccount.Address)
 	balance, err := client.BalanceAt(context.Background(), account, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error getting ETH Balance from RPC", err)
+
 	}
 	es.ExtBalance = balance
 }

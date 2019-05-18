@@ -8,15 +8,25 @@ import (
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/state/statedb"
+	"github.com/spf13/viper"
 )
 
 func SyncAllAccounts(cache *cache.Cache) {
+	var ethrpc string
+	viper.SetConfigName("config")   // Config file name without extension
+	viper.AddConfigPath("./config") // Path to config file
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println("Config file not found...")
+	} else {
+		ethrpc = viper.GetString("dev.ethrpc")
+	}
 	for {
-		sync(cache)
+		sync(cache, ethrpc)
 	}
 }
 
-func sync(cache *cache.Cache) {
+func sync(cache *cache.Cache, ethrpc string) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -45,7 +55,7 @@ func sync(cache *cache.Cache) {
 				continue
 			}
 		}
-		es := &EthSyncer{Account: senderAccount, Cache: cache}
+		es := &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
 		es.GetExtBalance()
 		es.Update()
 
