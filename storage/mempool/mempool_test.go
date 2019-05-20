@@ -74,6 +74,23 @@ func TestUpdateTxFalse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDeleteTxTrue(t *testing.T) {
+	m := &MemPool{}
+	id := m.createTx("1")
+
+	succ := m.DeleteTx(id)
+	assert.True(t, succ)
+
+	succ = m.DeleteTx(id)
+	assert.False(t, succ)
+}
+
+func TestDeleteTxFalse(t *testing.T) {
+	m := &MemPool{}
+	succ := m.DeleteTx("abc")
+	assert.False(t, succ)
+}
+
 func (m *MemPool) createTx(i string) string {
 	asset := &transaction.Asset{
 		Category: "crypto",

@@ -259,6 +259,30 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		}
 		nonce++
 		return nil
+	case *protoplugin.TxDeleteRequest:
+		mp := mempool.GetMemPool()
+		succ := mp.DeleteTx(msg.TxId)
+		apiClient, err := ctx.Network().Client(ctx.Client().Address)
+		if err != nil {
+			return fmt.Errorf("Failed to get API client: %v", err)
+		}
+		if succ {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxUpdateResponse{
+					TxId:   msg.TxId,
+					Status: succ,
+				})
+		} else {
+			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+				&protoplugin.TxUpdateResponse{
+					Status: succ,
+					Error:  fmt.Sprintf("Unable to find Tx (id: %v) in memory pool", msg.TxId),
+				})
+		}
+		nonce++
+		if err != nil {
+			return fmt.Errorf("Failed to reply to client :%v", err)
+		}
 	}
 	return nil
 }
