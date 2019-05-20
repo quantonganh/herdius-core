@@ -36,8 +36,7 @@ func sync(cache *cache.Cache, ethrpc string) {
 		fmt.Printf("Failed to retrieve the state trie: %v.", err)
 		return
 	}
-
-	it := ethtrie.NewIterator(stateTrie.NodeIterator(stateRoot))
+	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
 
 	for it.Next() {
 		var senderAccount statedb.Account
