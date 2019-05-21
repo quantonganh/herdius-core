@@ -859,7 +859,12 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	}
 	numCbs = numGrps
 	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
-
+	log.Println("stateRoot:", stateRoot)
+	if len(stateRoot) <= 0 {
+		return fmt.Errorf("Cannot process an empty stateRoot for the trie")
+	}
+	log.Println("length:", len(stateRoot))
+	log.Println("content:", stateRoot)
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
 		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", stateRoot)
@@ -1152,7 +1157,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	root, err := stateTrie.Commit(nil)
 	if err != nil {
 		log.Println("Failed to commit to state trie:", err)
-		plog.Error().Msgf("Failed to commit to state trie:", err)
+		plog.Error().Msgf("Failed to commit to state trie: %v", err)
 	}
 	s.StateRoot = root
 

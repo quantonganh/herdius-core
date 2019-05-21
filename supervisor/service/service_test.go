@@ -307,12 +307,23 @@ func getTxSecp256k1Account(nonce int) transaction.Tx {
 	return tx
 }
 
-func TestShardToValidators(t *testing.T) {
+func TestShardToValidatorsFalse(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.AddValidator([]byte{1}, "add-01")
 	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	err := supsvc.ShardToValidators(txs, nil, nil)
-	assert.Nil(t, err)
+	assert.Error(t, err)
+}
+
+func TestShardToValidatorsTrue(t *testing.T) {
+	supsvc := &Supervisor{}
+	supsvc.AddValidator([]byte{1}, "add-01")
+	supsvc.AddValidator([]byte{1}, "add-02")
+	supsvc.SetWriteMutex()
+	txs := &txbyte.Txs{}
+	stateRoot := []byte{106, 211, 43, 75, 113, 25, 41, 244, 114, 223, 57, 120, 0, 135, 94, 251, 250, 185, 190, 37, 110, 38, 241, 114, 130, 60, 18, 108, 5, 90, 94, 103}
+	err := supsvc.ShardToValidators(txs, nil, stateRoot)
+	assert.NoError(t, err)
 }
