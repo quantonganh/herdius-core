@@ -1023,7 +1023,6 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 		} else if strings.EqualFold(tx.Type, "Update") {
 
-			log.Println("YO YO YO YO YOU ENTERED UPDATED")
 			senderAccount = *(updateAccount(&senderAccount, &tx))
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
@@ -1092,10 +1091,14 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
 			//Withdraw fund from Sender Account
+			log.Println("sender account balance before:", senderAccount.Balance)
 			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
+			log.Println("sender account balance after:", senderAccount.Balance)
 
 			// Credit Reciever's Account
+			log.Println("receiver account balance before:", rcvrAccount.Balance)
 			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
+			log.Println("receiver account balance after:", rcvrAccount.Balance)
 
 			senderAccount.Nonce = tx.Asset.Nonce
 			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
@@ -1139,7 +1142,9 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		log.Println("Failed to commit to state trie:", err)
 		plog.Error().Msgf("Failed to commit to state trie:", err)
 	}
+	log.Println("state root before:", s.StateRoot)
 	s.StateRoot = root
+	log.Println("state root after:", s.StateRoot)
 
 	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)

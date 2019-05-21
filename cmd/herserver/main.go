@@ -111,6 +111,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
 	case *blockProtobuf.ChildBlockMessage:
+		fmt.Println("Received child block message from validator")
 		mcb = msg
 		vote := mcb.GetVote()
 		if vote != nil {
@@ -151,7 +152,11 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 
 					var stateRoot cmn.HexBytes
 					stateRoot = lastBlock.GetHeader().GetStateRoot()
-					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
+					fmt.Println("state root of lastblock:", stateRoot)
+					var newStateRoot cmn.HexBytes
+					newStateRoot = supsvc.StateRoot
+					fmt.Println("state root of s.stateroot:", newStateRoot)
+					stateTrie, err := statedb.NewTrie(common.BytesToHash(newStateRoot))
 					if err != nil {
 						log.Error().Msgf("Failed to create new state trie: %v", err)
 					}
