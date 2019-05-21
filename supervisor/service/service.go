@@ -875,8 +875,6 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		}
 		txlist.Transactions = append(txlist.Transactions, &txStr)
 
-		log.Println("Entering the new space")
-
 		err = cdc.UnmarshalJSON(txbz, &tx)
 		if err != nil {
 			log.Printf("Failed to Unmarshal tx: %v", err)
@@ -887,11 +885,13 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		senderAddress := tx.GetSenderAddress()
 		pubKeyS, err := b64.StdEncoding.DecodeString(tx.GetSenderPubkey())
 		if err != nil {
+			log.Printf("Failed to decode sender public key: %v", err)
 			plog.Error().Msgf("Failed to decode sender public key: %v", err)
 			tx.Status = "failed"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
 			if err != nil {
+				log.Printf("Failed to encode failed tx: %v", err)
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
 			}
 			continue
@@ -970,12 +970,11 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 			}
 		}
 
-		log.Printf("tx strcut: %+v", tx)
-		log.Println("which tx type?", tx.Type)
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
 			symbol := tx.Asset.Symbol
 			if symbol != "BTC" && symbol != "ETH" {
+				log.Printf("Unsupported external asset symbol: %v", symbol)
 				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
 				continue
 			}
@@ -985,10 +984,12 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 			balance := senderAccount.EBalances[symbol]
 			if balance == (statedb.EBalance{}) {
 				plog.Error().Msgf("Sender has no assets for the given symbol: %v", symbol)
+				log.Printf("Sender has no assets for the given symbol: %v", symbol)
 				continue
 			}
 			if balance.Balance <= tx.Asset.Value {
 				plog.Error().Msgf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
+				log.Printf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
 				continue
 			}
 			balance.Balance -= tx.Asset.Value
@@ -998,17 +999,20 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
+				log.Printf("Failed to Marshal sender's account: %v", err)
 				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
 				continue
 			}
 			addressBytes := []byte(pubKey.GetAddress())
 			err = stateTrie.TryUpdate(addressBytes, sactbz)
 			if err != nil {
+				log.Printf("Failed to store account in state db: %v", err)
 				plog.Error().Msgf("Failed to store account in state db: %v", err)
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
 				if err != nil {
+					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 			}
@@ -1016,6 +1020,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
 			if err != nil {
+				log.Printf("Failed to encode failed tx: %v", err)
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
 			}
 
@@ -1027,17 +1032,20 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
+				log.Printf("Failed to Marshal sender's account: %v", err)
 				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
 				continue
 			}
 			addressBytes := []byte(pubKey.GetAddress())
 			err = stateTrie.TryUpdate(addressBytes, sactbz)
 			if err != nil {
+				log.Printf("Failed to store account in state db: %v", err)
 				plog.Error().Msgf("Failed to store account in state db: %v", err)
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
 				if err != nil {
+					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 			}
@@ -1045,6 +1053,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
 			if err != nil {
+				log.Printf("Failed to encode failed tx: %v", err)
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
 			}
 			continue
@@ -1059,6 +1068,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
 				if err != nil {
+					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 				continue
@@ -1073,6 +1083,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 			err = cdc.UnmarshalJSON(rcvrActbz, &rcvrAccount)
 
 			if err != nil {
+				log.Printf("Failed to Unmarshal receiver's account: %v", err)
 				plog.Error().Msgf("Failed to Unmarshal receiver's account: %v", err)
 				continue
 			}
@@ -1084,6 +1095,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
 				if err != nil {
+					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 				continue
@@ -1091,35 +1103,34 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
 			//Withdraw fund from Sender Account
-			log.Println("sender account balance before:", senderAccount.Balance)
 			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
-			log.Println("sender account balance after:", senderAccount.Balance)
 
 			// Credit Reciever's Account
-			log.Println("receiver account balance before:", rcvrAccount.Balance)
 			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
-			log.Println("receiver account balance after:", rcvrAccount.Balance)
 
 			senderAccount.Nonce = tx.Asset.Nonce
 			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
-
 			if err != nil {
+				log.Printf("Failed to Marshal sender's account: %v", err)
 				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
 			}
 
 			err = stateTrie.TryUpdate(senderAddressBytes, updatedSenderAccount)
 			if err != nil {
+				log.Printf("Failed to update sender's account in state db: %v", err)
 				plog.Error().Msgf("Failed to update sender's account in state db: %v", err)
 			}
 
 			updatedRcvrAccount, err := cdc.MarshalJSON(rcvrAccount)
 
 			if err != nil {
+				log.Printf("Failed to Marshal receiver's account: %v", err)
 				plog.Error().Msgf("Failed to Marshal receiver's account: %v", err)
 			}
 
 			err = stateTrie.TryUpdate(rcvrAddressBytes, updatedRcvrAccount)
 			if err != nil {
+				log.Printf("Failed to update receiver's account in state db: %v", err)
 				plog.Error().Msgf("Failed to update receiver's account in state db: %v", err)
 			}
 
@@ -1132,6 +1143,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		txbz, err = cdc.MarshalJSON(&tx)
 		(*txs)[i] = txbz
 		if err != nil {
+			log.Printf("Failed to encode failed tx: %v", err)
 			plog.Error().Msgf("Failed to encode failed tx: %v", err)
 		}
 
@@ -1142,9 +1154,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		log.Println("Failed to commit to state trie:", err)
 		plog.Error().Msgf("Failed to commit to state trie:", err)
 	}
-	log.Println("state root before:", s.StateRoot)
 	s.StateRoot = root
-	log.Println("state root after:", s.StateRoot)
 
 	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)

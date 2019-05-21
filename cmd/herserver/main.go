@@ -111,7 +111,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
 	case *blockProtobuf.ChildBlockMessage:
-		fmt.Println("Received child block message from validator")
 		mcb = msg
 		vote := mcb.GetVote()
 		if vote != nil {
@@ -151,12 +150,8 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					lastBlock := blockchainSvc.GetLastBlock()
 
 					var stateRoot cmn.HexBytes
-					stateRoot = lastBlock.GetHeader().GetStateRoot()
-					fmt.Println("state root of lastblock:", stateRoot)
-					var newStateRoot cmn.HexBytes
-					newStateRoot = supsvc.StateRoot
-					fmt.Println("state root of s.stateroot:", newStateRoot)
-					stateTrie, err := statedb.NewTrie(common.BytesToHash(newStateRoot))
+					stateRoot = supsvc.StateRoot
+					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 					if err != nil {
 						log.Error().Msgf("Failed to create new state trie: %v", err)
 					}
@@ -180,7 +175,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					ts := time.Unix(s, 0)
 					log.Info().Msgf("Timestamp : %v", ts)
 
-					stateRoot = baseBlock.GetHeader().GetStateRoot()
+					stateRoot = supsvc.StateRoot
 					log.Info().Msgf("State root : %v", stateRoot)
 					// Once new base block is added to be block chain
 					// do the following
