@@ -1134,6 +1134,13 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 
 	}
 
+	root, err := stateTrie.Commit(nil)
+	if err != nil {
+		log.Println("Failed to commit to state trie:", err)
+		plog.Error().Msgf("Failed to commit to state trie:", err)
+	}
+	s.StateRoot = root
+
 	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)
 	cbmsg := &protobuf.ChildBlockMessage{
