@@ -378,6 +378,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	}
 
 	updateAccs := accountCache.GetAll()
+
+	log.Println("Total Accounts to update", len(updateAccs))
 	for address, account := range updateAccs {
 
 		switch v := account.Object.(type) {
