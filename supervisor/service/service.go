@@ -404,261 +404,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 			}
 		}
 	}
-
-	for i, txbz := range txs {
-
-		var tx pluginproto.Tx
-		err := cdc.UnmarshalJSON(txbz, &tx)
-		if err != nil {
-			log.Printf("Failed to Unmarshal tx: %v", err)
-			continue
-		}
-
-		// Get the public key of the sender
-		senderAddress := tx.GetSenderAddress()
-		pubKeyS, err := b64.StdEncoding.DecodeString(tx.GetSenderPubkey())
-		if err != nil {
-			plog.Error().Msgf("Failed to decode sender public key: %v", err)
-			tx.Status = "failed"
-			txbz, err = cdc.MarshalJSON(&tx)
-			txs[i] = txbz
-			if err != nil {
-				plog.Error().Msgf("Failed to encode failed tx: %v", err)
-			}
-			continue
-		}
-
-		var pubKey secp256k1.PubKeySecp256k1
-		copy(pubKey[:], pubKeyS)
-
-		// Verify the signature
-		// if verification failed update the tx status as failed tx.
-		//Recreate the TX
-		asset := &pluginproto.Asset{
-			Category:              tx.Asset.Category,
-			Symbol:                tx.Asset.Symbol,
-			Network:               tx.Asset.Network,
-			Value:                 tx.Asset.Value,
-			Fee:                   tx.Asset.Fee,
-			Nonce:                 tx.Asset.Nonce,
-			ExternalSenderAddress: tx.Asset.ExternalSenderAddress,
-		}
-		verifiableTx := pluginproto.Tx{
-			SenderAddress:   tx.SenderAddress,
-			SenderPubkey:    tx.SenderPubkey,
-			RecieverAddress: tx.RecieverAddress,
-			Asset:           asset,
-			Message:         tx.Message,
-			Type:            tx.Type,
-		}
-
-		txbBeforeSign, err := json.Marshal(verifiableTx)
-
-		if err != nil {
-			plog.Error().Msgf("Failed to marshal the transaction to verify sign: %v", err)
-			continue
-		}
-
-		decodedSig, err := b64.StdEncoding.DecodeString(tx.Sign)
-
-		if err != nil {
-			plog.Error().Msgf("Failed to decode the base64 sign to verify sign: %v", err)
-			continue
-		}
-
-		signVerificationRes := pubKey.VerifyBytes(txbBeforeSign, decodedSig)
-		if !signVerificationRes {
-			plog.Error().Msgf("Signature Verification Failed: %v", signVerificationRes)
-			tx.Status = "failed"
-			txbz, err = cdc.MarshalJSON(&tx)
-			txs[i] = txbz
-			if err != nil {
-				plog.Error().Msgf("Failed to encode failed tx: %v", err)
-			}
-			continue
-		}
-		var senderAccount statedb.Account
-		senderAddressBytes := []byte(senderAddress)
-
-		// Get account details from state trie
-		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
-		if err != nil {
-			plog.Error().Msgf("Failed to retrieve account detail: %v", err)
-			continue
-		}
-
-		if len(senderActbz) > 0 {
-			err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to Unmarshal account: %v", err)
-				continue
-			}
-		}
-
-		// Check if tx is of type account update
-		if strings.EqualFold(tx.Type, "External") {
-			symbol := tx.Asset.Symbol
-			if symbol != "BTC" && symbol != "ETH" {
-				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
-				continue
-			}
-
-			// By default each of the new accounts will have HER token (with balance 0)
-			// added to the map object balances
-			balance := senderAccount.EBalances[symbol]
-			if balance == (statedb.EBalance{}) {
-				plog.Error().Msgf("Sender has no assets for the given symbol: %v", symbol)
-				continue
-			}
-			if balance.Balance <= tx.Asset.Value {
-				plog.Error().Msgf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
-				continue
-			}
-			balance.Balance -= tx.Asset.Value
-
-			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.EBalances[symbol] = balance
-
-			sactbz, err := cdc.MarshalJSON(senderAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-				continue
-			}
-			addressBytes := []byte(pubKey.GetAddress())
-			err = stateTrie.TryUpdate(addressBytes, sactbz)
-			if err != nil {
-				plog.Error().Msgf("Failed to store account in state db: %v", err)
-				tx.Status = "failed"
-				txbz, err = cdc.MarshalJSON(&tx)
-				txs[i] = txbz
-				if err != nil {
-					plog.Error().Msgf("Failed to encode failed tx: %v", err)
-				}
-			}
-			tx.Status = "success"
-			txbz, err = cdc.MarshalJSON(&tx)
-			txs[i] = txbz
-			if err != nil {
-				plog.Error().Msgf("Failed to encode failed tx: %v", err)
-			}
-
-			continue
-
-		} else if strings.EqualFold(tx.Type, "Update") {
-			senderAccount = *(updateAccount(&senderAccount, &tx))
-
-			sactbz, err := cdc.MarshalJSON(senderAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-				continue
-			}
-			addressBytes := []byte(pubKey.GetAddress())
-			err = stateTrie.TryUpdate(addressBytes, sactbz)
-			if err != nil {
-				plog.Error().Msgf("Failed to store account in state db: %v", err)
-				tx.Status = "failed"
-				txbz, err = cdc.MarshalJSON(&tx)
-				txs[i] = txbz
-				if err != nil {
-					plog.Error().Msgf("Failed to encode failed tx: %v", err)
-				}
-			}
-			tx.Status = "success"
-			txbz, err = cdc.MarshalJSON(&tx)
-			txs[i] = txbz
-			if err != nil {
-				plog.Error().Msgf("Failed to encode failed tx: %v", err)
-			}
-			continue
-		}
-
-		if strings.EqualFold(tx.Asset.Network, "Herdius") {
-
-			// Verify if sender has an address for corresponding external asset
-			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressExist(&senderAccount, tx.Asset.Symbol) {
-				tx.Status = "failed"
-				txbz, err = cdc.MarshalJSON(&tx)
-				txs[i] = txbz
-				if err != nil {
-					plog.Error().Msgf("Failed to encode failed tx: %v", err)
-				}
-				continue
-			}
-
-			// Get Reciever's Account
-			rcvrAddressBytes := []byte(tx.RecieverAddress)
-			rcvrActbz, _ := stateTrie.TryGet(rcvrAddressBytes)
-
-			var rcvrAccount statedb.Account
-
-			err = cdc.UnmarshalJSON(rcvrActbz, &rcvrAccount)
-
-			if err != nil {
-				plog.Error().Msgf("Failed to Unmarshal receiver's account: %v", err)
-				continue
-			}
-
-			// Verify if Receiver has an address for corresponding external asset
-			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressExist(&rcvrAccount, tx.Asset.Symbol) {
-				tx.Status = "failed"
-				txbz, err = cdc.MarshalJSON(&tx)
-				txs[i] = txbz
-				if err != nil {
-					plog.Error().Msgf("Failed to encode failed tx: %v", err)
-				}
-				continue
-			}
-
-			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
-			//Withdraw fund from Sender Account
-			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
-
-			// Credit Reciever's Account
-			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
-
-			senderAccount.Nonce = tx.Asset.Nonce
-			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
-
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-			}
-
-			err = stateTrie.TryUpdate(senderAddressBytes, updatedSenderAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to update sender's account in state db: %v", err)
-			}
-
-			updatedRcvrAccount, err := cdc.MarshalJSON(rcvrAccount)
-
-			if err != nil {
-				plog.Error().Msgf("Failed to Marshal receiver's account: %v", err)
-			}
-
-			err = stateTrie.TryUpdate(rcvrAddressBytes, updatedRcvrAccount)
-			if err != nil {
-				plog.Error().Msgf("Failed to update receiver's account in state db: %v", err)
-			}
-
-			// TODO: Fee should be credit to intended recipient
-		}
-
-		// Mark the tx as success and
-		// add the updated tx to batch that will finally be added to singular block
-		tx.Status = "success"
-		txbz, err = cdc.MarshalJSON(&tx)
-		txs[i] = txbz
-		if err != nil {
-			plog.Error().Msgf("Failed to encode failed tx: %v", err)
-		}
-	}
-
-	// State Root
-	root, err := stateTrie.Commit(nil)
-	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
-	}
+	_, err = s.updateStateForTxs(&txs, stateTrie)
 
 	// Get Merkle Root Hash of all transactions
 	mrh := txs.MerkleHash()
@@ -669,7 +415,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		Block_ID:    &protobuf.BlockID{},
 		LastBlockID: lastBlock.GetHeader().GetBlock_ID(),
 		Height:      lastBlock.Header.Height + 1,
-		StateRoot:   root,
+		StateRoot:   s.StateRoot,
 		Time: &protobuf.Timestamp{
 			Seconds: ts.Unix(),
 			Nanos:   ts.UnixNano(),
@@ -867,13 +613,27 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
+	txList, err := s.updateStateForTxs(txs, stateTrie)
+
+	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
+	ctx := network.WithSignMessage(context.Background(), true)
+	cbmsg := &protobuf.ChildBlockMessage{
+		ChildBlock: cb,
+	}
+
+	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
+	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
+	return nil
+}
+
+func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) (*transaction.TxList, error) {
 	txStr := transaction.Tx{}
 	txlist := &transaction.TxList{}
 	tx := pluginproto.Tx{}
 	for i, txbz := range *txs {
 		err := cdc.UnmarshalJSON(txbz, &txStr)
 		if err != nil {
-			return fmt.Errorf("unable to unmarshal tx: %v", err)
+			return nil, fmt.Errorf("unable to unmarshal tx: %v", err)
 		}
 		txlist.Transactions = append(txlist.Transactions, &txStr)
 
@@ -1157,14 +917,5 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		plog.Error().Msgf("Failed to commit to state trie: %v", err)
 	}
 	s.StateRoot = root
-
-	cb := s.CreateChildBlock(net, txlist, 1, previousBlockHash)
-	ctx := network.WithSignMessage(context.Background(), true)
-	cbmsg := &protobuf.ChildBlockMessage{
-		ChildBlock: cb,
-	}
-
-	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
-	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
-	return nil
+	return txlist, nil
 }
