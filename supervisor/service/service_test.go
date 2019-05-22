@@ -11,7 +11,8 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/herdius/herdius-core/crypto/secp256k1"
-	"github.com/herdius/herdius-core/supervisor/transaction"
+		"github.com/herdius/herdius-core/supervisor/transaction"
+
 	txbyte "github.com/herdius/herdius-core/tx"
 	"github.com/stretchr/testify/assert"
 )
@@ -325,10 +326,11 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
-	stateRoot := []byte{106, 211, 43, 75, 113, 25, 41, 244, 114, 223, 57, 120, 0, 135, 94, 251, 250, 185, 190, 37, 110, 38, 241, 114, 130, 60, 18, 108, 5, 90, 94, 103}
-	dir, err := ioutil.TempDir("", "trie-singleton")
-	trie := statedb.GetState(dir)
+	dir, err := ioutil.TempDir("", "yeezy")
+	trie = statedb.GetState(dir)
+	root, err := trie.Commit(nil)
+	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
-	err = supsvc.ShardToValidators(txs, nil, stateRoot)
+	err = supsvc.ShardToValidators(txs, nil, root)
 	assert.NoError(t, err)
 }
