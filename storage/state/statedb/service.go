@@ -68,7 +68,6 @@ func GetState(dir string) Trie {
 
 //NewTrie
 func NewTrie(hash common.Hash) (Trie, error) {
-	log.Println("hash:", hash)
 	state := new(state)
 	t, err := trie.New(hash, singleton.db)
 	if err != nil {
