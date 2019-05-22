@@ -54,7 +54,12 @@ func sync(cache *cache.Cache, ethrpc string) {
 				continue
 			}
 		}
-		es := &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		var es Syncer
+		es = &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		es.GetExtBalance()
+		es.Update()
+
+		es = &ERC20{Account: senderAccount, Cache: cache, RPC: ethrpc}
 		es.GetExtBalance()
 		es.Update()
 
