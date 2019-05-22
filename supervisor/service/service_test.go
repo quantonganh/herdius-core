@@ -2,6 +2,8 @@ package service
 
 import (
 	"testing"
+	"io/ioutil"
+	"os"
 
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
@@ -324,6 +326,9 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	stateRoot := []byte{106, 211, 43, 75, 113, 25, 41, 244, 114, 223, 57, 120, 0, 135, 94, 251, 250, 185, 190, 37, 110, 38, 241, 114, 130, 60, 18, 108, 5, 90, 94, 103}
-	err := supsvc.ShardToValidators(txs, nil, stateRoot)
+	dir, err := ioutil.TempDir("", "trie-singleton")
+	trie := statedb.GetState(dir)
+	defer os.RemoveAll(dir)
+	err = supsvc.ShardToValidators(txs, nil, stateRoot)
 	assert.NoError(t, err)
 }
