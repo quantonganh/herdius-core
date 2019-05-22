@@ -13,6 +13,7 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/herdius/herdius-core/aws"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	hehash "github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
@@ -21,7 +22,7 @@ import (
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
-
+	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -361,7 +362,8 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 				return nil, fmt.Errorf("failed to create base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
-			return baseBlock, nil
+			err := aws.BackupBaseBlock(lastBlock, baseBlock)
+			return baseBlock, err
 		}
 		err := s.ShardToValidators(txs, net, stateRoot)
 		if err != nil {
