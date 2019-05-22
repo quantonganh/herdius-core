@@ -2,6 +2,8 @@ package service
 
 import (
 	"testing"
+	"io/ioutil"
+	"os"
 
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
@@ -9,7 +11,8 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/herdius/herdius-core/crypto/secp256k1"
-	"github.com/herdius/herdius-core/supervisor/transaction"
+		"github.com/herdius/herdius-core/supervisor/transaction"
+
 	txbyte "github.com/herdius/herdius-core/tx"
 	"github.com/stretchr/testify/assert"
 )
@@ -307,12 +310,27 @@ func getTxSecp256k1Account(nonce int) transaction.Tx {
 	return tx
 }
 
-func TestShardToValidators(t *testing.T) {
+func TestShardToValidatorsFalse(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.AddValidator([]byte{1}, "add-01")
 	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	err := supsvc.ShardToValidators(txs, nil, nil)
-	assert.Nil(t, err)
+	assert.Error(t, err)
+}
+
+func TestShardToValidatorsTrue(t *testing.T) {
+	supsvc := &Supervisor{}
+	supsvc.AddValidator([]byte{1}, "add-01")
+	supsvc.AddValidator([]byte{1}, "add-02")
+	supsvc.SetWriteMutex()
+	txs := &txbyte.Txs{}
+	dir, err := ioutil.TempDir("", "yeezy")
+	trie = statedb.GetState(dir)
+	root, err := trie.Commit(nil)
+	assert.NoError(t, err)
+	defer os.RemoveAll(dir)
+	err = supsvc.ShardToValidators(txs, nil, root)
+	assert.NoError(t, err)
 }
