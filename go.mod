@@ -3,8 +3,10 @@ module github.com/herdius/herdius-core
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
 	github.com/allegro/bigcache v1.1.0 // indirect
+	github.com/aristanetworks/goarista v0.0.0-20190514202536-8f808a500156 // indirect
 	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
+	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
 	github.com/ethereum/go-ethereum v1.8.22
@@ -21,6 +23,7 @@ require (
 	github.com/mr-tron/base58 v1.1.0
 	github.com/perlin-network/noise v1.1.0
 	github.com/pkg/errors v0.8.1
+	github.com/rs/cors v1.6.0 // indirect
 	github.com/rs/zerolog v1.11.0
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.2.2

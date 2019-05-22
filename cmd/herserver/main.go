@@ -150,7 +150,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					lastBlock := blockchainSvc.GetLastBlock()
 
 					var stateRoot cmn.HexBytes
-					stateRoot = lastBlock.GetHeader().GetStateRoot()
+					stateRoot = supsvc.StateRoot
 					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 					if err != nil {
 						log.Error().Msgf("Failed to create new state trie: %v", err)
@@ -175,7 +175,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					ts := time.Unix(s, 0)
 					log.Info().Msgf("Timestamp : %v", ts)
 
-					stateRoot = baseBlock.GetHeader().GetStateRoot()
+					stateRoot = supsvc.StateRoot
 					log.Info().Msgf("State root : %v", stateRoot)
 					// Once new base block is added to be block chain
 					// do the following
