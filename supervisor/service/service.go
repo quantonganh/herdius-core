@@ -40,7 +40,7 @@ type SupervisorI interface {
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
-	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
+	ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
@@ -336,7 +336,7 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // ProcessTxs will process transactions.
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
-func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
@@ -362,7 +362,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 				return nil, fmt.Errorf("failed to create base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
-			err := aws.BackupBaseBlock(lastBlock, baseBlock)
+			err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
 			return baseBlock, err
 		}
 		err := s.ShardToValidators(txs, net, stateRoot)

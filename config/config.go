@@ -18,6 +18,7 @@ type detail struct {
 	BadgerDB          string
 	LevelDB           string
 	NodeKeyDir        string
+	S3Bucket          string
 }
 
 // GetConfiguration ...
@@ -46,6 +47,7 @@ func GetConfiguration(env string) *detail {
 				BadgerDB:          viper.GetString(fmt.Sprint(env, ".badgerdb")),
 				LevelDB:           viper.GetString(fmt.Sprint(env, ".leveldb")),
 				NodeKeyDir:        viper.GetString(fmt.Sprint(env, ".nodekeydir")),
+				S3Bucket:          viper.GetString(fmt.Sprint(env, ".s3backupbucket")),
 			}
 		}
 	})
