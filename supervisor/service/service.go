@@ -349,8 +349,15 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	//case <-time.After(waitTime * time.Second):
 	case <-time.After(time.Duration(waitTime) * time.Second):
 		if len(*txs) <= 0 {
-			log.Printf("Block creation wait time (%ds) elapsed, but no transaction to process", waitTime)
-			return nil, nil
+			// We need to keep on creating base blocks every 3 seconds
+			// since we have a background process executing and updating the
+			// balances of external assets.
+			log.Printf("Block creation wait time (%d) elapsed, creating block but with no transactions", waitTime)
+			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create base block: %v", err)
+			}
+			return baseBlock, nil
 		}
 		log.Printf("Block creation wait time (%d) elapsed, creating block", waitTime)
 		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
@@ -376,7 +383,9 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
-	stateTrie = updateStateWithNewExternalBalance(stateTrie)
+	if accountCache != nil {
+		stateTrie = updateStateWithNewExternalBalance(stateTrie)
+	}
 	_, err = s.updateStateForTxs(&txs, stateTrie)
 
 	// Get Merkle Root Hash of all transactions
@@ -418,7 +427,6 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 }
 func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	updateAccs := accountCache.GetAll()
-
 	log.Println("Total Accounts to update", len(updateAccs))
 	for address, item := range updateAccs {
 
@@ -632,6 +640,9 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
+	if accountCache != nil {
+		stateTrie = updateStateWithNewExternalBalance(stateTrie)
+	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
 
 	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
