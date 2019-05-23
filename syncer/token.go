@@ -27,13 +27,14 @@ func (es *ERC20) GetExtBalance() {
 	if err != nil {
 		log.Println("Error connecting ETH RPC", err)
 	}
-	tokenAddress := common.HexToAddress("0xB8c77482e45F1F44dE1745F52C74426C631bDD52")
+	tokenAddress := common.HexToAddress("0xb8c77482e45f1f44de1745f52c74426c631bdd52")
 
 	instance, err := contract.NewToken(tokenAddress, client)
 	if err != nil {
 		log.Fatal(err)
 	}
-	address := common.HexToAddress("0x4ef1dd38ace2ced41d4002d4aa7982d71c457001")
+	log.Println("es.RPC", es.RPC)
+	address := common.HexToAddress(es.Account.Erc20Address)
 	bal, err := instance.BalanceOf(&bind.CallOpts{}, address)
 	if err != nil {
 		log.Fatal(err)
@@ -45,13 +46,7 @@ func (es *ERC20) GetExtBalance() {
 }
 
 func (es *ERC20) Update() {
-	value, ok := es.Account.EBalances[es.TokenSymbol]
-	if ok {
-		value.UpdateBalance(es.ExtBalance.Uint64())
-		es.Account.EBalances[es.TokenSymbol] = value
-		val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
-		es.Cache.Set(es.Account.Address, val)
-
-	}
-
+	es.Account.Balance = es.ExtBalance.Uint64()
+	val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+	es.Cache.Set(es.Account.Address, val)
 }
