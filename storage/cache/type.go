@@ -7,8 +7,7 @@ import (
 )
 
 // AccountCache holds the balance detail of an Account
-// that we need to be used while updating the external asset
-// balances
+// that we need to use while updating balances of external assets
 type AccountCache struct {
 	Account           statedb.Account
 	LastExtBalance    *big.Int

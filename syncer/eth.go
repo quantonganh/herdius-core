@@ -54,13 +54,6 @@ func (es *EthSyncer) Update() {
 			//last-balance < External-ETH
 			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
-				//herEth = exteth - lastEth
-				// herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
-				// herEthBalance.Add(&herEthBalance, es.ExtBalance)
-				// value.UpdateBalance(herEthBalance.Uint64())
-				// es.Account.EBalances["ETH"] = value
-				// val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
-				// es.Cache.Set(es.Account.Address, val)
 				herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
 				value.Balance += herEthBalance.Uint64()
 				es.Account.EBalances["ETH"] = value
