@@ -43,6 +43,8 @@ func (es *EthSyncer) GetExtBalance() {
 	es.ExtBalance = balance
 }
 
+// Update updates accounts in cache as and when external balances
+// external chains are updated.
 func (es *EthSyncer) Update() {
 	value, ok := es.Account.EBalances["ETH"]
 	if ok {
@@ -50,28 +52,44 @@ func (es *EthSyncer) Update() {
 		last, ok := es.Cache.Get(es.Account.Address)
 		if ok {
 			//last-balance < External-ETH
+			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
 				//herEth = exteth - lastEth
+				// herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
+				// herEthBalance.Add(&herEthBalance, es.ExtBalance)
+				// value.UpdateBalance(herEthBalance.Uint64())
+				// es.Account.EBalances["ETH"] = value
+				// val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+				// es.Cache.Set(es.Account.Address, val)
 				herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
-				herEthBalance.Add(&herEthBalance, es.ExtBalance)
-				value.UpdateBalance(herEthBalance.Uint64())
+				value.Balance += herEthBalance.Uint64()
 				es.Account.EBalances["ETH"] = value
-				val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+				val := cache.AccountCache{
+					Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: false,
+				}
 				es.Cache.Set(es.Account.Address, val)
 				return
 
 			}
-			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) == 0 {
-				value.UpdateBalance(es.ExtBalance.Uint64())
+
+			//last-balance < External-ETH
+			//Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
+			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) > 0 {
+				herEthBalance.Sub(last.(cache.AccountCache).LastExtBalance, es.ExtBalance)
+				value.Balance -= herEthBalance.Uint64()
 				es.Account.EBalances["ETH"] = value
-				val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+				val := cache.AccountCache{
+					Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: false,
+				}
 				es.Cache.Set(es.Account.Address, val)
 				return
 			}
 		} else {
 			value.UpdateBalance(es.ExtBalance.Uint64())
 			es.Account.EBalances["ETH"] = value
-			val := cache.AccountCache{Account: es.Account, LastExtBalance: es.ExtBalance}
+			val := cache.AccountCache{
+				Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: true,
+			}
 			es.Cache.Set(es.Account.Address, val)
 
 		}
