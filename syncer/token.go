@@ -27,7 +27,7 @@ func (es *ERC20) GetExtBalance() {
 	if err != nil {
 		log.Println("Error connecting ETH RPC", err)
 	}
-	tokenAddress := common.HexToAddress("0xb8c77482e45f1f44de1745f52c74426c631bdd52")
+	tokenAddress := common.HexToAddress(es.TokenContractAddress)
 
 	instance, err := contract.NewToken(tokenAddress, client)
 	if err != nil {

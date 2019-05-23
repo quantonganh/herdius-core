@@ -7,7 +7,9 @@ statedbpath = "./herdius/statedb"
 badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
-ethrpc = "https://mainnet.infura.io"
+ethrpc = "https://ropsten.infura.io"
+hercontractaddress = "0xfe3ff5ceee9ece33923e77b68dced3c781910f3a"
+
 
 [staging]
 selfbroadcastip = "10.0.1.159"
