@@ -435,7 +435,7 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 
 				accountInAccountCache := item.Object.(cache.AccountCache)
 				account := item.Object.(cache.AccountCache).Account
-				for assetSymbol, _ := range account.EBalances {
+				for assetSymbol := range account.EBalances {
 					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry[assetSymbol]
 					IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewAmountUpdate[assetSymbol]
 					if IsNewAmountUpdate && !IsFirstEntry {

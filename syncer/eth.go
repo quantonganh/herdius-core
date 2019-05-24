@@ -65,10 +65,10 @@ func (es *EthSyncer) Update() {
 					value.Balance += herEthBalance.Uint64()
 					es.Account.EBalances[assetSymbol] = value
 
-					last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
-					last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
+					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
 
 					log.Printf("New account balance after external balance credit: %v\n", last)
 					es.Cache.Set(es.Account.Address, last)
@@ -81,24 +81,24 @@ func (es *EthSyncer) Update() {
 				if lastExtBalance.Cmp(es.ExtBalance) > 0 {
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance)
 					value.Balance -= herEthBalance.Uint64()
-					last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
-					last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
-					last.(cache.AccountCache).UpdateAccount(es.Account)
+					last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
+					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last = last.(cache.AccountCache).UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance debit: %v\n", last)
 					es.Cache.Set(es.Account.Address, last)
 					return
 				}
 			} else {
-				last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-				last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-				last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, true)
-				last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, false)
+				last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, true)
+				last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, false)
 				value.UpdateBalance(es.ExtBalance.Uint64())
-				es.Account.EBalances["ETH"] = value
-				last.(cache.AccountCache).UpdateAccount(es.Account)
+				es.Account.EBalances[assetSymbol] = value
+				last = last.(cache.AccountCache).UpdateAccount(es.Account)
 
 				es.Cache.Set(es.Account.Address, last)
 			}
