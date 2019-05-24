@@ -2,17 +2,13 @@ package service
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
-	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
-
-	b64 "encoding/base64"
-	"os"
 	"sync"
+	"time"
 
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
@@ -23,7 +19,6 @@ import (
 	"github.com/herdius/herdius-core/crypto/secp256k1"
 	cmn "github.com/herdius/herdius-core/libs/common"
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
-	"github.com/herdius/herdius-core/p2p/key"
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
@@ -565,50 +560,6 @@ func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint6
 		eBalance.Balance += txValue
 		receiverAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
 	}
-}
-
-// LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
-// Initially 50 accounts will be loaded to state db
-func LoadStateDBWithInitialAccounts() ([]byte, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	parent := filepath.Dir(wd)
-	for i := 0; i < 10; i++ {
-		ser := i + 1
-		filePath := filepath.Join(parent + "/herdius-core/cmd/testdata/secp205k1Accts/" + strconv.Itoa(ser) + "_peer_id.json")
-
-		nodeKey, err := key.LoadOrGenNodeKey(filePath)
-
-		if err != nil {
-			plog.Error().Msgf("Failed to Load or create node keys: %v", err)
-		} else {
-			pubKey := nodeKey.PrivKey.PubKey()
-			b64PubKey := b64.StdEncoding.EncodeToString(pubKey.Bytes())
-			//All 10 intital accounts will have an initial balance of 10000 HER tokens
-			account := statedb.Account{
-				PublicKey: b64PubKey,
-				Nonce:     0,
-				Address:   pubKey.GetAddress(),
-				Balance:   10000,
-			}
-
-			actbz, _ := cdc.MarshalJSON(account)
-			pubKeyBytes := []byte(pubKey.GetAddress())
-			err := trie.TryUpdate(pubKeyBytes, actbz)
-			if err != nil {
-				plog.Error().Msgf("Failed to store account in state db: %v", err)
-			}
-		}
-	}
-
-	root, err := trie.Commit(nil)
-	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to commit the state trie: %v.", err))
-	}
-
-	return root, nil
 }
 
 // ShardToValidators distributes a series of childblocks to a series of validators
