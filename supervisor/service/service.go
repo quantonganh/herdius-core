@@ -444,6 +444,8 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 						continue
 					}
 					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsNewAmountUpdate = false
+					accountCache.Set(address, accountInAccountCache)
 				}
 				if IsFirstEntry {
 					log.Println("Account from cache to be persisted to state first time: ", account)

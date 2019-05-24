@@ -339,7 +339,7 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUpdateStateWithNewExternalBalance(t *testing.T) {
+func TestFirstTimeUpdateWithNewExternalBalance(t *testing.T) {
 	dir, err := ioutil.TempDir("", "temp-dir")
 
 	eBalance := statedb.EBalance{
@@ -377,5 +377,72 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	assert.True(t, ok)
 	assert.False(t, res.(cache.AccountCache).IsFirstEntry)
 
+	defer os.RemoveAll(dir)
+}
+
+/* func TestAddNewExternalBalanceToExistingExternalBalance(t *testing.T) {
+	// Update the account first time with new external balance
+
+	dir, err := ioutil.TempDir("", "temp-dir")
+
+	eBalance := statedb.EBalance{
+		Address: "external-address-01",
+		Balance: 0,
+	}
+	eBalances := make(map[string]statedb.EBalance)
+	eBalances["external-asset"] = eBalance
+	herAccount := statedb.Account{
+		Address:   "her-address-01",
+		EBalances: eBalances,
+	}
+
+	assert.Equal(t, herAccount.EBalances["external-asset"].Balance, uint64(0))
+	trie = statedb.GetState(dir)
+	sactbz, err := cdc.MarshalJSON(herAccount)
+	err = trie.TryUpdate([]byte(herAccount.Address), sactbz)
+
+	assert.NoError(t, err)
+
+	accountCache = cache.New()
+	currentExternalBal := big.NewInt(int64(math.Pow10(18)))
+	eBalance.Balance = uint64(math.Pow10(18))
+	eBalances["external-asset"] = eBalance
+	herAccount.EBalances = eBalances
+	herCacheAccount := cache.AccountCache{
+		Account:           herAccount,
+		CurrentExtBalance: currentExternalBal,
+		LastExtBalance:    big.NewInt(int64(0)),
+		IsFirstEntry:      true,
+	}
+	accountCache.Set("external-address-01", herCacheAccount)
+	updateStateWithNewExternalBalance(trie)
+	res, ok := accountCache.Get("external-address-01")
+	assert.True(t, ok)
+	assert.False(t, res.(cache.AccountCache).IsFirstEntry)
+
+	// Add a new amount to existing external balance
+	cacheAcc, ok := accountCache.Get("external-address-01")
+	assert.True(t, ok)
+	existingCacheAcc := cacheAcc.(cache.AccountCache)
+	existingCacheAcc.IsNewAmountUpdate = true
+	// Add 2000000000000000000 to Existing balance
+	newBalanceInExternalChain := big.NewInt(2 * int64(math.Pow10(10)))
+	existingCacheAcc.CurrentExtBalance = newBalanceInExternalChain
+	//	existingAcc := cacheAcc.(cache.AccountCache).Account
+	accountCache.Set("external-address-01", existingCacheAcc)
+	fmt.Printf("Before: %v\n", existingCacheAcc)
+	updateStateWithNewExternalBalance(trie)
+	updatedRes, ok := accountCache.Get("external-address-01")
+	assert.True(t, ok)
+	assert.False(t, updatedRes.(cache.AccountCache).IsFirstEntry)
+	assert.False(t, updatedRes.(cache.AccountCache).IsNewAmountUpdate)
+	defer os.RemoveAll(dir)
+} */
+
+func TestAddNewExternalBalance(t *testing.T) {
+	dir, err := ioutil.TempDir("", "temp-dir")
+
+	//es := EthSyncer{}
+	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
 }
