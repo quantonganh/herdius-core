@@ -506,3 +506,7 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 
 	return root, nil
 }
+
+func GetBlockchainDb() (*db.dB error) {
+	return badgerDB.GetBadgerDB()
+}

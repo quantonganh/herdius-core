@@ -359,10 +359,19 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 		if len(s.Validator) <= 0 {
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create base block: %v", err)
+				return nil, fmt.errorf("failed to create base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
-			err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
+
+			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+			//err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
+			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+			err = aws.BackupAllBaseBlocks()
+			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+			if err != nil {
+				return nil, fmt.errorf("failed to backup block to S3: %v", err)
+			}
+
 			return baseBlock, err
 		}
 		err := s.ShardToValidators(txs, net, stateRoot)

@@ -310,17 +310,17 @@ func main() {
 			lbh = lastBlockHash
 			lbHeight := lastBlock.GetHeader().GetHeight()
 
-			log.Info().Msgf("Last Block Hash : %v", lbh)
-			log.Info().Msgf("Height : %v", lbHeight)
+			log.Info().Msgf("Last Block Hash: %v", lbh)
+			log.Info().Msgf("Height: %v", lbHeight)
 
 			s := lastBlock.GetHeader().GetTime().GetSeconds()
 			ts := time.Unix(s, 0)
-			log.Info().Msgf("Timestamp : %v", ts)
+			log.Info().Msgf("Timestamp: %v", ts)
 
 			var stateRootHex cmn.HexBytes
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			stateRootHex = stateRoot
-			log.Info().Msgf("State root : %v", stateRootHex)
+			log.Info().Msgf("State root: %v", stateRootHex)
 
 		}
 	}
