@@ -7,7 +7,7 @@ statedbpath = "./herdius/statedb"
 badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
-ethrpc = "https://ropsten.infura.io"
+ethrpc = "https://ropsten.infura.io/v3/70a3313a4c414b5da283fa9bcaf0ed0a"
 
 [staging]
 selfbroadcastip = "10.0.1.159"
@@ -18,7 +18,7 @@ statedbpath = "./herdius/statedb"
 badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
-ethrpc = "https://ropsten.infura.io"
+ethrpc = "https://ropsten.infura.io/v3/70a3313a4c414b5da283fa9bcaf0ed0a"
 
 
 [prod]
@@ -29,5 +29,5 @@ chaindbpath = "./herdius/chaindb"
 statedbpath = "./herdius/statedb"
 badgerdb = "badger"
 leveldb = "goleveldb"
-ethrpc = "https://ropsten.infura.io"
+ethrpc = "https://ropsten.infura.io/v3/70a3313a4c414b5da283fa9bcaf0ed0a"
 

@@ -429,19 +429,14 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	updateAccs := accountCache.GetAll()
 	log.Println("Total Accounts to update", len(updateAccs))
 	for address, item := range updateAccs {
-
 		switch v := item.Object.(type) {
-
 		case cache.AccountCache:
 			{
 				accountInAccountCache := item.Object.(cache.AccountCache)
-
 				account := item.Object.(cache.AccountCache).Account
-				lastExtBalance := item.Object.(cache.AccountCache).LastExtBalance
-				currentExtBalance := item.Object.(cache.AccountCache).CurrentExtBalance
 				IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry
-
-				if lastExtBalance.Cmp(currentExtBalance) != 0 && !IsFirstEntry {
+				IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewAmountUpdate
+				if IsNewAmountUpdate && !IsFirstEntry {
 					log.Printf("Account from cache to be persisted to state: %v", account)
 					sactbz, err := cdc.MarshalJSON(account)
 					if err != nil {

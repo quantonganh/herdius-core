@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -53,13 +54,21 @@ func (es *EthSyncer) Update() {
 		if ok {
 			//last-balance < External-ETH
 			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
+			fmt.Printf("Address: %v\n", es.Account.Address)
+			fmt.Printf("es.ExtBalance : %v\n", es.ExtBalance)
+			fmt.Printf("last.(cache.AccountCache) : %v\n", last.(cache.AccountCache).LastExtBalance)
 			if last.(cache.AccountCache).LastExtBalance.Cmp(es.ExtBalance) < 0 {
 				herEthBalance.Sub(es.ExtBalance, last.(cache.AccountCache).LastExtBalance)
 				value.Balance += herEthBalance.Uint64()
 				es.Account.EBalances["ETH"] = value
 				val := cache.AccountCache{
-					Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: false,
+					Account:           es.Account,
+					LastExtBalance:    es.ExtBalance,
+					CurrentExtBalance: es.ExtBalance,
+					IsFirstEntry:      false,
+					IsNewAmountUpdate: true,
 				}
+				log.Printf("New account balance after external balance credit: %v\n", val)
 				es.Cache.Set(es.Account.Address, val)
 				return
 
@@ -72,19 +81,24 @@ func (es *EthSyncer) Update() {
 				value.Balance -= herEthBalance.Uint64()
 				es.Account.EBalances["ETH"] = value
 				val := cache.AccountCache{
-					Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: false,
+					Account:           es.Account,
+					LastExtBalance:    es.ExtBalance,
+					CurrentExtBalance: es.ExtBalance,
+					IsFirstEntry:      false,
+					IsNewAmountUpdate: true,
 				}
+				log.Printf("New account balance after external balance debit: %v\n", val)
 				es.Cache.Set(es.Account.Address, val)
 				return
 			}
 		} else {
+			log.Println("New address will be updated with external balance")
 			value.UpdateBalance(es.ExtBalance.Uint64())
 			es.Account.EBalances["ETH"] = value
 			val := cache.AccountCache{
 				Account: es.Account, LastExtBalance: es.ExtBalance, CurrentExtBalance: es.ExtBalance, IsFirstEntry: true,
 			}
 			es.Cache.Set(es.Account.Address, val)
-
 		}
 
 	}

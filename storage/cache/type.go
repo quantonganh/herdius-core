@@ -13,4 +13,5 @@ type AccountCache struct {
 	LastExtBalance    *big.Int
 	CurrentExtBalance *big.Int
 	IsFirstEntry      bool
+	IsNewAmountUpdate bool
 }

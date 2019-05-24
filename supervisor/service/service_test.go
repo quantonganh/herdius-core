@@ -372,9 +372,7 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 		IsFirstEntry:      true,
 	}
 	accountCache.Set("external-address-01", herCacheAccount)
-
 	updateStateWithNewExternalBalance(trie)
-
 	res, ok := accountCache.Get("external-address-01")
 	assert.True(t, ok)
 	assert.False(t, res.(cache.AccountCache).IsFirstEntry)
