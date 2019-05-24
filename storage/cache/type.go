@@ -52,3 +52,38 @@ func (ac AccountCache) UpdateIsFirstEntry(isfirst map[string]bool) {
 func (ac AccountCache) UpdateIsNewAmountUpdate(isNew map[string]bool) {
 	ac.IsFirstEntry = isNew
 }
+
+func (as AccountCache) UpdateLastExtBalanceByKey(key string, val *big.Int) {
+	if as.LastExtBalance != nil {
+		as.LastExtBalance[key] = val
+		return
+	}
+	as.LastExtBalance = make(map[string]*big.Int)
+	as.LastExtBalance[key] = val
+}
+func (as AccountCache) UpdateCurrentExtBalanceByKey(key string, val *big.Int) {
+	if as.CurrentExtBalance != nil {
+		as.CurrentExtBalance[key] = val
+		return
+	}
+	as.CurrentExtBalance = make(map[string]*big.Int)
+	as.CurrentExtBalance[key] = val
+}
+
+func (as AccountCache) UpdateIsFirstEntryByKey(key string, val bool) {
+	if as.IsFirstEntry != nil {
+		as.IsFirstEntry[key] = val
+		return
+	}
+	as.IsFirstEntry = make(map[string]bool)
+	as.IsFirstEntry[key] = val
+}
+
+func (as AccountCache) UpdateIsNewAmountUpdateByKey(key string, val bool) {
+	if as.IsFirstEntry != nil {
+		as.IsFirstEntry[key] = val
+		return
+	}
+	as.IsFirstEntry = make(map[string]bool)
+	as.IsFirstEntry[key] = val
+}

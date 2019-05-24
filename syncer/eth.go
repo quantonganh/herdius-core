@@ -65,20 +65,13 @@ func (es *EthSyncer) Update() {
 					value.Balance += herEthBalance.Uint64()
 					es.Account.EBalances[assetSymbol] = value
 
-					last.(cache.AccountCache).LastExtBalance[assetSymbol] = es.ExtBalance
-					last.(cache.AccountCache).CurrentExtBalance[assetSymbol] = es.ExtBalance
-					last.(cache.AccountCache).IsFirstEntry[assetSymbol] = false
-					last.(cache.AccountCache).IsNewAmountUpdate[assetSymbol] = true
+					last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
+					last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
 
-					val := cache.AccountCache{
-						Account:           es.Account,
-						LastExtBalance:    last.(cache.AccountCache).LastExtBalance,
-						CurrentExtBalance: last.(cache.AccountCache).CurrentExtBalance,
-						IsFirstEntry:      last.(cache.AccountCache).IsFirstEntry,
-						IsNewAmountUpdate: last.(cache.AccountCache).IsNewAmountUpdate,
-					}
-					log.Printf("New account balance after external balance credit: %v\n", val)
-					es.Cache.Set(es.Account.Address, val)
+					log.Printf("New account balance after external balance credit: %v\n", last)
+					es.Cache.Set(es.Account.Address, last)
 					return
 
 				}
@@ -88,34 +81,26 @@ func (es *EthSyncer) Update() {
 				if lastExtBalance.Cmp(es.ExtBalance) > 0 {
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance)
 					value.Balance -= herEthBalance.Uint64()
-					last.(cache.AccountCache).LastExtBalance[assetSymbol] = es.ExtBalance
-					last.(cache.AccountCache).CurrentExtBalance[assetSymbol] = es.ExtBalance
-					last.(cache.AccountCache).IsFirstEntry[assetSymbol] = false
-					last.(cache.AccountCache).IsNewAmountUpdate[assetSymbol] = true
-					es.Account.EBalances[assetSymbol] = value
-					val := cache.AccountCache{
-						Account:           es.Account,
-						LastExtBalance:    last.(cache.AccountCache).LastExtBalance,
-						CurrentExtBalance: last.(cache.AccountCache).CurrentExtBalance,
-						IsFirstEntry:      last.(cache.AccountCache).IsFirstEntry,
-						IsNewAmountUpdate: last.(cache.AccountCache).IsNewAmountUpdate,
-					}
-					log.Printf("New account balance after external balance debit: %v\n", val)
-					es.Cache.Set(es.Account.Address, val)
+					last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
+					last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last.(cache.AccountCache).UpdateAccount(es.Account)
+
+					log.Printf("New account balance after external balance debit: %v\n", last)
+					es.Cache.Set(es.Account.Address, last)
 					return
 				}
 			} else {
-				last.(cache.AccountCache).LastExtBalance[assetSymbol] = es.ExtBalance
-				last.(cache.AccountCache).CurrentExtBalance[assetSymbol] = es.ExtBalance
-				last.(cache.AccountCache).IsFirstEntry[assetSymbol] = true
-				last.(cache.AccountCache).IsNewAmountUpdate[assetSymbol] = false
-
+				last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, true)
+				last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, false)
 				value.UpdateBalance(es.ExtBalance.Uint64())
 				es.Account.EBalances["ETH"] = value
-				val := cache.AccountCache{
-					Account: es.Account, LastExtBalance: last.(cache.AccountCache).LastExtBalance, CurrentExtBalance: last.(cache.AccountCache).CurrentExtBalance, IsFirstEntry: last.(cache.AccountCache).IsFirstEntry, IsNewAmountUpdate: last.(cache.AccountCache).IsNewAmountUpdate,
-				}
-				es.Cache.Set(es.Account.Address, val)
+				last.(cache.AccountCache).UpdateAccount(es.Account)
+
+				es.Cache.Set(es.Account.Address, last)
 			}
 
 		} else {
