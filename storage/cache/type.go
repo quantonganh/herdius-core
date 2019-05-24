@@ -10,7 +10,7 @@ import (
 // that we need to use while updating balances of external assets
 type AccountCache struct {
 	Account           statedb.Account
-	LastExtBalance    *big.Int
-	CurrentExtBalance *big.Int
-	IsFirstEntry      bool
+	LastExtBalance    map[string]*big.Int
+	CurrentExtBalance map[string]*big.Int
+	IsFirstEntry      map[string]bool
 }

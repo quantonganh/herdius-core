@@ -437,30 +437,35 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 				accountInAccountCache := item.Object.(cache.AccountCache)
 
 				account := item.Object.(cache.AccountCache).Account
-				lastExtBalance := item.Object.(cache.AccountCache).LastExtBalance
-				currentExtBalance := item.Object.(cache.AccountCache).CurrentExtBalance
-				IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry
+				for assetSymbol, _ := range account.EBalances {
+					log.Println("item.Object.(cache.AccountCache).LastExtBalance", item.Object.(cache.AccountCache).LastExtBalance)
+					lastExtBalance := item.Object.(cache.AccountCache).LastExtBalance[assetSymbol]
+					currentExtBalance := item.Object.(cache.AccountCache).CurrentExtBalance[assetSymbol]
+					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry[assetSymbol]
 
-				if lastExtBalance.Cmp(currentExtBalance) != 0 && !IsFirstEntry {
-					log.Printf("Account from cache to be persisted to state: %v", account)
-					sactbz, err := cdc.MarshalJSON(account)
-					if err != nil {
-						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-						continue
+					if lastExtBalance.Cmp(currentExtBalance) != 0 && !IsFirstEntry {
+						log.Printf("Account from cache to be persisted to state: %v", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
 					}
-					stateTrie.TryUpdate([]byte(address), sactbz)
-				}
-				if IsFirstEntry {
-					log.Println("Account from cache to be persisted to state first time: ", account)
-					sactbz, err := cdc.MarshalJSON(account)
-					if err != nil {
-						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-						continue
+					if IsFirstEntry {
+						log.Println("Account from cache to be persisted to state first time: ", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
+						accountInAccountCache.IsFirstEntry[assetSymbol] = false
+						accountCache.Set(address, accountInAccountCache)
 					}
-					stateTrie.TryUpdate([]byte(address), sactbz)
-					accountInAccountCache.IsFirstEntry = false
-					accountCache.Set(address, accountInAccountCache)
+
 				}
+
 			}
 		default:
 			{
