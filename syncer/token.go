@@ -57,7 +57,7 @@ func (es *HERToken) Update() {
 		fmt.Printf("es.ExtBalance : %v\n", es.ExtBalance)
 		fmt.Printf("last.(cache.AccountCache) : %v\n", last.(cache.AccountCache).LastExtBalance)
 		lastExtHERBalance := last.(cache.AccountCache).LastExtHERBalance
-		if ok {
+		if lastExtHERBalance != nil {
 			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
 				herBalance.Sub(es.ExtBalance, lastExtHERBalance)
 				es.Account.Balance += herBalance.Uint64()
