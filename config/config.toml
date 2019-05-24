@@ -8,7 +8,7 @@ badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
 ethrpc = "https://ropsten.infura.io"
-hercontractaddress = "0xfe3ff5ceee9ece33923e77b68dced3c781910f3a"
+hercontractaddress = "0xbd66049c525af5852cbc31eb25e29e54e82b2b66"
 
 
 [staging]
