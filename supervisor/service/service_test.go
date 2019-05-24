@@ -1,9 +1,11 @@
 package service
 
 import (
-	"testing"
 	"io/ioutil"
+	"math"
+	"math/big"
 	"os"
+	"testing"
 
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
@@ -11,7 +13,9 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/herdius/herdius-core/crypto/secp256k1"
-		"github.com/herdius/herdius-core/supervisor/transaction"
+	"github.com/herdius/herdius-core/supervisor/transaction"
+
+	"github.com/herdius/herdius-core/storage/cache"
 
 	txbyte "github.com/herdius/herdius-core/tx"
 	"github.com/stretchr/testify/assert"
@@ -333,4 +337,47 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	defer os.RemoveAll(dir)
 	err = supsvc.ShardToValidators(txs, nil, root)
 	assert.NoError(t, err)
+}
+
+func TestUpdateStateWithNewExternalBalance(t *testing.T) {
+	dir, err := ioutil.TempDir("", "temp-dir")
+
+	eBalance := statedb.EBalance{
+		Address: "external-address-01",
+		Balance: 0,
+	}
+	eBalances := make(map[string]statedb.EBalance)
+	eBalances["external-asset"] = eBalance
+	herAccount := statedb.Account{
+		Address:   "her-address-01",
+		EBalances: eBalances,
+	}
+
+	assert.Equal(t, herAccount.EBalances["external-asset"].Balance, uint64(0))
+	trie = statedb.GetState(dir)
+	sactbz, err := cdc.MarshalJSON(herAccount)
+	err = trie.TryUpdate([]byte(herAccount.Address), sactbz)
+
+	assert.NoError(t, err)
+
+	accountCache = cache.New()
+	currentExternalBal := big.NewInt(int64(math.Pow10(18)))
+	eBalance.Balance = uint64(math.Pow10(18))
+	eBalances["external-asset"] = eBalance
+	herAccount.EBalances = eBalances
+	herCacheAccount := cache.AccountCache{
+		Account:           herAccount,
+		CurrentExtBalance: currentExternalBal,
+		LastExtBalance:    big.NewInt(int64(0)),
+		IsFirstEntry:      true,
+	}
+	accountCache.Set("external-address-01", herCacheAccount)
+
+	updateStateWithNewExternalBalance(trie)
+
+	res, ok := accountCache.Get("external-address-01")
+	assert.True(t, ok)
+	assert.False(t, res.(cache.AccountCache).IsFirstEntry)
+
+	defer os.RemoveAll(dir)
 }

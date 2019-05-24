@@ -349,8 +349,15 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	//case <-time.After(waitTime * time.Second):
 	case <-time.After(time.Duration(waitTime) * time.Second):
 		if len(*txs) <= 0 {
-			log.Printf("Block creation wait time (%ds) elapsed, but no transaction to process", waitTime)
-			return nil, nil
+			// We need to keep on creating base blocks every 3 seconds
+			// since we have a background process executing and updating the
+			// balances of external assets.
+			log.Printf("Block creation wait time (%d) elapsed, creating block but with no transactions", waitTime)
+			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create base block: %v", err)
+			}
+			return baseBlock, nil
 		}
 		log.Printf("Block creation wait time (%d) elapsed, creating block", waitTime)
 		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
@@ -376,33 +383,8 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
-
-	updateAccs := accountCache.GetAll()
-
-	log.Println("Total Accounts to update", len(updateAccs))
-	for address, account := range updateAccs {
-
-		switch v := account.Object.(type) {
-
-		case cache.AccountCache:
-			{
-
-				account := account.Object.(cache.AccountCache).Account
-				log.Println("Updating Account from cache", account)
-
-				sactbz, err := cdc.MarshalJSON(account)
-				if err != nil {
-					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-					continue
-				}
-				stateTrie.TryUpdate([]byte(address), sactbz)
-			}
-		default:
-			{
-				log.Println("Failed to get cache", v)
-
-			}
-		}
+	if accountCache != nil {
+		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	_, err = s.updateStateForTxs(&txs, stateTrie)
 
@@ -443,7 +425,52 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
+func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
+	updateAccs := accountCache.GetAll()
+	log.Println("Total Accounts to update", len(updateAccs))
+	for address, item := range updateAccs {
 
+		switch v := item.Object.(type) {
+
+		case cache.AccountCache:
+			{
+				accountInAccountCache := item.Object.(cache.AccountCache)
+
+				account := item.Object.(cache.AccountCache).Account
+				lastExtBalance := item.Object.(cache.AccountCache).LastExtBalance
+				currentExtBalance := item.Object.(cache.AccountCache).CurrentExtBalance
+				IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry
+
+				if lastExtBalance.Cmp(currentExtBalance) != 0 && !IsFirstEntry {
+					log.Printf("Account from cache to be persisted to state: %v", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+				}
+				if IsFirstEntry {
+					log.Println("Account from cache to be persisted to state first time: ", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsFirstEntry = false
+					accountCache.Set(address, accountInAccountCache)
+				}
+			}
+		default:
+			{
+				log.Println("Failed to get cache", v)
+
+			}
+		}
+	}
+	return stateTrie
+}
 func isExternalAssetAddressExist(account *statedb.Account, assetSymbol string) bool {
 	if account != nil && account.EBalances != nil &&
 		len(account.EBalances[assetSymbol].Address) > 0 {
@@ -613,6 +640,9 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
+	if accountCache != nil {
+		stateTrie = updateStateWithNewExternalBalance(stateTrie)
+	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
 
 	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
