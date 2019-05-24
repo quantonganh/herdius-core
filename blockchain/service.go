@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
+	"github.com/spf13/viper"
+
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/crypto/herhash"
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
@@ -31,9 +33,7 @@ type ServiceI interface {
 }
 
 // Service ...
-type Service struct {
-	Trie statedb.Trie
-}
+type Service struct{}
 
 var (
 	_ ServiceI = (*Service)(nil)
@@ -459,6 +459,17 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 	if err != nil {
 		panic(err)
 	}
+	var trie statedb.Trie
+	var dir string
+	viper.SetConfigName("config")       // Config file name without extension
+	viper.AddConfigPath("../../config") // Path to config file
+	err = viper.ReadInConfig()
+	if err != nil {
+		return nil, fmt.Errorf("config file not found: %v", err)
+	}
+	dir = viper.GetString("dev.statedbpath")
+
+	trie = statedb.GetState(dir)
 	parent := filepath.Dir(wd)
 	for i := 0; i < 10; i++ {
 		ser := i + 1
@@ -481,16 +492,16 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 
 			actbz, _ := cdc.MarshalJSON(account)
 			pubKeyBytes := []byte(pubKey.GetAddress())
-			err := s.Trie.TryUpdate(pubKeyBytes, actbz)
+			err := trie.TryUpdate(pubKeyBytes, actbz)
 			if err != nil {
 				return nil, fmt.Errorf("failed to store account in state db: %v", err)
 			}
 		}
 	}
 
-	root, err := s.Trie.Commit(nil)
+	root, err := trie.Commit(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to commit the state trie: %v.", err)
+		return nil, fmt.Errorf("failed to commit the state trie: %v", err)
 	}
 
 	return root, nil
