@@ -61,8 +61,6 @@ func sync(cache *cache.Cache, ethrpc, hercontractaddress string) {
 		es.GetExtBalance()
 		es.Update()
 
-		senderAccount.Erc20Address = "0x33c391c8ef59bf79b99d8a73d4a8715cd638dd6a"
-
 		es = &HERToken{Account: senderAccount, Cache: cache, RPC: ethrpc, TokenContractAddress: hercontractaddress}
 		es.GetExtBalance()
 		es.Update()

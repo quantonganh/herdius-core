@@ -61,11 +61,6 @@ func (es *HERToken) Update() {
 			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
 				herBalance.Sub(es.ExtBalance, lastExtHERBalance)
 				es.Account.Balance += herBalance.Uint64()
-
-				// last.(cache.AccountCache).LastExtBalance[assetSymbol] = es.ExtBalance
-				// last.(cache.AccountCache).CurrentExtBalance[assetSymbol] = es.ExtBalance
-				// last.(cache.AccountCache).IsFirstEntry[assetSymbol] = false
-				// last.(cache.AccountCache).IsNewAmountUpdate[assetSymbol] = true
 				val := cache.AccountCache{
 					Account:              es.Account,
 					LastExtBalance:       last.(cache.AccountCache).LastExtBalance,
@@ -88,12 +83,6 @@ func (es *HERToken) Update() {
 			if lastExtHERBalance.Cmp(es.ExtBalance) > 0 {
 				herBalance.Sub(lastExtHERBalance, es.ExtBalance)
 				es.Account.Balance -= herBalance.Uint64()
-
-				// last.(cache.AccountCache).LastExtBalance[assetSymbol] = es.ExtBalance
-				// last.(cache.AccountCache).CurrentExtBalance[assetSymbol] = es.ExtBalance
-				// last.(cache.AccountCache).IsFirstEntry[assetSymbol] = false
-				// last.(cache.AccountCache).IsNewAmountUpdate[assetSymbol] = true
-				// es.Account.EBalances[assetSymbol] = value
 				val := cache.AccountCache{
 					Account:              es.Account,
 					LastExtBalance:       last.(cache.AccountCache).LastExtBalance,
