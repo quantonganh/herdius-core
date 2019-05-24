@@ -89,11 +89,11 @@ func (as AccountCache) UpdateIsFirstEntryByKey(key string, val bool) AccountCach
 }
 
 func (as AccountCache) UpdateIsNewAmountUpdateByKey(key string, val bool) AccountCache {
-	if as.IsFirstEntry != nil {
-		as.IsFirstEntry[key] = val
+	if as.IsNewAmountUpdate != nil {
+		as.IsNewAmountUpdate[key] = val
 		return as
 	}
-	as.IsFirstEntry = make(map[string]bool)
-	as.IsFirstEntry[key] = val
+	as.IsNewAmountUpdate = make(map[string]bool)
+	as.IsNewAmountUpdate[key] = val
 	return as
 }

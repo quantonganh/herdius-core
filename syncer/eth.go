@@ -69,6 +69,7 @@ func (es *EthSyncer) Update() {
 					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
 					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
 					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last = last.(cache.AccountCache).UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance credit: %v\n", last)
 					es.Cache.Set(es.Account.Address, last)
@@ -85,6 +86,7 @@ func (es *EthSyncer) Update() {
 					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
 					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
 					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					es.Account.EBalances[assetSymbol] = value
 					last = last.(cache.AccountCache).UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance debit: %v\n", last)

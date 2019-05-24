@@ -61,14 +61,14 @@ func TestExternalETHisGreater(t *testing.T) {
 	assert.Equal(t, cachedAcc.(cache.AccountCache).CurrentExtBalance["ETH"], big.NewInt(3), "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.(cache.AccountCache).IsFirstEntry["ETH"], true, "CurrentExtBalance ahould be updated")
 
-	es.ExtBalance = big.NewInt(10)
+	es.ExtBalance = big.NewInt(20)
 	es.Update()
-	assert.Equal(t, cachedAcc.(cache.AccountCache).IsFirstEntry["ETH"], true, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.(cache.AccountCache).IsNewAmountUpdate["ETH"], false, "CurrentExtBalance ahould be updated")
-
 	assert.Equal(t, cachedAcc.(cache.AccountCache).Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
-	assert.Equal(t, cachedAcc.(cache.AccountCache).LastExtBalance["ETH"], big.NewInt(10), "LastExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.(cache.AccountCache).CurrentExtBalance["ETH"], big.NewInt(10), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.(cache.AccountCache).IsFirstEntry["ETH"], false, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.(cache.AccountCache).IsNewAmountUpdate["ETH"], true, "CurrentExtBalance ahould be updated")
+
+	assert.Equal(t, cachedAcc.(cache.AccountCache).LastExtBalance["ETH"], big.NewInt(20), "LastExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.(cache.AccountCache).CurrentExtBalance["ETH"], big.NewInt(20), "CurrentExtBalance ahould be updated")
 }
 
 func TestExternalETHisLesser(t *testing.T) {
@@ -98,14 +98,14 @@ func TestExternalETHisLesser(t *testing.T) {
 
 	es.ExtBalance = big.NewInt(1)
 	es.Update()
-	assert.Equal(t, cachedAcc.(cache.AccountCache).IsFirstEntry["ETH"], true, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.(cache.AccountCache).IsNewAmountUpdate["ETH"], false, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.(cache.AccountCache).IsFirstEntry["ETH"], false, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.(cache.AccountCache).IsNewAmountUpdate["ETH"], true, "CurrentExtBalance ahould be updated")
 
 	assert.Equal(t, cachedAcc.(cache.AccountCache).LastExtBalance["ETH"], big.NewInt(1), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.(cache.AccountCache).CurrentExtBalance["ETH"], big.NewInt(1), "CurrentExtBalance ahould be updated")
 }
 
-// Test if cache exists but Accountcashe dont have eth asset
+// Test if cache exists but Account cache dont have eth asset
 func Test(t *testing.T) {
 	var (
 		accountCache *cache.Cache
