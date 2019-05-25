@@ -12,7 +12,7 @@ import (
 )
 
 func SyncAllAccounts(cache *cache.Cache) {
-	var ethrpc string
+	var ethrpc, hercontractaddress string
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
@@ -20,13 +20,15 @@ func SyncAllAccounts(cache *cache.Cache) {
 		fmt.Println("Config file not found...")
 	} else {
 		ethrpc = viper.GetString("dev.ethrpc")
+		hercontractaddress = viper.GetString("dev.hercontractaddress")
+
 	}
 	for {
-		sync(cache, ethrpc)
+		sync(cache, ethrpc, hercontractaddress)
 	}
 }
 
-func sync(cache *cache.Cache, ethrpc string) {
+func sync(cache *cache.Cache, ethrpc, hercontractaddress string) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -54,7 +56,12 @@ func sync(cache *cache.Cache, ethrpc string) {
 				continue
 			}
 		}
-		es := &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		var es Syncer
+		es = &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		es.GetExtBalance()
+		es.Update()
+
+		es = &HERToken{Account: senderAccount, Cache: cache, RPC: ethrpc, TokenContractAddress: hercontractaddress}
 		es.GetExtBalance()
 		es.Update()
 

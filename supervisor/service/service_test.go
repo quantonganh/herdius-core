@@ -361,15 +361,23 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	assert.NoError(t, err)
 
 	accountCache = cache.New()
-	currentExternalBal := big.NewInt(int64(math.Pow10(18)))
+	currentExternalBal := make(map[string]*big.Int)
+	currentExternalBal["external-asset"] = big.NewInt(int64(math.Pow10(18)))
+
+	lastExternalBal := make(map[string]*big.Int)
+	lastExternalBal["external-asset"] = big.NewInt(int64(0))
+
+	isFirstEntry := make(map[string]bool)
+	isFirstEntry["external-asset"] = true
+
 	eBalance.Balance = uint64(math.Pow10(18))
 	eBalances["external-asset"] = eBalance
 	herAccount.EBalances = eBalances
 	herCacheAccount := cache.AccountCache{
 		Account:           herAccount,
 		CurrentExtBalance: currentExternalBal,
-		LastExtBalance:    big.NewInt(int64(0)),
-		IsFirstEntry:      true,
+		LastExtBalance:    lastExternalBal,
+		IsFirstEntry:      isFirstEntry,
 	}
 	accountCache.Set("external-address-01", herCacheAccount)
 
@@ -377,7 +385,7 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 
 	res, ok := accountCache.Get("external-address-01")
 	assert.True(t, ok)
-	assert.False(t, res.(cache.AccountCache).IsFirstEntry)
+	assert.False(t, res.(cache.AccountCache).IsFirstEntry["external-asset"])
 
 	defer os.RemoveAll(dir)
 }
