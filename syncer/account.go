@@ -21,10 +21,10 @@ func SyncAllAccounts(cache *cache.Cache) {
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
-		infuraProjectID := os.Getenv("ROPSTENPROJECTKEY")
+		infuraProjectID := os.Getenv("INFURAID")
 		ethrpc = viper.GetString("dev.ethrpc")
 		ethrpc = ethrpc + infuraProjectID
-		log.Printf("Infura Ropsten Url with Project ID: %v\n", ethrpc)
+		log.Printf("Infura Url with Project ID: %v\n", ethrpc)
 		hercontractaddress = viper.GetString("dev.hercontractaddress")
 
 	}
