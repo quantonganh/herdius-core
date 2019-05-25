@@ -2,6 +2,8 @@ package sync
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -19,7 +21,10 @@ func SyncAllAccounts(cache *cache.Cache) {
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
+		infuraProjectID := os.Getenv("ROPSTENPROJECTKEY")
 		ethrpc = viper.GetString("dev.ethrpc")
+		ethrpc = ethrpc + infuraProjectID
+		log.Printf("Infura Ropsten Url with Project ID: %v\n", ethrpc)
 		hercontractaddress = viper.GetString("dev.hercontractaddress")
 
 	}
