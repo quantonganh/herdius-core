@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/big"
 
@@ -55,9 +54,6 @@ func (es *EthSyncer) Update() {
 		if ok {
 			//last-balance < External-ETH
 			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-			fmt.Printf("Address: %v\n", es.Account.Address)
-			fmt.Printf("es.ExtBalance : %v\n", es.ExtBalance)
-			fmt.Printf("last.(cache.AccountCache) : %v\n", last.(cache.AccountCache).LastExtBalance)
 			lastExtBalance, ok := last.(cache.AccountCache).LastExtBalance[assetSymbol]
 			if ok {
 				if lastExtBalance.Cmp(es.ExtBalance) < 0 {
