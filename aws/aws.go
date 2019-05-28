@@ -66,7 +66,7 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 	uploader := s3manager.NewUploader(sess)
 
 	var blockHash common.HexBytes
-	notFound := make(chan []*protobuf.BaseBlock{}, 30)
+	notFound := make(chan *protobuf.BaseBlock, 30)
 	added := 0
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
@@ -100,20 +100,21 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 			}()
 			go func() {
 				for {
-					select{
-					case unbacked <- notFound:
+					select {
+					case unbacked := <-notFound:
 						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
 						res, err := backupToS3(uploader, bucket, unbacked)
 						if err != nil {
-							return fmt.Errorf("could not backup base block to S3: %v", err)
+							log.Printf("nonfatal: could not backup base block to S3: %v", err)
 						}
+						log.Println("Block backed up to S3:", res.Location)
 						added++
 					}
 				}
 			}()
 		}
-		close(unbacked)
-		return added, nil
+		close(notFound)
+		return nil
 	})
 	return added, err
 }
@@ -122,8 +123,8 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 func findInS3(svc *s3.S3, bucket string, baseBlock *protobuf.BaseBlock) (bool, error) {
 	var blockHash common.HexBytes
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
-	blockHash = lastBlockHash
-	blockHeight := strconv.FormatInt(lastBlock.Header.Height, 10)
+	blockHash = blockHashBz
+	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
 	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
 		Bucket:  aws.String(bucket),
