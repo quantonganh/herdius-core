@@ -2,6 +2,8 @@ package sync
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -12,21 +14,26 @@ import (
 )
 
 func SyncAllAccounts(cache *cache.Cache) {
-	var ethrpc string
+	var ethrpc, hercontractaddress string
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
+		infuraProjectID := os.Getenv("INFURAID")
 		ethrpc = viper.GetString("dev.ethrpc")
+		ethrpc = ethrpc + infuraProjectID
+		log.Printf("Infura Url with Project ID: %v\n", ethrpc)
+		hercontractaddress = viper.GetString("dev.hercontractaddress")
+
 	}
 	for {
-		sync(cache, ethrpc)
+		sync(cache, ethrpc, hercontractaddress)
 	}
 }
 
-func sync(cache *cache.Cache, ethrpc string) {
+func sync(cache *cache.Cache, ethrpc, hercontractaddress string) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -54,7 +61,12 @@ func sync(cache *cache.Cache, ethrpc string) {
 				continue
 			}
 		}
-		es := &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		var es Syncer
+		es = &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		es.GetExtBalance()
+		es.Update()
+
+		es = &HERToken{Account: senderAccount, Cache: cache, RPC: ethrpc, TokenContractAddress: hercontractaddress}
 		es.GetExtBalance()
 		es.Update()
 

@@ -16,11 +16,12 @@ require (
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.2.1-0.20181127190454-8d0c54c12466
+	github.com/golang/protobuf v1.3.1
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/magiconair/properties v1.8.0
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/mr-tron/base58 v1.1.0
+	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/perlin-network/noise v1.1.0
 	github.com/pkg/errors v0.8.1
 	github.com/rs/cors v1.6.0 // indirect
@@ -34,5 +35,6 @@ require (
 	github.com/xtaci/kcp-go v5.0.7+incompatible
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/tools v0.0.0-20190517003510-bffc5affc6df
+	google.golang.org/genproto v0.0.0-20180831171423-11092d34479b // indirect
 	google.golang.org/grpc v1.18.0
 )

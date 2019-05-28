@@ -424,38 +424,69 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	updateAccs := accountCache.GetAll()
 	log.Println("Total Accounts to update", len(updateAccs))
 	for address, item := range updateAccs {
-
 		switch v := item.Object.(type) {
-
 		case cache.AccountCache:
 			{
+
 				accountInAccountCache := item.Object.(cache.AccountCache)
-
 				account := item.Object.(cache.AccountCache).Account
-				lastExtBalance := item.Object.(cache.AccountCache).LastExtBalance
-				currentExtBalance := item.Object.(cache.AccountCache).CurrentExtBalance
-				IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry
+				for assetSymbol := range account.EBalances {
+					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry[assetSymbol]
+					IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewAmountUpdate[assetSymbol]
+					if IsNewAmountUpdate && !IsFirstEntry {
+						log.Printf("Account from cache to be persisted to state: %v", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
+						accountInAccountCache.IsNewAmountUpdate[assetSymbol] = false
+						accountCache.Set(address, accountInAccountCache)
+					}
+					if IsFirstEntry {
+						log.Println("Account from cache to be persisted to state first time: ", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
+						accountInAccountCache.IsFirstEntry[assetSymbol] = false
+						accountCache.Set(address, accountInAccountCache)
+					}
 
-				if lastExtBalance.Cmp(currentExtBalance) != 0 && !IsFirstEntry {
-					log.Printf("Account from cache to be persisted to state: %v", account)
-					sactbz, err := cdc.MarshalJSON(account)
-					if err != nil {
-						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-						continue
-					}
-					stateTrie.TryUpdate([]byte(address), sactbz)
 				}
-				if IsFirstEntry {
-					log.Println("Account from cache to be persisted to state first time: ", account)
-					sactbz, err := cdc.MarshalJSON(account)
-					if err != nil {
-						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-						continue
+
+				// IF ERC20Address is presend update accoun balance
+				if len(account.Erc20Address) > 0 {
+					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstHEREntry
+					IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewHERAmountUpdate
+					if IsNewAmountUpdate && !IsFirstEntry {
+						log.Printf("Account from cache to be persisted to state: %v", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
+						accountInAccountCache.IsNewHERAmountUpdate = false
+						accountCache.Set(address, accountInAccountCache)
 					}
-					stateTrie.TryUpdate([]byte(address), sactbz)
-					accountInAccountCache.IsFirstEntry = false
-					accountCache.Set(address, accountInAccountCache)
+					if IsFirstEntry {
+						log.Println("Account from cache to be persisted to state first time: ", account)
+						sactbz, err := cdc.MarshalJSON(account)
+						if err != nil {
+							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+							continue
+						}
+						stateTrie.TryUpdate([]byte(address), sactbz)
+						accountInAccountCache.IsFirstHEREntry = false
+						accountCache.Set(address, accountInAccountCache)
+					}
+
 				}
+
 			}
 		default:
 			{
@@ -481,6 +512,8 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 		senderAccount.Balance = 0
 		senderAccount.Nonce = 0
 		senderAccount.PublicKey = tx.SenderPubkey
+		log.Println("Account register", tx)
+		senderAccount.Erc20Address = tx.Asset.ExternalSenderAddress
 	} else if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		tx.SenderAddress == senderAccount.Address {
 		senderAccount.Balance += tx.Asset.Value

@@ -6,13 +6,14 @@ import (
 
 // Account : Account Detail
 type Account struct {
-	Nonce       uint64
-	Address     string
-	PublicKey   string
-	StateRoot   string
-	AddressHash cmn.HexBytes
-	Balance     uint64
-	EBalances   map[string]EBalance
+	Nonce        uint64
+	Address      string
+	PublicKey    string
+	StateRoot    string
+	AddressHash  cmn.HexBytes
+	Balance      uint64
+	Erc20Address string
+	EBalances    map[string]EBalance
 }
 
 // EBalance is external balance model
