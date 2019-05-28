@@ -3,9 +3,9 @@ package exbalance
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"os"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/herdius/herdius-core/storage/db"
 )
@@ -24,15 +24,11 @@ func TestMemoryGetandSet(t *testing.T) {
 	}()
 	key := "key"
 	value := AccountCache{IsFirstHEREntry: true, IsNewHERAmountUpdate: true}
-	//db := setup()
 	m.Set(key, value)
 
 	result, has := m.Get(key)
 	assert.Equal(t, value.IsFirstHEREntry, result.IsFirstHEREntry, "Test byte comparision")
 	assert.Equal(t, true, has, "Test has comparision")
-
-	// cdc.UnmarshalJSON(result, &resl)
-	//assert.Equal(t, value, result, "Test struct Comparison")
 
 }
 

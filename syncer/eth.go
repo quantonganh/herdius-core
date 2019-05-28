@@ -93,7 +93,7 @@ func (es *EthSyncer) Update() {
 					return
 				}
 			} else {
-				log.Println("--- ============")
+				log.Printf("Initialise external balance in cache: %v\n", last)
 
 				last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
 				last = last.UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
@@ -102,8 +102,6 @@ func (es *EthSyncer) Update() {
 				value.UpdateBalance(es.ExtBalance.Uint64())
 				es.Account.EBalances[assetSymbol] = value
 				last = last.UpdateAccount(es.Account)
-
-				log.Println("--- ============", last)
 
 				es.ExBal.Set(es.Account.Address, last)
 			}
@@ -118,8 +116,6 @@ func (es *EthSyncer) Update() {
 			isFirstEntry[assetSymbol] = true
 			isNewAmountUpdate := make(map[string]bool)
 			isNewAmountUpdate[assetSymbol] = false
-
-			log.Println("New address will be updated with external balance")
 			value.UpdateBalance(es.ExtBalance.Uint64())
 			es.Account.EBalances[assetSymbol] = value
 			val := external.AccountCache{
