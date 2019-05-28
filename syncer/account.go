@@ -8,12 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
 	"github.com/herdius/herdius-core/blockchain"
-	"github.com/herdius/herdius-core/storage/cache"
+	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/spf13/viper"
 )
 
-func SyncAllAccounts(cache *cache.Cache) {
+func SyncAllAccounts(exBal external.BalanceStorage) {
 	var ethrpc, hercontractaddress string
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
@@ -29,11 +29,11 @@ func SyncAllAccounts(cache *cache.Cache) {
 
 	}
 	for {
-		sync(cache, ethrpc, hercontractaddress)
+		sync(exBal, ethrpc, hercontractaddress)
 	}
 }
 
-func sync(cache *cache.Cache, ethrpc, hercontractaddress string) {
+func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress string) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -62,11 +62,11 @@ func sync(cache *cache.Cache, ethrpc, hercontractaddress string) {
 			}
 		}
 		var es Syncer
-		es = &EthSyncer{Account: senderAccount, Cache: cache, RPC: ethrpc}
+		es = &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: ethrpc}
 		es.GetExtBalance()
 		es.Update()
 
-		es = &HERToken{Account: senderAccount, Cache: cache, RPC: ethrpc, TokenContractAddress: hercontractaddress}
+		es = &HERToken{Account: senderAccount, ExBal: exBal, RPC: ethrpc, TokenContractAddress: hercontractaddress}
 		es.GetExtBalance()
 		es.Update()
 

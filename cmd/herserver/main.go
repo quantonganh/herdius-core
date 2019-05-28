@@ -27,7 +27,7 @@ import (
 	"github.com/herdius/herdius-core/p2p/network"
 	"github.com/herdius/herdius-core/p2p/network/discovery"
 	"github.com/herdius/herdius-core/p2p/types/opcode"
-	cache "github.com/herdius/herdius-core/storage/cache"
+	external "github.com/herdius/herdius-core/storage/exbalance"
 	syncer "github.com/herdius/herdius-core/syncer"
 
 	"github.com/herdius/herdius-core/storage/state/statedb"
@@ -56,13 +56,12 @@ var t1 time.Time
 var t2 time.Time
 var addresses = make([]string, 0)
 
-var accountCache *cache.Cache
+var accountStorage external.BalanceStorage
 
 // HerdiusMessagePlugin will receive all trasnmitted messages.
 type HerdiusMessagePlugin struct{ *network.Plugin }
 
 func init() {
-	accountCache = cache.New()
 
 	nlog.SetFlags(nlog.LstdFlags | nlog.Lshortfile)
 	supsvc = &sup.Supervisor{}
@@ -208,6 +207,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 }
 
 func main() {
+	accountStorage = external.New()
 
 	// process other flags
 	peersFlag := flag.String("peers", "", "peers to connect to")
@@ -295,12 +295,12 @@ func main() {
 	var stateRoot []byte
 	if *supervisorFlag {
 		blockchain.LoadDB()
-		sup.LoadStateDB(accountCache)
+		sup.LoadStateDB(accountStorage)
 		blockchainSvc := &blockchain.Service{}
 
 		lastBlock := blockchainSvc.GetLastBlock()
 
-		go syncer.SyncAllAccounts(accountCache)
+		go syncer.SyncAllAccounts(accountStorage)
 
 		if err != nil {
 			log.Error().Msgf("Failed while getting last block: %v\n", err)

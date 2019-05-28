@@ -48,7 +48,7 @@ delete-db-dirs:
 	@ rm -R ./herdius
 
 create_db_dirs:
-	@ mkdir -p ./herdius && mkdir -p ./herdius/chaindb/ && mkdir -p ./herdius/statedb/
+	@ mkdir -p ./herdius && mkdir -p ./herdius/chaindb/ && mkdir -p ./herdius/statedb/ && mkdir -p ./herdius/syncdb/
 
 build: 
 	$(GOBUILD) ./...

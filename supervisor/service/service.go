@@ -27,7 +27,6 @@ import (
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
 
-	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -383,7 +382,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
 	}
-	if accountCache != nil {
+	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	_, err = s.updateStateForTxs(&txs, stateTrie)
@@ -426,79 +425,68 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	return baseBlock, nil
 }
 func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
-	updateAccs := accountCache.GetAll()
+	updateAccs := accountStorage.GetAll()
 	log.Println("Total Accounts to update", len(updateAccs))
 	for address, item := range updateAccs {
-		switch v := item.Object.(type) {
-		case cache.AccountCache:
-			{
-
-				accountInAccountCache := item.Object.(cache.AccountCache)
-				account := item.Object.(cache.AccountCache).Account
-				for assetSymbol := range account.EBalances {
-					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstEntry[assetSymbol]
-					IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewAmountUpdate[assetSymbol]
-					if IsNewAmountUpdate && !IsFirstEntry {
-						log.Printf("Account from cache to be persisted to state: %v", account)
-						sactbz, err := cdc.MarshalJSON(account)
-						if err != nil {
-							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-							continue
-						}
-						stateTrie.TryUpdate([]byte(address), sactbz)
-						accountInAccountCache.IsNewAmountUpdate[assetSymbol] = false
-						accountCache.Set(address, accountInAccountCache)
-					}
-					if IsFirstEntry {
-						log.Println("Account from cache to be persisted to state first time: ", account)
-						sactbz, err := cdc.MarshalJSON(account)
-						if err != nil {
-							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-							continue
-						}
-						stateTrie.TryUpdate([]byte(address), sactbz)
-						accountInAccountCache.IsFirstEntry[assetSymbol] = false
-						accountCache.Set(address, accountInAccountCache)
-					}
-
+		accountInAccountCache := item
+		account := item.Account
+		for assetSymbol := range account.EBalances {
+			IsFirstEntry := item.IsFirstEntry[assetSymbol]
+			IsNewAmountUpdate := item.IsNewAmountUpdate[assetSymbol]
+			if IsNewAmountUpdate && !IsFirstEntry {
+				log.Printf("Account from cache to be persisted to state: %v", account)
+				sactbz, err := cdc.MarshalJSON(account)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
 				}
-
-				// IF ERC20Address is presend update accoun balance
-				if len(account.Erc20Address) > 0 {
-					IsFirstEntry := item.Object.(cache.AccountCache).IsFirstHEREntry
-					IsNewAmountUpdate := item.Object.(cache.AccountCache).IsNewHERAmountUpdate
-					if IsNewAmountUpdate && !IsFirstEntry {
-						log.Printf("Account from cache to be persisted to state: %v", account)
-						sactbz, err := cdc.MarshalJSON(account)
-						if err != nil {
-							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-							continue
-						}
-						stateTrie.TryUpdate([]byte(address), sactbz)
-						accountInAccountCache.IsNewHERAmountUpdate = false
-						accountCache.Set(address, accountInAccountCache)
-					}
-					if IsFirstEntry {
-						log.Println("Account from cache to be persisted to state first time: ", account)
-						sactbz, err := cdc.MarshalJSON(account)
-						if err != nil {
-							plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-							continue
-						}
-						stateTrie.TryUpdate([]byte(address), sactbz)
-						accountInAccountCache.IsFirstHEREntry = false
-						accountCache.Set(address, accountInAccountCache)
-					}
-
+				stateTrie.TryUpdate([]byte(address), sactbz)
+				accountInAccountCache.IsNewAmountUpdate[assetSymbol] = false
+				accountStorage.Set(address, accountInAccountCache)
+			}
+			if IsFirstEntry {
+				log.Println("Account from cache to be persisted to state first time: ", account)
+				sactbz, err := cdc.MarshalJSON(account)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
 				}
-
+				stateTrie.TryUpdate([]byte(address), sactbz)
+				accountInAccountCache.IsFirstEntry[assetSymbol] = false
+				accountStorage.Set(address, accountInAccountCache)
 			}
-		default:
-			{
-				log.Println("Failed to get cache", v)
 
-			}
 		}
+
+		// IF ERC20Address is presend update accoun balance
+		if len(account.Erc20Address) > 0 {
+			IsFirstEntry := item.IsFirstHEREntry
+			IsNewAmountUpdate := item.IsNewHERAmountUpdate
+			if IsNewAmountUpdate && !IsFirstEntry {
+				log.Printf("Account from cache to be persisted to state: %v", account)
+				sactbz, err := cdc.MarshalJSON(account)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
+				}
+				stateTrie.TryUpdate([]byte(address), sactbz)
+				accountInAccountCache.IsNewHERAmountUpdate = false
+				accountStorage.Set(address, accountInAccountCache)
+			}
+			if IsFirstEntry {
+				log.Println("Account from cache to be persisted to state first time: ", account)
+				sactbz, err := cdc.MarshalJSON(account)
+				if err != nil {
+					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+					continue
+				}
+				stateTrie.TryUpdate([]byte(address), sactbz)
+				accountInAccountCache.IsFirstHEREntry = false
+				accountStorage.Set(address, accountInAccountCache)
+			}
+
+		}
+
 	}
 	return stateTrie
 }
@@ -673,7 +661,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
-	if accountCache != nil {
+	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
