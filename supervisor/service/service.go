@@ -351,17 +351,16 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 			}
 			mp.RemoveTxs(len(*txs))
 
-			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-			err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
-			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-			//log.Println("About to back up all base blocks")
-			//err = aws.BackupAllBaseBlocks()
-
-			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-
+			succ, err = aws.TryBackupBaseBlock(env, lastBlock, baseBlock)
 			if err != nil {
-				return nil, fmt.Errorf("failed to backup block to S3: %v", err)
+				log.Println("nonfatal: failed to backup new block to S3:", err)
+			} else if !succ {
+				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+				succ, err = aws.BackupNeededBaseBlocks()
+				if err != nil {
+					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
+				}
+				if succ
 			}
 
 			return baseBlock, nil

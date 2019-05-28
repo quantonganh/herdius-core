@@ -24,45 +24,30 @@ import (
 	"github.com/herdius/herdius-core/libs/common"
 )
 
-// BackupBaseBlock takes a single block
-func BackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) error {
+// TryBackupBaseBlock takes a single block
+func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
 	sess := session.Must(session.NewSession())
-
-	// TODO CHECK lastBlock vs. S3.Get(baseBlock.Height-1)
-	// TODO CHECK lastBlock vs. S3.Get(baseBlock.Height-1)
-	var blockHash common.HexBytes
-	lastBlockHash := lastBlock.GetHeader().GetBlock_ID().GetBlockHash()
-	blockHash = lastBlockHash
-	lastBlockHeight := strconv.FormatInt(lastBlock.Header.Height, 10)
-	prefixPattern := fmt.Sprintf("%v-%v", lastBlockHeight, blockHash)
-	log.Println("prefixPattern:", prefixPattern)
-
-	bucket := config.GetConfiguration(env).S3Bucket
 	svc := s3.New(session.New())
-	search := &s3.ListObjectsV2Input{
-		Bucket:  aws.String(bucket),
-		MaxKeys: aws.Int64(2),
-		Prefix:  aws.String(prefixPattern),
-	}
-	result, err := svc.ListObjectsV2(search)
+	bucket := config.GetConfiguration(env).S3Bucket
+	found, err := findInS3(svc, bucket)
 	if err != nil {
-		return fmt.Errorf("could not list previous block in S3: %v", err)
+		return false, fmt.Errorf("failure searching S3 for previous block backup: %v", err)
 	}
-	log.Printf("result of search:\n%+v", result)
-	// TODO CHECK lastBlock vs. S3.Get(baseBlock.Height-1)
-	// TODO CHECK lastBlock vs. S3.Get(baseBlock.Height-1)
+	if !found {
+		return false, nil
+	}
 
 	uploader := s3manager.NewUploader(sess)
 	res, err := backupToS3(uploader, bucket, baseBlock)
 	if err != nil {
-		return fmt.Errorf("could not backup new base block to S3: %v", err)
+		return false, fmt.Errorf("could not backup new base block to S3: %v", err)
 	}
 	log.Println("Uploaded base block file to S3:", res.Location)
-	return nil
+	return true, nil
 }
 
-// BackupAllBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
-func BackupAllBaseBlocks() (err error) {
+// BackupNeededBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
+func BackupNeededBaseBlocks() (int, error) {
 	cdc := amino.NewCodec()
 	cryptoAmino.RegisterAmino(cdc)
 
@@ -70,10 +55,18 @@ func BackupAllBaseBlocks() (err error) {
 	viper.AddConfigPath("./config") // Path to config file
 	err = viper.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("Config file not found: %v", err)
+		return 0, fmt.Errorf("Config file not found: %v", err)
 	}
 
 	bDB := blockchain.GetBlockchainDb()
+
+	sess := session.Must(session.NewSession())
+	svc := s3.New(session.New())
+	bucket := config.GetConfiguration(env).S3Bucket
+	uploader := s3manager.NewUploader(sess)
+
+	var blockHash common.HexBytes
+	added := 0
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -84,20 +77,54 @@ func BackupAllBaseBlocks() (err error) {
 			item := it.Item()
 			v, err := item.Value()
 			if err != nil {
-				return fmt.Errorf("cannot retrieve item value: %v", err)
+				return added, fmt.Errorf("cannot retrieve item value: %v", err)
 			}
 			lb := &protobuf.BaseBlock{}
 			err = cdc.UnmarshalJSON(v, lb)
 			if err != nil {
-				return fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
+				return added, fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
 			}
-			log.Printf("\nlastblock:\n%+v", lb)
+			blockHash = lb.Header.Block_ID.BlockHash
+			log.Printf("lastblock height-hash: %v-%v", lb.Header.Height, blockHash)
+			go func() {
+				found, err := findInS3(svc, bucket, lb)
+				if found {
+					return
+				}
+				res, err := backupToS3(uploader, bucket, baseBlock)
+				if err != nil {
+					return false, fmt.Errorf("could not backup new base block to S3: %v", err)
+				}
+			}()
 		}
-		return nil
+		return added, nil
 	})
-	return err
+	return added, err
 }
 
+// findInS3 searches for a given baseBlock in S3 in the given bucket
+func findInS3(svc *s3.S3, bucket string, baseBlock *protobuf.BaseBlock) (bool, error) {
+	var blockHash common.HexBytes
+	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+	blockHash = lastBlockHash
+	blockHeight := strconv.FormatInt(lastBlock.Header.Height, 10)
+	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
+	search := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(bucket),
+		MaxKeys: aws.Int64(2),
+		Prefix:  aws.String(prefixPattern),
+	}
+	result, err := svc.ListObjectsV2(search)
+	if err != nil {
+		return false, fmt.Errorf("could not list previous block in S3: %v", err)
+	}
+	if len(result.Contents) <= 0 {
+		return false, fmt.Errorf("previous base block could not be found in S3")
+	}
+	return true, nil
+}
+
+// backupToS3 backs up a single baseBlock to S3 in the given bucket
 func backupToS3(uploader *s3manager.Uploader, bucket string, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
 	fileName := "tmpfile.txt"
 
