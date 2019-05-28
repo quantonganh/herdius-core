@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"os"
+
 	"github.com/herdius/herdius-core/storage/db"
 )
 
@@ -14,8 +16,12 @@ type teststruct struct {
 
 func TestMemoryGetandSet(t *testing.T) {
 
-	var m = NewTest()
-	defer m.CloseTest()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	var m = NewDB(badgerdb)
+	defer func() {
+		m.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 	key := "key"
 	value := AccountCache{IsFirstHEREntry: true, IsNewHERAmountUpdate: true}
 	//db := setup()

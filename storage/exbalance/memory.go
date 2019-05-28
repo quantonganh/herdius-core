@@ -2,7 +2,6 @@ package exbalance
 
 import (
 	"fmt"
-	"os"
 
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
 	"github.com/herdius/herdius-core/storage/db"
@@ -21,23 +20,23 @@ func init() {
 	cryptoAmino.RegisterAmino(cdc)
 }
 func (b memory) Set(k string, x AccountCache) {
-	b.db.Print()
 	by, _ := cdc.MarshalJSON(x)
-
 	b.db.Set([]byte(k), by)
 }
 
-func (b memory) Get(k string) (v AccountCache, has bool) {
+func (b memory) Get(k string) (AccountCache, bool) {
+	var (
+		v   AccountCache
+		has bool
+	)
 	res := b.db.Get([]byte(k))
 	e := cdc.UnmarshalJSON(res, &v)
 	if e != nil {
 		has = false
-		return
+		return v, has
 	}
-
 	has = true
-
-	return
+	return v, has
 
 }
 
@@ -63,19 +62,7 @@ func (m *memory) Close() {
 	m.db.Close()
 }
 func NewDB(db db.DB) *memory {
-
 	return &memory{db: db}
-}
-
-func NewTest() *memory {
-	return &memory{db: db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")}
-}
-func (m *memory) CloseTest() {
-	m.db.Close()
-	fmt.Println("Delete dir")
-	err := os.RemoveAll("./test.syncdb")
-	fmt.Println(err)
-
 }
 
 func LoadDB() db.DB {

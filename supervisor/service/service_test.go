@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/herdius/herdius-core/storage/db"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
@@ -360,8 +361,12 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	accountStorage = external.NewTest()
-	defer accountStorage.CloseTest()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountStorage = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 	currentExternalBal := make(map[string]*big.Int)
 	currentExternalBal["external-asset"] = big.NewInt(int64(math.Pow10(18)))
 

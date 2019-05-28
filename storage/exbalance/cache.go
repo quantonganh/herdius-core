@@ -5,5 +5,4 @@ type BalanceStorage interface {
 	Get(k string) (AccountCache, bool)
 	GetAll() map[string]AccountCache
 	Close()
-	CloseTest()
 }

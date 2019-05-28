@@ -2,8 +2,10 @@ package sync
 
 import (
 	"math/big"
+	"os"
 	"testing"
 
+	"github.com/herdius/herdius-core/storage/db"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/stretchr/testify/assert"
@@ -19,8 +21,12 @@ func TestHERShouldNOTChangeOtherASSET(t *testing.T) {
 		accountCache external.BalanceStorage
 		eBalances    map[string]statedb.EBalance
 	)
-	accountCache = external.NewTest()
-	defer accountCache.CloseTest()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountCache = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 
 	eBalances = make(map[string]statedb.EBalance)
 	eBalances["ETH"] = statedb.EBalance{Balance: uint64(1)}
@@ -53,8 +59,12 @@ func TestHERExternalETHisGreater(t *testing.T) {
 		accountCache external.BalanceStorage
 		eBalances    map[string]statedb.EBalance
 	)
-	accountCache = external.NewTest()
-	defer accountCache.CloseTest()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountCache = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 
 	eBalances = make(map[string]statedb.EBalance)
 	eBalances["ETH"] = statedb.EBalance{Balance: uint64(8)}
@@ -91,8 +101,12 @@ func TestHERExternalETHisLesser(t *testing.T) {
 		accountCache external.BalanceStorage
 		eBalances    map[string]statedb.EBalance
 	)
-	accountCache = external.NewTest()
-	defer accountCache.CloseTest()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountCache = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 
 	eBalances = make(map[string]statedb.EBalance)
 	eBalances["ETH"] = statedb.EBalance{Balance: uint64(8)}
