@@ -1,7 +1,7 @@
 module github.com/herdius/herdius-core
 
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
+	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7
 	github.com/allegro/bigcache v1.1.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190514202536-8f808a500156 // indirect
 	github.com/aws/aws-sdk-go v1.19.35

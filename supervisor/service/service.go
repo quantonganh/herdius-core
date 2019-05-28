@@ -352,10 +352,10 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 			mp.RemoveTxs(len(*txs))
 
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-			//err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
+			err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
-			log.Println("About to back up all base blocks")
-			err = aws.BackupAllBaseBlocks()
+			//log.Println("About to back up all base blocks")
+			//err = aws.BackupAllBaseBlocks()
 
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
