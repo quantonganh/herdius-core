@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/herdius/herdius-core/storage/cache"
+	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/tendermint/go-amino"
 )
@@ -18,7 +18,7 @@ type EthSyncer struct {
 	LastExtBalance *big.Int
 	ExtBalance     *big.Int
 	Account        statedb.Account
-	Cache          *cache.Cache
+	ExBal          external.BalanceStorage
 	RPC            string
 }
 
@@ -50,25 +50,26 @@ func (es *EthSyncer) Update() {
 	value, ok := es.Account.EBalances[assetSymbol]
 	if ok {
 		herEthBalance := *big.NewInt(int64(0))
-		last, ok := es.Cache.Get(es.Account.Address)
+		last, ok := es.ExBal.Get(es.Account.Address)
 		if ok {
 			//last-balance < External-ETH
 			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-			lastExtBalance, ok := last.(cache.AccountCache).LastExtBalance[assetSymbol]
+			lastExtBalance, ok := last.LastExtBalance[assetSymbol]
 			if ok {
 				if lastExtBalance.Cmp(es.ExtBalance) < 0 {
+					log.Println("lastExtBalance.Cmp(es.ExtBalance)")
 					herEthBalance.Sub(es.ExtBalance, lastExtBalance)
 					value.Balance += herEthBalance.Uint64()
 					es.Account.EBalances[assetSymbol] = value
 
-					last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
-					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
-					last = last.(cache.AccountCache).UpdateAccount(es.Account)
+					last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.UpdateIsFirstEntryByKey(assetSymbol, false)
+					last = last.UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last = last.UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance credit: %v\n", last)
-					es.Cache.Set(es.Account.Address, last)
+					es.ExBal.Set(es.Account.Address, last)
 					return
 
 				}
@@ -76,29 +77,33 @@ func (es *EthSyncer) Update() {
 				//last-balance < External-ETH
 				//Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
 				if lastExtBalance.Cmp(es.ExtBalance) > 0 {
+					log.Println("lastExtBalance.Cmp(es.ExtBalance) ============")
+
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance)
 					value.Balance -= herEthBalance.Uint64()
-					last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-					last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, false)
-					last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, true)
+					last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+					last = last.UpdateIsFirstEntryByKey(assetSymbol, false)
+					last = last.UpdateIsNewAmountUpdateByKey(assetSymbol, true)
 					es.Account.EBalances[assetSymbol] = value
-					last = last.(cache.AccountCache).UpdateAccount(es.Account)
+					last = last.UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance debit: %v\n", last)
-					es.Cache.Set(es.Account.Address, last)
+					es.ExBal.Set(es.Account.Address, last)
 					return
 				}
 			} else {
-				last = last.(cache.AccountCache).UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateIsFirstEntryByKey(assetSymbol, true)
-				last = last.(cache.AccountCache).UpdateIsNewAmountUpdateByKey(assetSymbol, false)
+				log.Printf("Initialise external balance in cache: %v\n", last)
+
+				last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last = last.UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
+				last = last.UpdateIsFirstEntryByKey(assetSymbol, true)
+				last = last.UpdateIsNewAmountUpdateByKey(assetSymbol, false)
 				value.UpdateBalance(es.ExtBalance.Uint64())
 				es.Account.EBalances[assetSymbol] = value
-				last = last.(cache.AccountCache).UpdateAccount(es.Account)
+				last = last.UpdateAccount(es.Account)
 
-				es.Cache.Set(es.Account.Address, last)
+				es.ExBal.Set(es.Account.Address, last)
 			}
 
 		} else {
@@ -111,14 +116,12 @@ func (es *EthSyncer) Update() {
 			isFirstEntry[assetSymbol] = true
 			isNewAmountUpdate := make(map[string]bool)
 			isNewAmountUpdate[assetSymbol] = false
-
-			log.Println("New address will be updated with external balance")
 			value.UpdateBalance(es.ExtBalance.Uint64())
 			es.Account.EBalances[assetSymbol] = value
-			val := cache.AccountCache{
+			val := external.AccountCache{
 				Account: es.Account, LastExtBalance: lastbalances, CurrentExtBalance: currentbalances, IsFirstEntry: isFirstEntry, IsNewAmountUpdate: isNewAmountUpdate,
 			}
-			es.Cache.Set(es.Account.Address, val)
+			es.ExBal.Set(es.Account.Address, val)
 		}
 
 	}

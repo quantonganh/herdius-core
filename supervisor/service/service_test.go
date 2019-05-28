@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/herdius/herdius-core/storage/db"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
 	ed25519 "github.com/herdius/herdius-core/crypto/ed"
@@ -15,7 +16,7 @@ import (
 	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/herdius/herdius-core/supervisor/transaction"
 
-	"github.com/herdius/herdius-core/storage/cache"
+	external "github.com/herdius/herdius-core/storage/exbalance"
 
 	txbyte "github.com/herdius/herdius-core/tx"
 	"github.com/stretchr/testify/assert"
@@ -360,7 +361,12 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	accountCache = cache.New()
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountStorage = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
 	currentExternalBal := make(map[string]*big.Int)
 	currentExternalBal["external-asset"] = big.NewInt(int64(math.Pow10(18)))
 
@@ -373,19 +379,19 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	eBalance.Balance = uint64(math.Pow10(18))
 	eBalances["external-asset"] = eBalance
 	herAccount.EBalances = eBalances
-	herCacheAccount := cache.AccountCache{
+	herCacheAccount := external.AccountCache{
 		Account:           herAccount,
 		CurrentExtBalance: currentExternalBal,
 		LastExtBalance:    lastExternalBal,
 		IsFirstEntry:      isFirstEntry,
 	}
-	accountCache.Set("external-address-01", herCacheAccount)
+	accountStorage.Set("external-address-01", herCacheAccount)
 
 	updateStateWithNewExternalBalance(trie)
 
-	res, ok := accountCache.Get("external-address-01")
+	res, ok := accountStorage.Get("external-address-01")
 	assert.True(t, ok)
-	assert.False(t, res.(cache.AccountCache).IsFirstEntry["external-asset"])
+	assert.False(t, res.IsFirstEntry["external-asset"])
 
 	defer os.RemoveAll(dir)
 }

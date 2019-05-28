@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/herdius/herdius-core/storage/cache"
+	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/syncer/contract"
 )
@@ -18,7 +18,7 @@ type HERToken struct {
 	LastExtBalance       *big.Int
 	ExtBalance           *big.Int
 	Account              statedb.Account
-	Cache                *cache.Cache
+	ExBal                external.BalanceStorage
 	TokenContractAddress string
 	TokenSymbol          string
 	RPC                  string
@@ -48,38 +48,27 @@ func (es *HERToken) GetExtBalance() {
 //Update Updates balance of asset in cache
 func (es *HERToken) Update() {
 	herBalance := *big.NewInt(int64(0))
-	last, ok := es.Cache.Get(es.Account.Address)
+	last, ok := es.ExBal.Get(es.Account.Address)
 	if ok {
 		//last-balance < External-ETH
 		//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 		fmt.Printf("Address: %v\n", es.Account.Address)
 		fmt.Printf("es.ExtBalance : %v\n", es.ExtBalance)
-		fmt.Printf("last.(cache.AccountCache) : %v\n", last.(cache.AccountCache).LastExtBalance)
-		lastExtHERBalance := last.(cache.AccountCache).LastExtHERBalance
+		fmt.Printf("last : %v\n", last.LastExtBalance)
+		lastExtHERBalance := last.LastExtHERBalance
 		if lastExtHERBalance != nil {
 			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
 				herBalance.Sub(es.ExtBalance, lastExtHERBalance)
 				es.Account.Balance += herBalance.Uint64()
-				// val := cache.AccountCache{
-				// 	Account:              es.Account,
-				// 	LastExtBalance:       last.(cache.AccountCache).LastExtBalance,
-				// 	CurrentExtBalance:    last.(cache.AccountCache).CurrentExtBalance,
-				// 	IsFirstEntry:         last.(cache.AccountCache).IsFirstEntry,
-				// 	IsNewAmountUpdate:    last.(cache.AccountCache).IsNewAmountUpdate,
-				// 	LastExtHERBalance:    es.ExtBalance,
-				// 	CurrentExtHERBalance: es.ExtBalance,
-				// 	IsFirstHEREntry:      false,
-				// 	IsNewHERAmountUpdate: true,
-				// }
 
-				last = last.(cache.AccountCache).UpdateAccount(es.Account)
-				last = last.(cache.AccountCache).UpdateLastExtHERBalance(es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateCurrentExtHERBalance(es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateIsNewHERAmountUpdate(true)
-				last = last.(cache.AccountCache).UpdateIsFirstHER(false)
+				last = last.UpdateAccount(es.Account)
+				last = last.UpdateLastExtHERBalance(es.ExtBalance)
+				last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
+				last = last.UpdateIsNewHERAmountUpdate(true)
+				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance credit: %v\n", last)
-				es.Cache.Set(es.Account.Address, last)
+				es.ExBal.Set(es.Account.Address, last)
 				return
 
 			}
@@ -89,38 +78,26 @@ func (es *HERToken) Update() {
 			if lastExtHERBalance.Cmp(es.ExtBalance) > 0 {
 				herBalance.Sub(lastExtHERBalance, es.ExtBalance)
 				es.Account.Balance -= herBalance.Uint64()
-				// val := cache.AccountCache{
-				// 	Account:              es.Account,
-				// 	LastExtBalance:       last.(cache.AccountCache).LastExtBalance,
-				// 	CurrentExtBalance:    last.(cache.AccountCache).CurrentExtBalance,
-				// 	IsFirstEntry:         last.(cache.AccountCache).IsFirstEntry,
-				// 	IsNewAmountUpdate:    last.(cache.AccountCache).IsNewAmountUpdate,
-				// 	LastExtHERBalance:    es.ExtBalance,
-				// 	CurrentExtHERBalance: es.ExtBalance,
-				// 	IsFirstHEREntry:      false,
-				// 	IsNewHERAmountUpdate: true,
-				// }
-
-				last = last.(cache.AccountCache).UpdateAccount(es.Account)
-				last = last.(cache.AccountCache).UpdateLastExtHERBalance(es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateCurrentExtHERBalance(es.ExtBalance)
-				last = last.(cache.AccountCache).UpdateIsNewHERAmountUpdate(true)
-				last = last.(cache.AccountCache).UpdateIsFirstHER(false)
+				last = last.UpdateAccount(es.Account)
+				last = last.UpdateLastExtHERBalance(es.ExtBalance)
+				last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
+				last = last.UpdateIsNewHERAmountUpdate(true)
+				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance debit: %v\n", last)
-				es.Cache.Set(es.Account.Address, last)
+				es.ExBal.Set(es.Account.Address, last)
 				return
 			}
 		} else {
 
 			es.Account.Balance = es.ExtBalance.Uint64()
 
-			last = last.(cache.AccountCache).UpdateAccount(es.Account)
-			last = last.(cache.AccountCache).UpdateIsFirstHER(true)
-			last = last.(cache.AccountCache).UpdateLastExtHERBalance(es.ExtBalance)
-			last = last.(cache.AccountCache).UpdateCurrentExtHERBalance(es.ExtBalance)
+			last = last.UpdateAccount(es.Account)
+			last = last.UpdateIsFirstHER(true)
+			last = last.UpdateLastExtHERBalance(es.ExtBalance)
+			last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
 
-			es.Cache.Set(es.Account.Address, last)
+			es.ExBal.Set(es.Account.Address, last)
 
 		}
 
