@@ -29,7 +29,7 @@ func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (b
 	sess := session.Must(session.NewSession())
 	svc := s3.New(session.New())
 	bucket := config.GetConfiguration(env).S3Bucket
-	found, err := findInS3(svc, bucket)
+	found, err := findInS3(svc, bucket, lastBlock)
 	if err != nil {
 		return false, fmt.Errorf("failure searching S3 for previous block backup: %v", err)
 	}
@@ -47,13 +47,13 @@ func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (b
 }
 
 // BackupNeededBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
-func BackupNeededBaseBlocks() (int, error) {
+func BackupNeededBaseBlocks(env string) (int, error) {
 	cdc := amino.NewCodec()
 	cryptoAmino.RegisterAmino(cdc)
 
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
-	err = viper.ReadInConfig()
+	err := viper.ReadInConfig()
 	if err != nil {
 		return 0, fmt.Errorf("Config file not found: %v", err)
 	}
@@ -66,6 +66,7 @@ func BackupNeededBaseBlocks() (int, error) {
 	uploader := s3manager.NewUploader(sess)
 
 	var blockHash common.HexBytes
+	notFound := make(chan []*protobuf.BaseBlock{}, 30)
 	added := 0
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
@@ -77,26 +78,41 @@ func BackupNeededBaseBlocks() (int, error) {
 			item := it.Item()
 			v, err := item.Value()
 			if err != nil {
-				return added, fmt.Errorf("cannot retrieve item value: %v", err)
+				return fmt.Errorf("cannot retrieve item value: %v", err)
 			}
-			lb := &protobuf.BaseBlock{}
-			err = cdc.UnmarshalJSON(v, lb)
+			block := &protobuf.BaseBlock{}
+			err = cdc.UnmarshalJSON(v, block)
 			if err != nil {
-				return added, fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
+				return fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
 			}
-			blockHash = lb.Header.Block_ID.BlockHash
-			log.Printf("lastblock height-hash: %v-%v", lb.Header.Height, blockHash)
+			blockHash = block.Header.Block_ID.BlockHash
+			log.Printf("lastblock height-hash: %v-%v", block.Header.Height, blockHash)
 			go func() {
-				found, err := findInS3(svc, bucket, lb)
-				if found {
+				found, err := findInS3(svc, bucket, block)
+				if err != nil {
+					log.Println("nonfatal: while attempting full chain backup, unable to find block", err)
 					return
 				}
-				res, err := backupToS3(uploader, bucket, baseBlock)
-				if err != nil {
-					return false, fmt.Errorf("could not backup new base block to S3: %v", err)
+				if !found {
+					log.Printf("not found in S3: %v-%v", block.Header.Height, blockHash)
+					notFound <- block
+				}
+			}()
+			go func() {
+				for {
+					select{
+					case unbacked <- notFound:
+						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
+						res, err := backupToS3(uploader, bucket, unbacked)
+						if err != nil {
+							return fmt.Errorf("could not backup base block to S3: %v", err)
+						}
+						added++
+					}
 				}
 			}()
 		}
+		close(unbacked)
 		return added, nil
 	})
 	return added, err
