@@ -351,16 +351,16 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 			}
 			mp.RemoveTxs(len(*txs))
 
-			succ, err = aws.TryBackupBaseBlock(env, lastBlock, baseBlock)
+			succ, err := aws.TryBackupBaseBlock(env, lastBlock, baseBlock)
 			if err != nil {
 				log.Println("nonfatal: failed to backup new block to S3:", err)
 			} else if !succ {
 				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-				succ, err = aws.BackupNeededBaseBlocks()
+				blocksAdded, err := aws.BackupNeededBaseBlocks(env)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
-				if succ
+				log.Println("Sucessfully re-evaluated chain and backed up to S3, backed up base blocks:", blocksAdded)
 			}
 
 			return baseBlock, nil
@@ -421,6 +421,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
+
 func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	updateAccs := accountStorage.GetAll()
 	log.Println("Total Accounts to update", len(updateAccs))
