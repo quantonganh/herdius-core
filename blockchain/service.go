@@ -1,18 +1,25 @@
 package blockchain
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dgraph-io/badger"
+	"github.com/spf13/viper"
+
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/crypto/herhash"
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 	cmn "github.com/herdius/herdius-core/libs/common"
+	"github.com/herdius/herdius-core/p2p/key"
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/storage/db"
-	"github.com/herdius/herdius-core/supervisor/service"
+	"github.com/herdius/herdius-core/storage/state/statedb"
 )
 
 // ServiceI is blockchain service interface
@@ -39,7 +46,7 @@ func (s *Service) GetBlockByBlockHash(db db.DB, key []byte) (*protobuf.BaseBlock
 	bb := &protobuf.BaseBlock{}
 	err := cdc.UnmarshalJSON(bbbz, bb)
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to Unmarshal Base Block: %v.", err))
+		return nil, fmt.Errorf("failed to Unmarshal Base Block: %v", err)
 	}
 
 	return bb, nil
@@ -50,7 +57,7 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 	genesisBlock, err := s.GetBlockByHeight(0)
 
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed while looking for the block: %v.", err))
+		return nil, fmt.Errorf("failed while looking for the block: %v", err)
 	}
 
 	if genesisBlock != nil {
@@ -74,10 +81,10 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 	}
 
 	// Get the initial state root for genesis block
-	root, err := service.LoadStateDBWithInitialAccounts()
+	root, err := s.LoadStateDBWithInitialAccounts()
 
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to create state root: %v.", err))
+		return nil, fmt.Errorf("failed to create state root: %v", err)
 	}
 	header := &protobuf.BaseHeader{
 		Time:      &timestamp,
@@ -88,7 +95,7 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 
 	blockIDBz, err := cdc.MarshalJSON(blockID)
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to Marshal Block ID: %v.", err))
+		return nil, fmt.Errorf("failed to Marshal Block ID: %v", err)
 	}
 	blockhash := herhash.Sum(blockIDBz)
 	header.Block_ID.BlockHash = blockhash
@@ -100,7 +107,7 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 	gbbz, err := cdc.MarshalJSON(genesisBlock)
 
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to Marshal Base Block: %v.", err))
+		return nil, fmt.Errorf("failed to Marshal Base Block: %v", err)
 	}
 	badgerDB.Set(blockhash, gbbz)
 	badgerDB.Set([]byte("LastBlock"), gbbz)
@@ -286,7 +293,7 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
 	}
 	return txDetailRes, nil
 }
@@ -359,7 +366,7 @@ func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
 	}
 	txs := &pluginproto.TxsResponse{
 		Txs: txDetails,
@@ -437,10 +444,65 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to get blocks due to: %v.", err.Error()))
+		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
 	}
 	txs := &pluginproto.TxsResponse{
 		Txs: txDetails,
 	}
 	return txs, nil
+}
+
+// LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
+// Initially 50 accounts will be loaded to state db
+func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	var trie statedb.Trie
+	var dir string
+	viper.SetConfigName("config")       // Config file name without extension
+	viper.AddConfigPath("../../config") // Path to config file
+	err = viper.ReadInConfig()
+	if err != nil {
+		return nil, fmt.Errorf("config file not found: %v", err)
+	}
+	dir = viper.GetString("dev.statedbpath")
+
+	trie = statedb.GetState(dir)
+	parent := filepath.Dir(wd)
+	for i := 0; i < 10; i++ {
+		ser := i + 1
+		filePath := filepath.Join(parent + "/herdius-core/cmd/testdata/secp205k1Accts/" + strconv.Itoa(ser) + "_peer_id.json")
+
+		nodeKey, err := key.LoadOrGenNodeKey(filePath)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to Load or create node keys: %v", err)
+		} else {
+			pubKey := nodeKey.PrivKey.PubKey()
+			b64PubKey := base64.StdEncoding.EncodeToString(pubKey.Bytes())
+			//All 10 intital accounts will have an initial balance of 10000 HER tokens
+			account := statedb.Account{
+				PublicKey: b64PubKey,
+				Nonce:     0,
+				Address:   pubKey.GetAddress(),
+				Balance:   10000,
+			}
+
+			actbz, _ := cdc.MarshalJSON(account)
+			pubKeyBytes := []byte(pubKey.GetAddress())
+			err := trie.TryUpdate(pubKeyBytes, actbz)
+			if err != nil {
+				return nil, fmt.Errorf("failed to store account in state db: %v", err)
+			}
+		}
+	}
+
+	root, err := trie.Commit(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit the state trie: %v", err)
+	}
+
+	return root, nil
 }
