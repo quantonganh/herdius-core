@@ -47,6 +47,7 @@ func NewBadgerDBWithOpts(valueDir string, dir string, opts badger.Options) (*Bad
 func (db *BadgerDB) GetBadgerDB() *badger.DB {
 	return db.db
 }
+
 func (db *BadgerDB) Get(key []byte) []byte {
 	var value []byte
 	err := db.db.View(func(txn *badger.Txn) error {

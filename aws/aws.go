@@ -106,22 +106,23 @@ func BackupAllBaseBlocks() (err error) {
 	cryptoAmino.RegisterAmino(cdc)
 
 	//var badgerDB db.DB
-	var dir string
-	var dbName string
+	//var dir string
+	//var dbName string
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err = viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Config file not found: %v", err)
-	} else {
-		dir = viper.GetString("dev.chaindbpath")
-		dbName = viper.GetString("dev.badgerDb")
+		//} else {
+		//dir = viper.GetString("dev.chaindbpath")
+		//dbName = viper.GetString("dev.badgerDb")
 	}
 
 	//badgerDB := db.NewDB(dbName, db.GoBadgerBackend, dir)
-	bDB := blockchain.GetBlockchainBb()
+	bDB := blockchain.GetBlockchainDb()
 
-	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+	//err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+	err = bDB.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchSize = 10
 		it := txn.NewIterator(opts)

@@ -343,36 +343,28 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 	select {
 	//case <-time.After(waitTime * time.Second):
 	case <-time.After(time.Duration(waitTime) * time.Second):
-		if len(*txs) <= 0 {
-			// We need to keep on creating base blocks every 3 seconds
-			// since we have a background process executing and updating the
-			// balances of external assets.
-			log.Printf("Block creation wait time (%d) elapsed, creating block but with no transactions", waitTime)
+		if len(s.Validator) <= 0 || len(*txs) <= 0 {
+			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create base block: %v", err)
-			}
-			return baseBlock, nil
-		}
-		log.Printf("Block creation wait time (%d) elapsed, creating block", waitTime)
-		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
-		if len(s.Validator) <= 0 {
-			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
-			if err != nil {
-				return nil, fmt.errorf("failed to create base block: %v", err)
+				return nil, fmt.Errorf("failed to create singular base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
 
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
 			//err = aws.BackupBaseBlock(env, lastBlock, baseBlock)
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+			log.Println("About to back up all base blocks")
 			err = aws.BackupAllBaseBlocks()
+
 			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+			//TODO UNDO THIS CHANGE AND FIGURE OUT WHERE DECISION NEEDS TO GO
+
 			if err != nil {
-				return nil, fmt.errorf("failed to backup block to S3: %v", err)
+				return nil, fmt.Errorf("failed to backup block to S3: %v", err)
 			}
 
-			return baseBlock, err
+			return baseBlock, nil
 		}
 		err := s.ShardToValidators(txs, net, stateRoot)
 		if err != nil {
