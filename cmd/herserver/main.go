@@ -341,9 +341,6 @@ func main() {
 
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
-			// Blocks will be created every 3 seconds
-			time.Sleep(3 * time.Second)
-
 			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, waitTime, noOfPeersInGroup, stateRoot)
 			if err != nil {
 				log.Error().Msg(err.Error())
@@ -374,9 +371,7 @@ func main() {
 				log.Info().Msgf("State root : %v", stateRoot)
 			}
 		} else {
-
 			validatorProcessor(net, reader, peers)
-
 		}
 
 	}
@@ -396,7 +391,7 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 			log.Printf("unable to request from client: %+v", err)
 			return
 		}
-		fmt.Println("Supervsior reply: " + reply.String())
+		fmt.Println("Supervisor reply: " + reply.String())
 		firstPingFromValidator++
 		return
 	}

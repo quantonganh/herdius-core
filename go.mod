@@ -24,6 +24,7 @@ require (
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/perlin-network/noise v1.1.0
 	github.com/pkg/errors v0.8.1
+	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/rs/zerolog v1.11.0
 	github.com/spf13/viper v1.3.1
