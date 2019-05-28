@@ -497,9 +497,8 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 	return root, nil
 }
 
-func GetBlockchainDb() *badger.DB {
-	var dB *db.BadgerDB
-	return dB.GetBadgerDB()
+func GetBlockchainDb() db.DB {
+	return badgerDB
 }
 
 // getTxIDWithoutStatus creates TxID without the status

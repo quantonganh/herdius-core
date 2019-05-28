@@ -122,7 +122,7 @@ func BackupAllBaseBlocks() (err error) {
 	bDB := blockchain.GetBlockchainDb()
 
 	//err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
-	err = bDB.View(func(txn *badger.Txn) error {
+	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchSize = 10
 		it := txn.NewIterator(opts)
