@@ -86,8 +86,9 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 				return fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
 			}
 			blockHash = block.Header.Block_ID.BlockHash
-			log.Printf("lastblock height-hash: %v-%v", block.Header.Height, blockHash)
+			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
 			go func() {
+				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
 				found, err := findInS3(svc, bucket, block)
 				if err != nil {
 					log.Println("nonfatal: while attempting full chain backup, unable to find block", err)
@@ -113,7 +114,6 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 				}
 			}()
 		}
-		close(notFound)
 		return nil
 	})
 	return added, err
@@ -136,7 +136,7 @@ func findInS3(svc *s3.S3, bucket string, baseBlock *protobuf.BaseBlock) (bool, e
 		return false, fmt.Errorf("could not list previous block in S3: %v", err)
 	}
 	if len(result.Contents) <= 0 {
-		return false, fmt.Errorf("previous base block could not be found in S3")
+		return false, nil
 	}
 	return true, nil
 }

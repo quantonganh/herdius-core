@@ -22,7 +22,6 @@ import (
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
-	"github.com/herdius/herdius-core/storage/cache"
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -341,7 +340,6 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 	txs := mp.GetTxs()
 
 	select {
-	//case <-time.After(waitTime * time.Second):
 	case <-time.After(time.Duration(waitTime) * time.Second):
 		if len(s.Validator) <= 0 || len(*txs) <= 0 {
 			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", waitTime, len(*txs))
@@ -356,11 +354,18 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 				log.Println("nonfatal: failed to backup new block to S3:", err)
 			} else if !succ {
 				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				blocksAdded, err := aws.BackupNeededBaseBlocks(env)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
 				log.Println("Sucessfully re-evaluated chain and backed up to S3, backed up base blocks:", blocksAdded)
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
+				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 			}
 
 			return baseBlock, nil
