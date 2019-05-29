@@ -14,7 +14,7 @@ import (
 )
 
 func SyncAllAccounts(exBal external.BalanceStorage) {
-	var ethrpc, hercontractaddress string
+	var ethrpc, hercontractaddress, btcrpc string
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
@@ -26,14 +26,15 @@ func SyncAllAccounts(exBal external.BalanceStorage) {
 		ethrpc = ethrpc + infuraProjectID
 		log.Printf("Infura Url with Project ID: %v\n", ethrpc)
 		hercontractaddress = viper.GetString("dev.hercontractaddress")
+		btcrpc = viper.GetString("dev.blockchaininforpc")
 
 	}
 	for {
-		sync(exBal, ethrpc, hercontractaddress)
+		sync(exBal, ethrpc, hercontractaddress, btcrpc)
 	}
 }
 
-func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress string) {
+func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress, btcrpc string) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -67,6 +68,11 @@ func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress string) {
 		es.Update()
 
 		es = &HERToken{Account: senderAccount, ExBal: exBal, RPC: ethrpc, TokenContractAddress: hercontractaddress}
+		es.GetExtBalance()
+		es.Update()
+		senderAccount.EBalances["BTC"] = statedb.EBalance{Address: "18Yu4WsvYXi9czPKFdHV1YAaAPtNLse9rG"}
+
+		es = &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: btcrpc}
 		es.GetExtBalance()
 		es.Update()
 
