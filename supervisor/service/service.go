@@ -358,11 +358,11 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
-				blocksAdded, err := aws.BackupNeededBaseBlocks(env)
+				err := aws.BackupNeededBaseBlocks(env, baseBlock)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
-				log.Println("Sucessfully re-evaluated chain and backed up to S3, backed up base blocks:", blocksAdded)
+				log.Print("Sucessfully re-evaluated chain and backed up to S3")
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?

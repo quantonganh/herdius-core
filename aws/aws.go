@@ -47,7 +47,7 @@ func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (b
 }
 
 // BackupNeededBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
-func BackupNeededBaseBlocks(env string) (int, error) {
+func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 	cdc := amino.NewCodec()
 	cryptoAmino.RegisterAmino(cdc)
 
@@ -55,7 +55,7 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
 	if err != nil {
-		return 0, fmt.Errorf("Config file not found: %v", err)
+		return fmt.Errorf("config file not found: %v", err)
 	}
 
 	bDB := blockchain.GetBlockchainDb()
@@ -64,6 +64,11 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 	svc := s3.New(session.New())
 	bucket := config.GetConfiguration(env).S3Bucket
 	uploader := s3manager.NewUploader(sess)
+	res, err := backupToS3(uploader, bucket, newBlock)
+	if err != nil {
+		return fmt.Errorf("aborting: while trying to backup all needed base blocks, could not backup new base block to S3: %v", err)
+	}
+	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
 	notFound := make(chan *protobuf.BaseBlock, 30)
@@ -100,6 +105,9 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 				}
 			}()
 			go func() {
+				defer func() {
+					log.Println("Blocks backed up to S3:", added)
+				}()
 				for {
 					select {
 					case unbacked := <-notFound:
@@ -116,7 +124,7 @@ func BackupNeededBaseBlocks(env string) (int, error) {
 		}
 		return nil
 	})
-	return added, err
+	return err
 }
 
 // findInS3 searches for a given baseBlock in S3 in the given bucket
