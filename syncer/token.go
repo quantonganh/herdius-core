@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"fmt"
 	"log"
 	"math/big"
 
@@ -52,9 +51,6 @@ func (es *HERToken) Update() {
 	if ok {
 		//last-balance < External-ETH
 		//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-		fmt.Printf("Address: %v\n", es.Account.Address)
-		fmt.Printf("es.ExtBalance : %v\n", es.ExtBalance)
-		fmt.Printf("last : %v\n", last.LastExtBalance)
 		lastExtHERBalance := last.LastExtHERBalance
 		if lastExtHERBalance != nil {
 			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
