@@ -66,7 +66,7 @@ func (es *BTCSyncer) Update() {
 			lastExtBalance, ok := last.LastExtBalance[assetSymbol]
 			if ok {
 				if lastExtBalance.Cmp(es.ExtBalance) < 0 {
-					log.Println("lastExtBalance.Cmp(es.ExtBalance)")
+					log.Println("Last balance is less that external for asset", assetSymbol)
 					herEthBalance.Sub(es.ExtBalance, lastExtBalance)
 					value.Balance += herEthBalance.Uint64()
 					es.Account.EBalances[assetSymbol] = value
@@ -86,7 +86,7 @@ func (es *BTCSyncer) Update() {
 				//last-balance < External-ETH
 				//Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
 				if lastExtBalance.Cmp(es.ExtBalance) > 0 {
-					log.Println("lastExtBalance.Cmp(es.ExtBalance) ============")
+					log.Println("Last balance is greater that external for asset", assetSymbol)
 
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance)
 					value.Balance -= herEthBalance.Uint64()
