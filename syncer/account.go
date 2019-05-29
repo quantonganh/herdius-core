@@ -62,20 +62,15 @@ func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress, btcrpc stri
 				continue
 			}
 		}
-		var es Syncer
-		es = &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: ethrpc}
-		es.GetExtBalance()
-		es.Update()
+		var syncers []Syncer
+		syncers = append(syncers, &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: ethrpc})
+		syncers = append(syncers, &HERToken{Account: senderAccount, ExBal: exBal, RPC: ethrpc, TokenContractAddress: hercontractaddress})
+		syncers = append(syncers, &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: btcrpc})
 
-		es = &HERToken{Account: senderAccount, ExBal: exBal, RPC: ethrpc, TokenContractAddress: hercontractaddress}
-		es.GetExtBalance()
-		es.Update()
-		senderAccount.EBalances["BTC"] = statedb.EBalance{Address: "18Yu4WsvYXi9czPKFdHV1YAaAPtNLse9rG"}
-
-		es = &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: btcrpc}
-		es.GetExtBalance()
-		es.Update()
-
+		for _, asset := range syncers {
+			asset.GetExtBalance()
+			asset.Update()
+		}
 	}
 
 }

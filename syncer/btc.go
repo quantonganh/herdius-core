@@ -24,11 +24,9 @@ func (es *BTCSyncer) GetExtBalance() {
 	if !ok {
 		return
 	}
-	log.Println(es.RPC + "/addressbalance/" + btcAccount.Address)
-
 	resp, err := http.Get(es.RPC + "/addressbalance/" + btcAccount.Address)
 	if err != nil {
-		log.Println("Error connecting ETH RPC", err)
+		log.Println("Error connecting Blockchain info ", err)
 	}
 	defer resp.Body.Close()
 
@@ -37,10 +35,10 @@ func (es *BTCSyncer) GetExtBalance() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		bodyString := string(bodyBytes)
 		balance := new(big.Int)
-		balance.SetBytes(bodyBytes)
+		balance.SetString(bodyString, 10)
 		es.ExtBalance = balance
-
 	}
 
 }
