@@ -24,12 +24,35 @@ import (
 	"github.com/herdius/herdius-core/libs/common"
 )
 
-// TryBackupBaseBlock takes a single block
-func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
-	sess := session.Must(session.NewSession())
-	svc := s3.New(session.New())
+// BackuperI ....
+type BackuperI interface {
+	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
+	BackupNeededBaseBlocks(string, *protobuf.BaseBlock) error
+	backupToS3(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
+	findInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
+}
+
+// Backuper ...
+type Backuper struct {
+	Session *session.Session
+	Bucket  string
+}
+
+// NewBackuper creates a standard AWS SDK session
+func NewBackuper(env string) BackuperI {
 	bucket := config.GetConfiguration(env).S3Bucket
-	found, err := findInS3(svc, bucket, lastBlock)
+	sess := session.New()
+	b := &Backuper{
+		Bucket:  bucket,
+		Session: sess,
+	}
+	return b
+}
+
+// TryBackupBaseBlock takes a single block
+func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
+	svc := s3.New(b.Session)
+	found, err := b.findInS3(svc, lastBlock)
 	if err != nil {
 		return false, fmt.Errorf("failure searching S3 for previous block backup: %v", err)
 	}
@@ -37,8 +60,8 @@ func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (b
 		return false, nil
 	}
 
-	uploader := s3manager.NewUploader(sess)
-	res, err := backupToS3(uploader, bucket, baseBlock)
+	uploader := s3manager.NewUploader(b.Session)
+	res, err := b.backupToS3(uploader, baseBlock)
 	if err != nil {
 		return false, fmt.Errorf("could not backup new base block to S3: %v", err)
 	}
@@ -47,7 +70,7 @@ func TryBackupBaseBlock(env string, lastBlock, baseBlock *protobuf.BaseBlock) (b
 }
 
 // BackupNeededBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
-func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
+func (b *Backuper) BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 	cdc := amino.NewCodec()
 	cryptoAmino.RegisterAmino(cdc)
 
@@ -60,11 +83,9 @@ func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 
 	bDB := blockchain.GetBlockchainDb()
 
-	sess := session.Must(session.NewSession())
-	svc := s3.New(session.New())
-	bucket := config.GetConfiguration(env).S3Bucket
-	uploader := s3manager.NewUploader(sess)
-	res, err := backupToS3(uploader, bucket, newBlock)
+	svc := s3.New(b.Session)
+	uploader := s3manager.NewUploader(b.Session)
+	res, err := b.backupToS3(uploader, newBlock)
 	if err != nil {
 		return fmt.Errorf("aborting: while trying to backup all needed base blocks, could not backup new base block to S3: %v", err)
 	}
@@ -94,7 +115,7 @@ func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
 			go func() {
 				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
-				found, err := findInS3(svc, bucket, block)
+				found, err := b.findInS3(svc, block)
 				if err != nil {
 					log.Println("nonfatal: while attempting full chain backup, unable to find block", err)
 					return
@@ -112,7 +133,7 @@ func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 					select {
 					case unbacked := <-notFound:
 						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
-						res, err := backupToS3(uploader, bucket, unbacked)
+						res, err := b.backupToS3(uploader, unbacked)
 						if err != nil {
 							log.Printf("nonfatal: could not backup base block to S3: %v", err)
 						}
@@ -128,14 +149,14 @@ func BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
 }
 
 // findInS3 searches for a given baseBlock in S3 in the given bucket
-func findInS3(svc *s3.S3, bucket string, baseBlock *protobuf.BaseBlock) (bool, error) {
+func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, error) {
 	var blockHash common.HexBytes
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
 	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
-		Bucket:  aws.String(bucket),
+		Bucket:  aws.String(b.Bucket),
 		MaxKeys: aws.Int64(2),
 		Prefix:  aws.String(prefixPattern),
 	}
@@ -150,7 +171,7 @@ func findInS3(svc *s3.S3, bucket string, baseBlock *protobuf.BaseBlock) (bool, e
 }
 
 // backupToS3 backs up a single baseBlock to S3 in the given bucket
-func backupToS3(uploader *s3manager.Uploader, bucket string, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
+func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
 	fileName := "tmpfile.txt"
 
 	// TODO CHANGE AWAY FROM MY OWN HOME DIR
@@ -193,7 +214,7 @@ func backupToS3(uploader *s3manager.Uploader, bucket string, baseBlock *protobuf
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 
 	result, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket:               aws.String(bucket),
+		Bucket:               aws.String(b.Bucket),
 		Key:                  aws.String(fmt.Sprintf("%v-%v", heightStr, blockHash)),
 		Body:                 tmpFile,
 		ServerSideEncryption: aws.String("AES256"),

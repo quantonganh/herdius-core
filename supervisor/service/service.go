@@ -341,6 +341,7 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 
 	select {
 	case <-time.After(time.Duration(waitTime) * time.Second):
+		backuper := aws.NewBackuper(env)
 		if len(s.Validator) <= 0 || len(*txs) <= 0 {
 			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
@@ -349,12 +350,12 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 			}
 			mp.RemoveTxs(len(*txs))
 
-			succ, err := aws.TryBackupBaseBlock(env, lastBlock, baseBlock)
+			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
 			if err != nil {
 				log.Println("nonfatal: failed to backup new block to S3:", err)
 			} else if !succ {
 				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-				err := aws.BackupNeededBaseBlocks(env, baseBlock)
+				err := backuper.BackupNeededBaseBlocks(env, baseBlock)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
