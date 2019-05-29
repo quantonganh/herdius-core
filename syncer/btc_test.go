@@ -57,7 +57,6 @@ func TestExternalBTCisGreater(t *testing.T) {
 	account.Address = "testBTCAddress"
 
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
-	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(3)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)

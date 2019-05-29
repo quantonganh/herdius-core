@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
@@ -19,12 +20,20 @@ type BTCSyncer struct {
 }
 
 func (es *BTCSyncer) GetExtBalance() {
+	var url string
 
 	btcAccount, ok := es.Account.EBalances["BTC"]
 	if !ok {
 		return
 	}
-	resp, err := http.Get(es.RPC + "/addressbalance/" + btcAccount.Address)
+
+	apiKey := os.Getenv("BLOCKCHAIN_INFO_KEY")
+	if len(apiKey) > 0 {
+		url = es.RPC + "/addressbalance/" + btcAccount.Address + "?api_code=" + apiKey
+	} else {
+		url = es.RPC + "/addressbalance/" + btcAccount.Address
+	}
+	resp, err := http.Get(url)
 	if err != nil {
 		log.Println("Error connecting Blockchain info ", err)
 	}
