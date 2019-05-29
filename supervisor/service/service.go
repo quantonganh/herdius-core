@@ -355,7 +355,7 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 				log.Println("nonfatal: failed to backup new block to S3:", err)
 			} else if !succ {
 				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-				err := backuper.BackupNeededBaseBlocks(env, baseBlock)
+				err := backuper.BackupNeededBaseBlocks(baseBlock)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}

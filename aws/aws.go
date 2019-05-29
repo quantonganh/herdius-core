@@ -27,7 +27,7 @@ import (
 // BackuperI ....
 type BackuperI interface {
 	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
-	BackupNeededBaseBlocks(string, *protobuf.BaseBlock) error
+	BackupNeededBaseBlocks(*protobuf.BaseBlock) error
 	backupToS3(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
 	findInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
 }
@@ -49,7 +49,8 @@ func NewBackuper(env string) BackuperI {
 	return b
 }
 
-// TryBackupBaseBlock takes a single block
+// TryBackupBaseBlock takes a single block, returns true if able and successfully backup, false if business logic makes backup
+// not useful, and errors if attempted backup fails
 func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
 	svc := s3.New(b.Session)
 	found, err := b.findInS3(svc, lastBlock)
@@ -70,7 +71,7 @@ func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) 
 }
 
 // BackupNeededBaseBlocks iteratively goes through the entire blockchain and pushes up the contents of each block into S3
-func (b *Backuper) BackupNeededBaseBlocks(env string, newBlock *protobuf.BaseBlock) error {
+func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	cdc := amino.NewCodec()
 	cryptoAmino.RegisterAmino(cdc)
 

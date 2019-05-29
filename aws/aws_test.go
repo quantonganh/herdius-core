@@ -4,19 +4,27 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/herdius/herdius-core/aws/aws_mocks"
+		"github.com/stretchr/testify/assert"
+			"github.com/herdius/herdius-core/aws/aws_mocks"
 )
 
 func TestTryBackupBaseBlock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	m := aws_mocks.NewMockBackuperI(ctrl)
-	m.
+	mBackuper := aws_mocks.NewMockBackuperI(ctrl)
+	mBackuper.
 		EXPECT().
-		TryBackupBaseBlock(gomock.Eq(nil), gomock.Eq(nil)).
+		TryBackupBaseBlock(nil, nil).
 		Return(true, nil).
 		AnyTimes()
-
-	TryBackupBaseBlock(m)
+	mBackuper.
+		EXPECT().
+		BackupNeededBaseBlocks(gomock.Eq(nil)).
+		Return(nil).
+		AnyTimes()
+		//
+	succ, err := mBackuper.TryBackupBaseBlock(nil, nil)
+	assert.True(t, succ)
+	assert.NoError(t, err)
 
 }
