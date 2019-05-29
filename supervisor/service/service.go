@@ -13,6 +13,7 @@ import (
 	pluginproto "github.com/herdius/herdius-core/hbi/protobuf"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/herdius/herdius-core/aws"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	hehash "github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
@@ -21,7 +22,6 @@ import (
 	cryptokeys "github.com/herdius/herdius-core/p2p/crypto"
 	plog "github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/p2p/network"
-
 	"github.com/herdius/herdius-core/storage/mempool"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/supervisor/transaction"
@@ -39,7 +39,7 @@ type SupervisorI interface {
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
-	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
+	ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
@@ -335,32 +335,33 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // ProcessTxs will process transactions.
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
-func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
 	select {
-	//case <-time.After(waitTime * time.Second):
 	case <-time.After(time.Duration(waitTime) * time.Second):
-		if len(*txs) <= 0 {
-			// We need to keep on creating base blocks every 3 seconds
-			// since we have a background process executing and updating the
-			// balances of external assets.
-			log.Printf("Block creation wait time (%d) elapsed, creating block but with no transactions", waitTime)
+		backuper := aws.NewBackuper(env)
+		if len(s.Validator) <= 0 || len(*txs) <= 0 {
+			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create base block: %v", err)
-			}
-			return baseBlock, nil
-		}
-		log.Printf("Block creation wait time (%d) elapsed, creating block", waitTime)
-		// TODO once Validator Group capabilities developed, only when there are 2+ Validators should we Shard to Validators.
-		if len(s.Validator) <= 0 {
-			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create base block: %v", err)
+				return nil, fmt.Errorf("failed to create singular base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
+
+			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
+			if err != nil {
+				log.Println("nonfatal: failed to backup new block to S3:", err)
+			} else if !succ {
+				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+				err := backuper.BackupNeededBaseBlocks(baseBlock)
+				if err != nil {
+					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
+				}
+				log.Print("Sucessfully re-evaluated chain and backed up to S3")
+			}
+
 			return baseBlock, nil
 		}
 		err := s.ShardToValidators(txs, net, stateRoot)
@@ -419,6 +420,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 	mp.RemoveTxs(len(txs))
 	return baseBlock, nil
 }
+
 func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	updateAccs := accountStorage.GetAll()
 	log.Println("Total Accounts to update", len(updateAccs))

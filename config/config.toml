@@ -11,7 +11,7 @@ nodekeydir = "./supervisor/testdata/"
 ethrpc = "https://ropsten.infura.io/v3/"
 blockchaininforpc = "https://blockchain.info/q"
 hercontractaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
-
+s3backupbucket = "herdius-blockchain-backup-dev"
 
 [staging]
 selfbroadcastip = "10.0.1.159"
@@ -25,6 +25,7 @@ leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
 blockchaininforpc = "https://blockchain.info/q"
 ethrpc = "https://ropsten.infura.io/v3/"
+s3backupbucket = "herdius-blockchain-backup-staging"
 
 
 [prod]
@@ -38,3 +39,4 @@ badgerdb = "badger"
 leveldb = "goleveldb"
 ethrpc = "https://mainnet.infura.io/v3/"
 blockchaininforpc = "https://blockchain.info/q"
+s3backupbucket = "herdius-blockchain-backup-prod"

@@ -310,17 +310,17 @@ func main() {
 			lbh = lastBlockHash
 			lbHeight := lastBlock.GetHeader().GetHeight()
 
-			log.Info().Msgf("Last Block Hash : %v", lbh)
-			log.Info().Msgf("Height : %v", lbHeight)
+			log.Info().Msgf("Last Block Hash: %v", lbh)
+			log.Info().Msgf("Height: %v", lbHeight)
 
 			s := lastBlock.GetHeader().GetTime().GetSeconds()
 			ts := time.Unix(s, 0)
-			log.Info().Msgf("Timestamp : %v", ts)
+			log.Info().Msgf("Timestamp: %v", ts)
 
 			var stateRootHex cmn.HexBytes
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
 			stateRootHex = stateRoot
-			log.Info().Msgf("State root : %v", stateRootHex)
+			log.Info().Msgf("State root: %v", stateRootHex)
 
 		}
 	}
@@ -341,7 +341,7 @@ func main() {
 
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
-			baseBlock, err := supsvc.ProcessTxs(lastBlock, net, waitTime, noOfPeersInGroup, stateRoot)
+			baseBlock, err := supsvc.ProcessTxs(env, lastBlock, net, waitTime, noOfPeersInGroup, stateRoot)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}

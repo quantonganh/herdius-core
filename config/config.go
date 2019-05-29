@@ -18,6 +18,7 @@ type detail struct {
 	BadgerDB          string
 	LevelDB           string
 	NodeKeyDir        string
+	S3Bucket          string
 }
 
 // GetConfiguration ...
@@ -30,7 +31,6 @@ func GetConfiguration(env string) *detail {
 	}
 	once.Do(func() {
 		dirname := os.Getenv("GOPATH")
-		log.Println("current dir:", dirname)
 		viper.SetConfigName("config")                                                // Config file name without extension
 		viper.AddConfigPath(dirname + "/src/github.com/herdius/herdius-core/config") // Path to config file
 		err := viper.ReadInConfig()
@@ -46,6 +46,7 @@ func GetConfiguration(env string) *detail {
 				BadgerDB:          viper.GetString(fmt.Sprint(env, ".badgerdb")),
 				LevelDB:           viper.GetString(fmt.Sprint(env, ".leveldb")),
 				NodeKeyDir:        viper.GetString(fmt.Sprint(env, ".nodekeydir")),
+				S3Bucket:          viper.GetString(fmt.Sprint(env, ".s3backupbucket")),
 			}
 		}
 	})

@@ -298,15 +298,6 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 	return txDetailRes, nil
 }
 
-// getTxIDWithoutStatus creates TxID without the status
-func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
-	txWithOutStatus := *tx
-	txWithOutStatus.Status = ""
-	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
-	txID := cmn.CreateTxID(txbzWithOutStatus)
-	return txID
-}
-
 // GetTxs : Get all the txs by account address
 func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 
@@ -482,7 +473,6 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 		} else {
 			pubKey := nodeKey.PrivKey.PubKey()
 			b64PubKey := base64.StdEncoding.EncodeToString(pubKey.Bytes())
-			//All 10 intital accounts will have an initial balance of 10000 HER tokens
 			account := statedb.Account{
 				PublicKey: b64PubKey,
 				Nonce:     0,
@@ -505,4 +495,17 @@ func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
 	}
 
 	return root, nil
+}
+
+func GetBlockchainDb() db.DB {
+	return badgerDB
+}
+
+// getTxIDWithoutStatus creates TxID without the status
+func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
+	txWithOutStatus := *tx
+	txWithOutStatus.Status = ""
+	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
+	txID := cmn.CreateTxID(txbzWithOutStatus)
+	return txID
 }
