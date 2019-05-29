@@ -354,18 +354,11 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 				log.Println("nonfatal: failed to backup new block to S3:", err)
 			} else if !succ {
 				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 				err := aws.BackupNeededBaseBlocks(env, baseBlock)
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
 				log.Print("Sucessfully re-evaluated chain and backed up to S3")
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
-				//TODO STILL NEED TO BACK UP THE CURRENT BLOCK EVEN IF THE LAST BLOCK DOESN'T MATCH, RIGHT?
 			}
 
 			return baseBlock, nil
