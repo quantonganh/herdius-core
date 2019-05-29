@@ -9,6 +9,7 @@ badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
 ethrpc = "https://ropsten.infura.io/v3/"
+blockchaininforpc = "https://blockchain.info/q"
 hercontractaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
 
 
@@ -22,6 +23,7 @@ syncdbpath = "./herdius/syncdb"
 badgerdb = "badger"
 leveldb = "goleveldb"
 nodekeydir = "./supervisor/testdata/"
+blockchaininforpc = "https://blockchain.info/q"
 ethrpc = "https://ropsten.infura.io/v3/"
 
 
@@ -35,4 +37,4 @@ statedbpath = "./herdius/statedb"
 badgerdb = "badger"
 leveldb = "goleveldb"
 ethrpc = "https://mainnet.infura.io/v3/"
-
+blockchaininforpc = "https://blockchain.info/q"

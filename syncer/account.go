@@ -13,8 +13,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+type apiEndponts struct {
+	btcRPC          string
+	ethRPC          string
+	herTokenAddress string
+}
+
 func SyncAllAccounts(exBal external.BalanceStorage) {
-	var ethrpc, hercontractaddress string
+	var rpc apiEndponts
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
@@ -22,18 +28,19 @@ func SyncAllAccounts(exBal external.BalanceStorage) {
 		fmt.Println("Config file not found...")
 	} else {
 		infuraProjectID := os.Getenv("INFURAID")
-		ethrpc = viper.GetString("dev.ethrpc")
-		ethrpc = ethrpc + infuraProjectID
-		log.Printf("Infura Url with Project ID: %v\n", ethrpc)
-		hercontractaddress = viper.GetString("dev.hercontractaddress")
+		rpc.ethRPC = viper.GetString("dev.ethrpc")
+		rpc.ethRPC = rpc.ethRPC + infuraProjectID
+		log.Printf("Infura Url with Project ID: %v\n", rpc.ethRPC)
+		rpc.herTokenAddress = viper.GetString("dev.hercontractaddress")
+		rpc.btcRPC = viper.GetString("dev.blockchaininforpc")
 
 	}
 	for {
-		sync(exBal, ethrpc, hercontractaddress)
+		sync(exBal, rpc)
 	}
 }
 
-func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress string) {
+func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 	blockchainSvc := &blockchain.Service{}
 	lastBlock := blockchainSvc.GetLastBlock()
 	stateRoot := lastBlock.GetHeader().GetStateRoot()
@@ -61,15 +68,15 @@ func sync(exBal external.BalanceStorage, ethrpc, hercontractaddress string) {
 				continue
 			}
 		}
-		var es Syncer
-		es = &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: ethrpc}
-		es.GetExtBalance()
-		es.Update()
+		var syncers []Syncer
+		syncers = append(syncers, &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: rpc.ethRPC})
+		syncers = append(syncers, &HERToken{Account: senderAccount, ExBal: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
+		syncers = append(syncers, &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: rpc.btcRPC})
 
-		es = &HERToken{Account: senderAccount, ExBal: exBal, RPC: ethrpc, TokenContractAddress: hercontractaddress}
-		es.GetExtBalance()
-		es.Update()
-
+		for _, asset := range syncers {
+			asset.GetExtBalance()
+			asset.Update()
+		}
 	}
 
 }
