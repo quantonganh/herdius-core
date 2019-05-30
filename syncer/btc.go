@@ -44,16 +44,16 @@ func (es *BTCSyncer) GetExtBalance() error {
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			return errors.New("Error getting external BTC balance")
 		}
 		bodyString := string(bodyBytes)
 		balance := new(big.Int)
 		balance.SetString(bodyString, 10)
 		es.ExtBalance = balance
-		return errors.New("Error getting external BTC balance")
+		return nil
 
 	}
-	return nil
+	return errors.New("Error getting external BTC balance")
 
 }
 
