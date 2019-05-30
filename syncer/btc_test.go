@@ -146,3 +146,32 @@ func TestBTC(t *testing.T) {
 	assert.Equal(t, cachedAcc.LastExtBalance["BTC"], big.NewInt(10), "should be updated")
 
 }
+
+func TestNoResponseFromAPI(t *testing.T) {
+	var (
+		accountCache external.BalanceStorage
+		eBalances    map[string]statedb.EBalance
+	)
+	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
+	accountCache = external.NewDB(badgerdb)
+	defer func() {
+		badgerdb.Close()
+		os.RemoveAll("./test.syncdb")
+	}()
+
+	eBalances = make(map[string]statedb.EBalance)
+	eBalances["BTC"] = statedb.EBalance{Balance: uint64(8)}
+
+	account := statedb.Account{}
+	account.EBalances = eBalances
+	account.Address = "testBTCAddress"
+
+	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es.ExtBalance = big.NewInt(1)
+	es.Update()
+
+	es.ExtBalance = nil
+	//es.Update()
+	assert.Panics(t, es.Update, "")
+
+}
