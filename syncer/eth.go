@@ -19,6 +19,7 @@ type EthSyncer struct {
 	LastExtBalance *big.Int
 	ExtBalance     *big.Int
 	BlockHeight    *big.Int
+	Nonce          uint64
 	Account        statedb.Account
 	ExBal          external.BalanceStorage
 	RPC            string
@@ -27,6 +28,7 @@ type EthSyncer struct {
 func (es *EthSyncer) GetExtBalance() error {
 	var (
 		balance, latestBlockNumber *big.Int
+		nonce                      uint64
 		err                        error
 	)
 	client, err := ethclient.Dial(es.RPC)
@@ -39,18 +41,32 @@ func (es *EthSyncer) GetExtBalance() error {
 		return errors.New("ETH account does not exists")
 	}
 
+	account := common.HexToAddress(ethAccount.Address)
+
 	// Get latest block number
 	latestBlockNumber, err = es.getLatestBlockNumber(client)
+	if err != nil {
+		log.Println("Error getting ETH Latest block from RPC", err)
+		return err
+	}
 
-	account := common.HexToAddress(ethAccount.Address)
+	//Get nonce
+	nonce, err = es.getNonce(client, account, latestBlockNumber)
+	if err != nil {
+		log.Println("Error getting ETH Account nonce from RPC", err)
+		return err
+	}
+
 	balance, err = client.BalanceAt(context.Background(), account, latestBlockNumber)
 	if err != nil {
 		log.Println("Error getting ETH Balance from RPC", err)
 		return err
-
 	}
 	es.ExtBalance = balance
 	es.BlockHeight = latestBlockNumber
+	es.Nonce = nonce
+
+	log.Print("Balance---------------", es)
 
 	return nil
 }
@@ -73,6 +89,7 @@ func (es *EthSyncer) Update() {
 					herEthBalance.Sub(es.ExtBalance, lastExtBalance)
 					value.Balance += herEthBalance.Uint64()
 					value.LastBlockHeight = es.BlockHeight.Uint64()
+					value.Nonce = es.Nonce
 					es.Account.EBalances[assetSymbol] = value
 
 					last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
@@ -95,6 +112,7 @@ func (es *EthSyncer) Update() {
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance)
 					value.Balance -= herEthBalance.Uint64()
 					value.LastBlockHeight = es.BlockHeight.Uint64()
+					value.Nonce = es.Nonce
 					last = last.UpdateLastExtBalanceByKey(assetSymbol, es.ExtBalance)
 					last = last.UpdateCurrentExtBalanceByKey(assetSymbol, es.ExtBalance)
 					last = last.UpdateIsFirstEntryByKey(assetSymbol, false)
@@ -116,6 +134,7 @@ func (es *EthSyncer) Update() {
 				last = last.UpdateIsNewAmountUpdateByKey(assetSymbol, false)
 				value.UpdateBalance(es.ExtBalance.Uint64())
 				value.UpdateBlockHeight(es.BlockHeight.Uint64())
+				value.UpdateNonce(es.Nonce)
 				es.Account.EBalances[assetSymbol] = value
 				last = last.UpdateAccount(es.Account)
 
@@ -134,6 +153,7 @@ func (es *EthSyncer) Update() {
 			isNewAmountUpdate[assetSymbol] = false
 			value.UpdateBalance(es.ExtBalance.Uint64())
 			value.UpdateBlockHeight(es.BlockHeight.Uint64())
+			value.UpdateNonce(es.Nonce)
 
 			es.Account.EBalances[assetSymbol] = value
 			val := external.AccountCache{
@@ -151,4 +171,12 @@ func (es *EthSyncer) getLatestBlockNumber(client *ethclient.Client) (*big.Int, e
 		return nil, err
 	}
 	return header.Number, nil
+}
+
+func (es *EthSyncer) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
+	nonce, err := client.NonceAt(context.Background(), account, block)
+	if err != nil {
+		return 0, err
+	}
+	return nonce, nil
 }
