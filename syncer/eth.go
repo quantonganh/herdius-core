@@ -66,8 +66,6 @@ func (es *EthSyncer) GetExtBalance() error {
 	es.BlockHeight = latestBlockNumber
 	es.Nonce = nonce
 
-	log.Print("Balance---------------", es)
-
 	return nil
 }
 
