@@ -74,8 +74,11 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		syncers = append(syncers, &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: rpc.btcRPC})
 
 		for _, asset := range syncers {
-			asset.GetExtBalance()
-			asset.Update()
+			// Dont update account if no new value recieved from respective api calls
+			if asset.GetExtBalance() == nil {
+				asset.Update()
+			}
+
 		}
 	}
 

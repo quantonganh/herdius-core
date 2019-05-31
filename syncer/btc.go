@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -19,12 +20,12 @@ type BTCSyncer struct {
 	RPC            string
 }
 
-func (es *BTCSyncer) GetExtBalance() {
+func (es *BTCSyncer) GetExtBalance() error {
 	var url string
 
 	btcAccount, ok := es.Account.EBalances["BTC"]
 	if !ok {
-		return
+		return errors.New("BTC account does not exists")
 	}
 
 	apiKey := os.Getenv("BLOCKCHAIN_INFO_KEY")
@@ -36,19 +37,23 @@ func (es *BTCSyncer) GetExtBalance() {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Println("Error connecting Blockchain info ", err)
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Fatal(err)
+			return errors.New("Error getting external BTC balance")
 		}
 		bodyString := string(bodyBytes)
 		balance := new(big.Int)
 		balance.SetString(bodyString, 10)
 		es.ExtBalance = balance
+		return nil
+
 	}
+	return errors.New("Error getting external BTC balance")
 
 }
 

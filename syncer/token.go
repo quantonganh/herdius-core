@@ -24,24 +24,26 @@ type HERToken struct {
 }
 
 //GetExtBalance Gets Asset balance from main chain
-func (es *HERToken) GetExtBalance() {
+func (es *HERToken) GetExtBalance() error {
 	client, err := ethclient.Dial(es.RPC)
 	if err != nil {
 		log.Println("Error connecting ETH RPC", err)
+		return err
 	}
 	tokenAddress := common.HexToAddress(es.TokenContractAddress)
 
 	instance, err := contract.NewToken(tokenAddress, client)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	address := common.HexToAddress(es.Account.Erc20Address)
 	bal, err := instance.BalanceOf(&bind.CallOpts{}, address)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	es.ExtBalance = bal
+	return nil
 }
 
 //Update Updates balance of asset in cache

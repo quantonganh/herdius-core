@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math/big"
 
@@ -22,7 +23,7 @@ type EthSyncer struct {
 	RPC            string
 }
 
-func (es *EthSyncer) GetExtBalance() {
+func (es *EthSyncer) GetExtBalance() error {
 	client, err := ethclient.Dial(es.RPC)
 	if err != nil {
 		log.Println("Error connecting ETH RPC", err)
@@ -30,17 +31,18 @@ func (es *EthSyncer) GetExtBalance() {
 	// If ETH account exists
 	ethAccount, ok := es.Account.EBalances["ETH"]
 	if !ok {
-
-		return
+		return errors.New("ETH account does not exists")
 	}
 
 	account := common.HexToAddress(ethAccount.Address)
 	balance, err := client.BalanceAt(context.Background(), account, nil)
 	if err != nil {
 		log.Println("Error getting ETH Balance from RPC", err)
+		return err
 
 	}
 	es.ExtBalance = balance
+	return nil
 }
 
 // Update updates accounts in cache as and when external balances

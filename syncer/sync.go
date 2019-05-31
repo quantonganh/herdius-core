@@ -1,6 +1,6 @@
 package sync
 
 type Syncer interface {
-	GetExtBalance()
+	GetExtBalance() error
 	Update()
 }
