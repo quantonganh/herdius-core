@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -ex
 
-LOGDIR=/var/log/herdius/herdius-core/log
+export LOGDIR=/var/log/herdius/herdius-core/log
 export PATH=$PATH:/usr/local/go/bin
 export GO111MODULE=on
 export GOPATH=/home/ec2-user/go
+export AWS_REGION=eu-central-1
 cd /home/ec2-user/go/src/github.com/herdius/herdius-core
 sudo mkdir -p $LOGDIR
 sudo chmod 733 -R /var/log/herdius/

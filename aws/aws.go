@@ -176,7 +176,7 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 	fileName := "tmpfile.txt"
 
 	// TODO CHANGE AWAY FROM MY OWN HOME DIR
-	tmpFile, err := ioutil.TempFile("/Users/bittelc/go/src/github.com/herdius/herdius-blockchain-api", fileName)
+	tmpFile, err := ioutil.TempFile("", fileName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tmpfile %v: %v", fileName, err)
 	}
