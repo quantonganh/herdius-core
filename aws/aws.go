@@ -140,8 +140,9 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
 						res, err := b.backupToS3(uploader, unbacked)
 						if err != nil {
-							log.Printf("nonfatal: could not backup base block to S3: %v", err)
+							log.Println("nonfatal: could not backup base block to S3:", err)
 						}
+						log.Printf("debugging: %+v", res)
 						log.Println("Block backed up to S3:", res.Location)
 						added++
 					}
@@ -150,6 +151,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 		}
 		return nil
 	})
+	time.Sleep(1 * time.Minute)
 	for i := 0; i < cap(sem); i++ {
 		sem <- true
 	}
