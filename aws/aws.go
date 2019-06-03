@@ -95,6 +95,8 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	var blockHash common.HexBytes
 	notFound := make(chan *protobuf.BaseBlock, 30)
 	added := 0
+	maxThreads := 1000
+	sem := make(chan bool, maxThreads)
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -114,6 +116,8 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 			}
 			blockHash = block.Header.Block_ID.BlockHash
 			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
+
+			sem <- true
 			go func() {
 				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
 				found, err := b.findInS3(svc, block)
@@ -146,6 +150,9 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 		}
 		return nil
 	})
+	for i := 0; i < cap(sem); i++ {
+		sem <- true
+	}
 	return err
 }
 
