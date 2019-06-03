@@ -215,7 +215,7 @@ func main() {
 	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
 	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
-	waitTimeFlag := flag.Int("waitTime", 3, "time to wait before the Memory Pool is flushed to a new block")
+	waitTimeFlag := flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
 	flag.Parse()
 
 	env := *envFlag
