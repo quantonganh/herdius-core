@@ -93,7 +93,6 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
-	notFound := make(chan *protobuf.BaseBlock, 30)
 	added := 0
 	maxThreads := 1000
 	sem := make(chan bool, maxThreads)
@@ -118,43 +117,38 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
 
 			sem <- true
-			go func() {
+			go func(blockHash common.HexBytes) {
 				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
 				found, err := b.findInS3(svc, block)
 				if err != nil {
-					log.Println("nonfatal: while attempting full chain backup, unable to find block", err)
+					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
 					return
 				}
-				if !found {
-					log.Printf("not found in S3: %v-%v", block.Header.Height, blockHash)
-					notFound <- block
+				if found {
+					log.Printf("block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
+					return
 				}
-			}()
-			go func() {
+				log.Printf("block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
 				defer func() {
 					log.Println("Blocks backed up to S3:", added)
 				}()
-				for {
-					select {
-					case unbacked := <-notFound:
-						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
-						res, err := b.backupToS3(uploader, unbacked)
-						if err != nil {
-							log.Println("nonfatal: could not backup base block to S3:", err)
-							return
-						}
-						log.Println("Block backed up to S3:", res.Location)
-						added++
-						return
-					}
+				res, err := b.backupToS3(uploader, block)
+				if err != nil {
+					log.Println("nonfatal: could not backup base block to S3:", err)
+					return
 				}
-			}()
+				log.Println("Block backed up to S3:", res.Location)
+				added++
+				<-sem
+			}(blockHash)
 		}
 		return nil
 	})
+	log.Println("adding back to cap on semaphore")
 	for i := 0; i < cap(sem); i++ {
 		sem <- true
 	}
+	log.Println("finished adding to cap semaphore; returning")
 	return err
 }
 
@@ -165,15 +159,16 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
 	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
+	log.Println("prefixPattern:", prefixPattern)
 	search := &s3.ListObjectsV2Input{
-		Bucket:  aws.String(b.Bucket),
-		MaxKeys: aws.Int64(2),
-		Prefix:  aws.String(prefixPattern),
+		Bucket: aws.String(b.Bucket),
+		Prefix: aws.String(prefixPattern),
 	}
 	result, err := svc.ListObjectsV2(search)
 	if err != nil {
 		return false, fmt.Errorf("could not list previous block in S3: %v", err)
 	}
+	log.Printf("result.Contents:\n%+v", result.Contents)
 	if len(result.Contents) <= 0 {
 		return false, nil
 	}
