@@ -141,6 +141,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 						res, err := b.backupToS3(uploader, unbacked)
 						if err != nil {
 							log.Println("nonfatal: could not backup base block to S3:", err)
+							return
 						}
 						log.Printf("debugging: %+v", res)
 						log.Println("Block backed up to S3:", res.Location)
