@@ -143,16 +143,15 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 							log.Println("nonfatal: could not backup base block to S3:", err)
 							return
 						}
-						log.Printf("debugging: %+v", res)
 						log.Println("Block backed up to S3:", res.Location)
 						added++
+						return
 					}
 				}
 			}()
 		}
 		return nil
 	})
-	time.Sleep(1 * time.Minute)
 	for i := 0; i < cap(sem); i++ {
 		sem <- true
 	}
