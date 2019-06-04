@@ -117,6 +117,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 
 			sem <- true
 			go func(blockHash common.HexBytes) {
+				defer func() { <-sem }()
 				found, err := b.findInS3(svc, block)
 				if err != nil {
 					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
@@ -137,7 +138,6 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 				}
 				log.Println("Block backed up to S3:", res.Location)
 				added++
-				<-sem
 			}(blockHash)
 		}
 		return nil
