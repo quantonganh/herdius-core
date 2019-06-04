@@ -103,6 +103,8 @@ func TestHERExternalETHisGreater(t *testing.T) {
 	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(10), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(10), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.ExternalNonce, uint64(7), "CurrentExtBalance ahould be updated")
+
 }
 
 func TestHERExternalETHisLesser(t *testing.T) {
@@ -140,7 +142,7 @@ func TestHERExternalETHisLesser(t *testing.T) {
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(10), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(10), "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.IsFirstHEREntry, true, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.Account.Nonce, uint64(7), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.Account.ExternalNonce, uint64(7), "Total fetched transactions should be 20")
 	assert.Equal(t, cachedAcc.Account.LastBlockHeight, uint64(4), "Total fetched transactions should be 20")
 
 	es.ExtBalance = big.NewInt(1)
@@ -151,7 +153,7 @@ func TestHERExternalETHisLesser(t *testing.T) {
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(1), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(1), "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.IsFirstHEREntry, false, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.Account.Nonce, uint64(7), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.Account.ExternalNonce, uint64(7), "Total fetched transactions should be 20")
 	assert.Equal(t, cachedAcc.Account.LastBlockHeight, uint64(4), "Total fetched transactions should be 20")
 
 }
