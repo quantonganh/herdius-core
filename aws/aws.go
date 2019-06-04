@@ -94,8 +94,8 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 
 	var blockHash common.HexBytes
 	added := 0
-	maxThreads := 1000
-	sem := make(chan bool, maxThreads)
+	maxThread := 200
+	sem := make(chan struct{}, maxThread)
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -115,7 +115,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 			}
 			blockHash = block.Header.Block_ID.BlockHash
 
-			sem <- true
+			sem <- struct{}{}
 			go func(blockHash common.HexBytes) {
 				defer func() { <-sem }()
 				found, err := b.findInS3(svc, block)
@@ -142,11 +142,10 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 		}
 		return nil
 	})
-	log.Println("adding back to cap on semaphore")
 	for i := 0; i < cap(sem); i++ {
-		sem <- true
+		sem <- struct{}{}
 	}
-	log.Println("finished adding to cap semaphore; returning")
+	log.Println("Finished backing up all blocks; added blocks:", added)
 	return err
 }
 
@@ -178,7 +177,7 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 	// TODO CHANGE AWAY FROM MY OWN HOME DIR
 	tmpFile, err := ioutil.TempFile("", fileName)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create tmpfile %v: %v", fileName, err)
+		return nil, fmt.Errorf("cannot create tmpfile: %v ", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
@@ -200,10 +199,6 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 			err = fmt.Errorf("cannot close tmpfile %v: %v", fileName, errF)
 		}
 	}()
-	err = tmpFile.Sync()
-	if err != nil {
-		return nil, fmt.Errorf("cannot sync file %v: %v", fileName, err)
-	}
 	_, err = tmpFile.Seek(0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("cannot seek file %v: %v", fileName, err)
