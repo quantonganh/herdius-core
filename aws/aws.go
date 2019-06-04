@@ -114,11 +114,9 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 				return fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
 			}
 			blockHash = block.Header.Block_ID.BlockHash
-			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
 
 			sem <- true
 			go func(blockHash common.HexBytes) {
-				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
 				found, err := b.findInS3(svc, block)
 				if err != nil {
 					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
@@ -159,7 +157,6 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
 	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
-	log.Println("prefixPattern:", prefixPattern)
 	search := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
 		Prefix: aws.String(prefixPattern),
@@ -168,7 +165,6 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	if err != nil {
 		return false, fmt.Errorf("could not list previous block in S3: %v", err)
 	}
-	log.Printf("result.Contents:\n%+v", result.Contents)
 	if len(result.Contents) <= 0 {
 		return false, nil
 	}
