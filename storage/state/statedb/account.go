@@ -14,6 +14,7 @@ type Account struct {
 	Balance         uint64
 	Erc20Address    string
 	LastBlockHeight uint64
+	ExternalNonce   uint64
 	EBalances       map[string]EBalance
 }
 

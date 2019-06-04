@@ -84,7 +84,7 @@ func (es *HERToken) Update() {
 			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
 				herBalance.Sub(es.ExtBalance, lastExtHERBalance)
 				es.Account.Balance += herBalance.Uint64()
-				es.Account.Nonce = es.Nonce
+				es.Account.ExternalNonce = es.Nonce
 				es.Account.LastBlockHeight = es.BlockHeight.Uint64()
 
 				last = last.UpdateAccount(es.Account)
@@ -104,7 +104,7 @@ func (es *HERToken) Update() {
 			if lastExtHERBalance.Cmp(es.ExtBalance) > 0 {
 				herBalance.Sub(lastExtHERBalance, es.ExtBalance)
 				es.Account.Balance -= herBalance.Uint64()
-				es.Account.Nonce = es.Nonce
+				es.Account.ExternalNonce = es.Nonce
 				es.Account.LastBlockHeight = es.BlockHeight.Uint64()
 				last = last.UpdateAccount(es.Account)
 				last = last.UpdateLastExtHERBalance(es.ExtBalance)
@@ -119,7 +119,7 @@ func (es *HERToken) Update() {
 		} else {
 
 			es.Account.Balance = es.ExtBalance.Uint64()
-			es.Account.Nonce = es.Nonce
+			es.Account.ExternalNonce = es.Nonce
 			es.Account.LastBlockHeight = es.BlockHeight.Uint64()
 
 			last = last.UpdateAccount(es.Account)
