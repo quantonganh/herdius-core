@@ -32,10 +32,13 @@ func TestInitBTC(t *testing.T) {
 
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
 	es.ExtBalance = big.NewInt(1)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Balance, es.ExtBalance.Uint64(), "Balance should be updated with external balance")
-
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].LastBlockHeight, es.BlockHeight.Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Nonce, es.Nonce, "Balance should be updated with external balance")
 }
 func TestExternalBTCisGreater(t *testing.T) {
 	var (
@@ -58,6 +61,8 @@ func TestExternalBTCisGreater(t *testing.T) {
 
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
 	es.ExtBalance = big.NewInt(3)
+	es.Nonce = 5
+	es.BlockHeight = big.NewInt(2)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 
@@ -65,9 +70,14 @@ func TestExternalBTCisGreater(t *testing.T) {
 	assert.Equal(t, cachedAcc.LastExtBalance["BTC"], big.NewInt(3), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtBalance["BTC"], big.NewInt(3), "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.IsFirstEntry["BTC"], true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].LastBlockHeight, es.BlockHeight.Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Nonce, es.Nonce, "Balance should be updated with external balance")
 
 	es.ExtBalance = big.NewInt(20)
+	es.Nonce = 6
+	es.BlockHeight = big.NewInt(3)
 	es.Update()
+
 	cachedAcc, _ = accountCache.Get(account.Address)
 
 	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
@@ -76,6 +86,9 @@ func TestExternalBTCisGreater(t *testing.T) {
 
 	assert.Equal(t, cachedAcc.LastExtBalance["BTC"], big.NewInt(20), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtBalance["BTC"], big.NewInt(20), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].LastBlockHeight, es.BlockHeight.Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Nonce, es.Nonce, "Balance should be updated with external balance")
+
 }
 
 func TestExternalBTCisLesser(t *testing.T) {
@@ -100,6 +113,8 @@ func TestExternalBTCisLesser(t *testing.T) {
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
+	es.Nonce = 6
+	es.BlockHeight = big.NewInt(3)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 
@@ -107,14 +122,21 @@ func TestExternalBTCisLesser(t *testing.T) {
 	assert.Equal(t, cachedAcc.LastExtBalance["BTC"], big.NewInt(10), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtBalance["BTC"], big.NewInt(10), "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.IsFirstEntry["BTC"], true, "CurrentExtBalance should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].LastBlockHeight, es.BlockHeight.Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Nonce, es.Nonce, "Balance should be updated with external balance")
 
 	es.ExtBalance = big.NewInt(1)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
 	es.Update()
 	cachedAcc, _ = accountCache.Get(account.Address)
 	assert.Equal(t, cachedAcc.IsFirstEntry["BTC"], false, "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.IsNewAmountUpdate["BTC"], true, "CurrentExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.LastExtBalance["BTC"], big.NewInt(1), "LastExtBalance ahould be updated")
 	assert.Equal(t, cachedAcc.CurrentExtBalance["BTC"], big.NewInt(1), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].LastBlockHeight, es.BlockHeight.Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["BTC"].Nonce, es.Nonce, "Balance should be updated with external balance")
+
 }
 
 func TestBTC(t *testing.T) {
@@ -140,6 +162,8 @@ func TestBTC(t *testing.T) {
 
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
 	es.ExtBalance = big.NewInt(10)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 
@@ -168,6 +192,8 @@ func TestNoResponseFromAPI(t *testing.T) {
 
 	es := &BTCSyncer{Account: account, ExBal: accountCache}
 	es.ExtBalance = big.NewInt(1)
+	es.Nonce = 0
+	es.BlockHeight = big.NewInt(0)
 	es.Update()
 
 	es.ExtBalance = nil
