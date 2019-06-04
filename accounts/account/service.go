@@ -90,13 +90,15 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	}
 
 	acc := &protobuf.Account{
-		PublicKey:    account.PublicKey,
-		Address:      account.Address,
-		Nonce:        account.Nonce,
-		Balance:      account.Balance,
-		StorageRoot:  stateRootHex.String(),
-		EBalances:    eBalances,
-		Erc20Address: account.Erc20Address,
+		PublicKey:       account.PublicKey,
+		Address:         account.Address,
+		Nonce:           account.Nonce,
+		Balance:         account.Balance,
+		StorageRoot:     stateRootHex.String(),
+		EBalances:       eBalances,
+		Erc20Address:    account.Erc20Address,
+		ExternalNonce:   account.ExternalNonce,
+		LastBlockHeight: account.LastBlockHeight,
 	}
 	return acc, nil
 }

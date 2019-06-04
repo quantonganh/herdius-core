@@ -411,13 +411,15 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			}
 		}
 		accountResp := protoplugin.AccountResponse{
-			Address:      address,
-			Nonce:        account.Nonce,
-			Balance:      account.Balance,
-			StorageRoot:  account.StorageRoot,
-			PublicKey:    account.PublicKey,
-			EBalances:    eBalances,
-			Erc20Address: account.Erc20Address,
+			Address:         address,
+			Nonce:           account.Nonce,
+			Balance:         account.Balance,
+			StorageRoot:     account.StorageRoot,
+			PublicKey:       account.PublicKey,
+			EBalances:       eBalances,
+			Erc20Address:    account.Erc20Address,
+			ExternalNonce:   account.ExternalNonce,
+			LastBlockHeight: account.LastBlockHeight,
 		}
 		fmt.Println("Asked for account detail, ", accountResp)
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &accountResp)
