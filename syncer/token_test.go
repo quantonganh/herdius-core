@@ -42,6 +42,8 @@ func TestHERShouldNOTChangeOtherASSET(t *testing.T) {
 
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(1)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
 	cachedAcc, _ := accountCache.Get(account.Address)
 
 	//cachedAcc.UpdateCurrentExtHERBalance(big.NewInt(1))
@@ -54,6 +56,7 @@ func TestHERShouldNOTChangeOtherASSET(t *testing.T) {
 	assert.Equal(t, cachedAcc.Account.Balance, big.NewInt(1).Uint64(), "Balance should not be updated with external balance")
 
 }
+
 func TestHERExternalETHisGreater(t *testing.T) {
 	var (
 		accountCache external.BalanceStorage
@@ -73,27 +76,33 @@ func TestHERExternalETHisGreater(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress5"
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &HERToken{Account: account, ExBal: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(3)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
+
+	last, _ := es.ExBal.Get(es.Account.Address)
+
+	accountCache.Set(account.Address, last)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(3), "LastExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(3), "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(3), "LastExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(3), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.IsFirstHEREntry, true, "CurrentExtBalance ahould be updated")
 
 	es.ExtBalance = big.NewInt(10)
 	es.Update()
 	cachedAcc, _ = accountCache.Get(account.Address)
 
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], false, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.IsNewAmountUpdate["ETH"], true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.IsFirstHEREntry, false, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.IsNewHERAmountUpdate, true, "CurrentExtBalance ahould be updated")
 
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(10), "LastExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(10), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(10), "LastExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(10), "CurrentExtBalance ahould be updated")
 }
 
 func TestHERExternalETHisLesser(t *testing.T) {
@@ -115,24 +124,34 @@ func TestHERExternalETHisLesser(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress00"
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &HERToken{Account: account, ExBal: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
+	es.Nonce = 7
+	es.BlockHeight = big.NewInt(4)
+
+	last, _ := es.ExBal.Get(es.Account.Address)
+
+	accountCache.Set(account.Address, last)
 	es.Update()
 	cachedAcc, _ := accountCache.Get(account.Address)
 
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "should be updated")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(10), "LastExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(10), "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(10), "LastExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(10), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.IsFirstHEREntry, true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Nonce, uint64(7), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.Account.LastBlockHeight, uint64(4), "Total fetched transactions should be 20")
 
 	es.ExtBalance = big.NewInt(1)
 	es.Update()
 	cachedAcc, _ = accountCache.Get(account.Address)
 
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], false, "CurrentExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.IsNewAmountUpdate["ETH"], true, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(1), "LastExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(1), "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.IsFirstHEREntry, false, "CurrentExtBalance ahould be updated")
+	assert.Equal(t, cachedAcc.Account.Nonce, uint64(7), "Total fetched transactions should be 20")
+	assert.Equal(t, cachedAcc.Account.LastBlockHeight, uint64(4), "Total fetched transactions should be 20")
 
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(1), "LastExtBalance ahould be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(1), "CurrentExtBalance ahould be updated")
 }
