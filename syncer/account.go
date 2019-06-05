@@ -69,9 +69,9 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 			}
 		}
 		var syncers []Syncer
-		syncers = append(syncers, &EthSyncer{Account: senderAccount, ExBal: exBal, RPC: rpc.ethRPC})
-		syncers = append(syncers, &HERToken{Account: senderAccount, ExBal: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
-		syncers = append(syncers, &BTCSyncer{Account: senderAccount, ExBal: exBal, RPC: rpc.btcRPC})
+		syncers = append(syncers, &EthSyncer{Account: senderAccount, Storage: exBal, RPC: rpc.ethRPC})
+		syncers = append(syncers, &HERToken{Account: senderAccount, Storage: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
+		syncers = append(syncers, &BTCSyncer{Account: senderAccount, Storage: exBal, RPC: rpc.btcRPC})
 
 		for _, asset := range syncers {
 			// Dont update account if no new value recieved from respective api calls
