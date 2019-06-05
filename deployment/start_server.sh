@@ -10,5 +10,9 @@ cd /home/ec2-user/go/src/github.com/herdius/herdius-core
 sudo mkdir -p $LOGDIR
 sudo chmod 733 -R /var/log/herdius/
 go get ./...
+
+export INFURAID=$(aws secretsmanager get-secret-value --secret-id API_KEYS --query SecretString --region=us-east-1 --output text | jq -r .INFURAID)
+export BLOCKCHAIN_INFO_KEY=$(aws secretsmanager get-secret-value --secret-id API_KEYS --query SecretString --region=us-east-1 --output text | jq -r .BLOCKCHAIN_INFO_KEY)
+
 make start-supervisor ENV=staging > $LOGDIR/server.log 2> $LOGDIR/server.log < /dev/null &
 echo "server started in background"

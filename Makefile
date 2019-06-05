@@ -28,7 +28,7 @@ else
 endif
 
 ifeq (,$(subst ,,$(WAITTIME)))
-	GOPARAMETERS := $(GOPARAMETERS) '-waitTime=3'
+	GOPARAMETERS := $(GOPARAMETERS) '-waitTime=15'
 else
 	GOPARAMETERS := $(GOPARAMETERS) '-waitTime='$(WAITTIME)
 endif
