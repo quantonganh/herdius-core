@@ -36,7 +36,7 @@ func TestInit(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress1"
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &EthSyncer{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(1)
 	es.Nonce = 5
@@ -68,7 +68,7 @@ func TestExternalETHisGreater(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress"
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &EthSyncer{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(3)
 	es.Nonce = 5
@@ -118,7 +118,7 @@ func TestExternalETHisLesser(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress"
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &EthSyncer{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
 	es.Nonce = 6
@@ -169,7 +169,7 @@ func Test(t *testing.T) {
 
 	accountCache.Set(account.Address, external.AccountCache{})
 
-	es := &EthSyncer{Account: account, ExBal: accountCache}
+	es := &EthSyncer{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
 	es.Nonce = 7

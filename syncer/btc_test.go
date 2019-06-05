@@ -30,7 +30,7 @@ func TestInitBTC(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testBTCAddress1"
 
-	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es := &BTCSyncer{Account: account, Storage: accountCache}
 	es.ExtBalance = big.NewInt(1)
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
@@ -59,7 +59,7 @@ func TestExternalBTCisGreater(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testBTCAddress"
 
-	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es := &BTCSyncer{Account: account, Storage: accountCache}
 	es.ExtBalance = big.NewInt(3)
 	es.Nonce = 5
 	es.BlockHeight = big.NewInt(2)
@@ -110,7 +110,7 @@ func TestExternalBTCisLesser(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testBTCAddress"
 
-	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es := &BTCSyncer{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
 	es.Nonce = 6
@@ -160,7 +160,7 @@ func TestBTC(t *testing.T) {
 
 	accountCache.Set(account.Address, external.AccountCache{})
 
-	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es := &BTCSyncer{Account: account, Storage: accountCache}
 	es.ExtBalance = big.NewInt(10)
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
@@ -190,7 +190,7 @@ func TestNoResponseFromAPI(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testBTCAddress"
 
-	es := &BTCSyncer{Account: account, ExBal: accountCache}
+	es := &BTCSyncer{Account: account, Storage: accountCache}
 	es.ExtBalance = big.NewInt(1)
 	es.Nonce = 0
 	es.BlockHeight = big.NewInt(0)

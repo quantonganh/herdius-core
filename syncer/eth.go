@@ -120,7 +120,7 @@ func (es *EthSyncer) Update() {
 					last = last.UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance debit: %v\n", last)
-					es.ExBal.Set(es.Account.Address, last)
+					es.Storage.Set(es.Account.Address, last)
 					return
 				}
 			} else {

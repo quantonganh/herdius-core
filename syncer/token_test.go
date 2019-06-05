@@ -35,7 +35,7 @@ func TestHERShouldNOTChangeOtherASSET(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress"
 
-	es := &HERToken{Account: account, ExBal: accountCache}
+	es := &HERToken{Account: account, Storage: accountCache}
 	leb := make(map[string]*big.Int)
 	leb["ETH"] = big.NewInt(9)
 	accountCache.Set(account.Address, external.AccountCache{LastExtBalance: leb})
@@ -75,13 +75,13 @@ func TestHERExternalETHisGreater(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress5"
 
-	es := &HERToken{Account: account, ExBal: accountCache}
+	es := &HERToken{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(3)
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
 
-	last, _ := es.ExBal.Get(es.Account.Address)
+	last, _ := es.Storage.Get(es.Account.Address)
 
 	accountCache.Set(account.Address, last)
 	es.Update()
@@ -125,13 +125,13 @@ func TestHERExternalETHisLesser(t *testing.T) {
 	account.EBalances = eBalances
 	account.Address = "testEthAddress00"
 
-	es := &HERToken{Account: account, ExBal: accountCache}
+	es := &HERToken{Account: account, Storage: accountCache}
 	// Set external balance coming from infura
 	es.ExtBalance = big.NewInt(10)
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
 
-	last, _ := es.ExBal.Get(es.Account.Address)
+	last, _ := es.Storage.Get(es.Account.Address)
 
 	accountCache.Set(account.Address, last)
 	es.Update()
