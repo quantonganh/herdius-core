@@ -149,13 +149,16 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					lastBlock := blockchainSvc.GetLastBlock()
 
 					var stateRoot cmn.HexBytes
-					stateRoot = supsvc.StateRoot
+					stateRoot = supsvc.StateRoot()
 					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 					if err != nil {
 						log.Error().Msgf("Failed to create new state trie: %v", err)
 					}
-					supsvc.StateRoot, err = stateTrie.Commit(nil)
+					// TODO: handle err?
+					newStateRoot, err := stateTrie.Commit(nil)
+					supsvc.SetStateRoot(newStateRoot)
 					supsvc.ChildBlock = append(supsvc.ChildBlock, mcb.GetChildBlock())
+					// TODO: handle err?
 					baseBlock, err := supsvc.CreateBaseBlock(lastBlock)
 
 					err = blockchainSvc.AddBaseBlock(baseBlock)
@@ -174,7 +177,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					ts := time.Unix(s, 0)
 					log.Info().Msgf("Timestamp : %v", ts)
 
-					stateRoot = supsvc.StateRoot
+					stateRoot = supsvc.StateRoot()
 					log.Info().Msgf("State root : %v", stateRoot)
 					// Once new base block is added to be block chain
 					// do the following
@@ -185,7 +188,7 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 					mcb = &blockProtobuf.ChildBlockMessage{}
 					voteCount = 0
 
-					supsvc.StateRoot = []byte{0}
+					supsvc.SetStateRoot([]byte{0})
 					t2 = time.Now()
 
 					diff := t2.Sub(t1)
@@ -329,7 +332,10 @@ func main() {
 
 	for {
 		if *supervisorFlag {
-
+			supsvc.SetEnv(env)
+			supsvc.SetWaitTime(waitTime)
+			supsvc.SetNoOfPeersInGroup(noOfPeersInGroup)
+			supsvc.SetStateRoot(stateRoot)
 			// Check for deactivated validators and remove them from supervisor list
 			if supsvc.Validator != nil && len(supsvc.Validator) > 0 {
 				for _, v := range supsvc.Validator {
@@ -341,7 +347,7 @@ func main() {
 
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
-			baseBlock, err := supsvc.ProcessTxs(env, lastBlock, net, waitTime, noOfPeersInGroup, stateRoot)
+			baseBlock, err := supsvc.ProcessTxs(lastBlock, net)
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
