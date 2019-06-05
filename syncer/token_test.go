@@ -44,12 +44,16 @@ func TestHERShouldNOTChangeOtherASSET(t *testing.T) {
 	es.ExtBalance = big.NewInt(1)
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
-	cachedAcc, _ := accountCache.Get(account.Address)
+	cachedAcc, ok := accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
+
 
 	//cachedAcc.UpdateCurrentExtHERBalance(big.NewInt(1))
 
 	es.Update()
-	cachedAcc, _ = accountCache.Get(account.Address)
+	cachedAcc, ok = accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
+
 	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, uint64(1), "Balance should not be updated with external balance")
 	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(9), "LastExtBalance should not be updated with external balance")
 	assert.Equal(t, cachedAcc.Account.Balance, big.NewInt(1).Uint64(), "Balance should not be updated with external balance")
@@ -81,11 +85,15 @@ func TestHERExternalETHisGreater(t *testing.T) {
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
 
-	last, _ := es.Storage.Get(es.Account.Address)
+	last, ispresent := es.Storage.Get(es.Account.Address)
+	assert.Equal(t,ispresent,false,"cache should not return account")
+
 
 	accountCache.Set(account.Address, last)
 	es.Update()
-	cachedAcc, _ := accountCache.Get(account.Address)
+	cachedAcc, ok := accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
+
 
 	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "ExtBalance should be updated")
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(3), "LastExtHERBalance should be updated")
@@ -94,8 +102,8 @@ func TestHERExternalETHisGreater(t *testing.T) {
 
 	es.ExtBalance = big.NewInt(10)
 	es.Update()
-	cachedAcc, _ = accountCache.Get(account.Address)
-
+	cachedAcc, ok = accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
 	assert.Equal(t, cachedAcc.IsFirstHEREntry, false, "IsFirstHEREntry should be updated")
 	assert.Equal(t, cachedAcc.IsNewHERAmountUpdate, true, "IsNewHERAmountUpdate should be updated")
 
@@ -131,11 +139,15 @@ func TestHERExternalETHisLesser(t *testing.T) {
 	es.Nonce = 7
 	es.BlockHeight = big.NewInt(4)
 
-	last, _ := es.Storage.Get(es.Account.Address)
+	last, ispresent := es.Storage.Get(es.Account.Address)
+	assert.Equal(t,ispresent,false,"cache not should return account")
+
 
 	accountCache.Set(account.Address, last)
 	es.Update()
-	cachedAcc, _ := accountCache.Get(account.Address)
+	cachedAcc, ok := accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
+
 
 	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Balance should be updated")
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(10), "LastExtBalance should be updated")
@@ -146,8 +158,8 @@ func TestHERExternalETHisLesser(t *testing.T) {
 
 	es.ExtBalance = big.NewInt(1)
 	es.Update()
-	cachedAcc, _ = accountCache.Get(account.Address)
-
+	cachedAcc, ok = accountCache.Get(account.Address)
+	assert.Equal(t,ok,true,"cache should return account")
 	assert.Equal(t, cachedAcc.Account.Balance, es.ExtBalance.Uint64(), "Balance should be updated ")
 	assert.Equal(t, cachedAcc.LastExtHERBalance, big.NewInt(1), "LastExtBalance should be updated")
 	assert.Equal(t, cachedAcc.CurrentExtHERBalance, big.NewInt(1), "CurrentExtBalance should be updated")
