@@ -350,20 +350,17 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 			}
 			mp.RemoveTxs(len(*txs))
 
-			_, err = backuper.TryBackupBaseBlock(lastBlock, baseBlock)
+			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
 			if err != nil {
 				log.Println("nonfatal: failed to backup new block to S3:", err)
+			} else if !succ {
+				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+				err := backuper.BackupNeededBaseBlocks(baseBlock)
+				if err != nil {
+					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
+				}
+				log.Print("Sucessfully re-evaluated chain and backed up to S3")
 			}
-
-			// TODO RETURN TO THIS, SHOULD LIMIT NUMBER OF OPEN FILES FOR BACKING UP
-			// } else if !succ {
-			// 	log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-			// 	err := backuper.BackupNeededBaseBlocks(baseBlock)
-			// 	if err != nil {
-			// 		log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
-			// 	}
-			// 	log.Print("Sucessfully re-evaluated chain and backed up to S3")
-			// }
 
 			return baseBlock, nil
 		}

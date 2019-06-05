@@ -93,8 +93,9 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
-	notFound := make(chan *protobuf.BaseBlock, 30)
 	added := 0
+	maxThread := 200
+	sem := make(chan struct{}, maxThread)
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -113,39 +114,38 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 				return fmt.Errorf("cannot unmarshal db block into struct block: %v", err)
 			}
 			blockHash = block.Header.Block_ID.BlockHash
-			log.Printf("block height-hash: %v-%v", block.Header.Height, blockHash)
-			go func() {
-				log.Printf("proceeding to search for block in S3 height-hash: %v-%v", block.Header.Height, blockHash)
+
+			sem <- struct{}{}
+			go func(blockHash common.HexBytes) {
+				defer func() { <-sem }()
 				found, err := b.findInS3(svc, block)
 				if err != nil {
-					log.Println("nonfatal: while attempting full chain backup, unable to find block", err)
+					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
 					return
 				}
-				if !found {
-					log.Printf("not found in S3: %v-%v", block.Header.Height, blockHash)
-					notFound <- block
+				if found {
+					log.Printf("block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
+					return
 				}
-			}()
-			go func() {
+				log.Printf("block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
 				defer func() {
 					log.Println("Blocks backed up to S3:", added)
 				}()
-				for {
-					select {
-					case unbacked := <-notFound:
-						log.Printf("not found in S3, beginning backup: %v-%v", unbacked.Header.Height, blockHash)
-						res, err := b.backupToS3(uploader, unbacked)
-						if err != nil {
-							log.Printf("nonfatal: could not backup base block to S3: %v", err)
-						}
-						log.Println("Block backed up to S3:", res.Location)
-						added++
-					}
+				res, err := b.backupToS3(uploader, block)
+				if err != nil {
+					log.Println("nonfatal: could not backup base block to S3:", err)
+					return
 				}
-			}()
+				log.Println("Block backed up to S3:", res.Location)
+				added++
+			}(blockHash)
 		}
 		return nil
 	})
+	for i := 0; i < cap(sem); i++ {
+		sem <- struct{}{}
+	}
+	log.Println("Finished backing up all blocks; added blocks:", added)
 	return err
 }
 
@@ -157,9 +157,8 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
 	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
-		Bucket:  aws.String(b.Bucket),
-		MaxKeys: aws.Int64(2),
-		Prefix:  aws.String(prefixPattern),
+		Bucket: aws.String(b.Bucket),
+		Prefix: aws.String(prefixPattern),
 	}
 	result, err := svc.ListObjectsV2(search)
 	if err != nil {
@@ -178,7 +177,7 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 	// TODO CHANGE AWAY FROM MY OWN HOME DIR
 	tmpFile, err := ioutil.TempFile("", fileName)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create tmpfile %v: %v", fileName, err)
+		return nil, fmt.Errorf("cannot create tmpfile: %v ", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
@@ -200,10 +199,6 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 			err = fmt.Errorf("cannot close tmpfile %v: %v", fileName, errF)
 		}
 	}()
-	err = tmpFile.Sync()
-	if err != nil {
-		return nil, fmt.Errorf("cannot sync file %v: %v", fileName, err)
-	}
 	_, err = tmpFile.Seek(0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("cannot seek file %v: %v", fileName, err)
