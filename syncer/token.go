@@ -20,7 +20,7 @@ type HERToken struct {
 	Account              statedb.Account
 	BlockHeight          *big.Int
 	Nonce                uint64
-	ExBal                external.BalanceStorage
+	Storage              external.BalanceStorage
 	TokenContractAddress string
 	TokenSymbol          string
 	RPC                  string
@@ -74,7 +74,7 @@ func (es *HERToken) GetExtBalance() error {
 //Update Updates balance of asset in cache
 func (es *HERToken) Update() {
 	herBalance := *big.NewInt(int64(0))
-	last, ok := es.ExBal.Get(es.Account.Address)
+	last, ok := es.Storage.Get(es.Account.Address)
 
 	if ok {
 		//last-balance < External-ETH
@@ -94,7 +94,7 @@ func (es *HERToken) Update() {
 				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance credit: %v\n", last)
-				es.ExBal.Set(es.Account.Address, last)
+				es.Storage.Set(es.Account.Address, last)
 				return
 
 			}
@@ -113,7 +113,7 @@ func (es *HERToken) Update() {
 				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance debit: %v\n", last)
-				es.ExBal.Set(es.Account.Address, last)
+				es.Storage.Set(es.Account.Address, last)
 				return
 			}
 		} else {
@@ -127,7 +127,7 @@ func (es *HERToken) Update() {
 			last = last.UpdateLastExtHERBalance(es.ExtBalance)
 			last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
 
-			es.ExBal.Set(es.Account.Address, last)
+			es.Storage.Set(es.Account.Address, last)
 
 		}
 
@@ -136,7 +136,7 @@ func (es *HERToken) Update() {
 			val := external.AccountCache{
 				Account: es.Account,
 			}
-			es.ExBal.Set(es.Account.Address, val)
+			es.Storage.Set(es.Account.Address, val)
 		}
 	}
 

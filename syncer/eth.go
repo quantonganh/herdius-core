@@ -21,7 +21,7 @@ type EthSyncer struct {
 	BlockHeight    *big.Int
 	Nonce          uint64
 	Account        statedb.Account
-	ExBal          external.BalanceStorage
+	Storage        external.BalanceStorage
 	RPC            string
 }
 
@@ -76,7 +76,7 @@ func (es *EthSyncer) Update() {
 	value, ok := es.Account.EBalances[assetSymbol]
 	if ok {
 		herEthBalance := *big.NewInt(int64(0))
-		last, ok := es.ExBal.Get(es.Account.Address)
+		last, ok := es.Storage.Get(es.Account.Address)
 		if ok {
 			//last-balance < External-ETH
 			//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
@@ -97,7 +97,7 @@ func (es *EthSyncer) Update() {
 					last = last.UpdateAccount(es.Account)
 
 					log.Printf("New account balance after external balance credit: %v\n", last)
-					es.ExBal.Set(es.Account.Address, last)
+					es.Storage.Set(es.Account.Address, last)
 					return
 
 				}
@@ -136,7 +136,7 @@ func (es *EthSyncer) Update() {
 				es.Account.EBalances[assetSymbol] = value
 				last = last.UpdateAccount(es.Account)
 
-				es.ExBal.Set(es.Account.Address, last)
+				es.Storage.Set(es.Account.Address, last)
 			}
 
 		} else {
@@ -157,7 +157,7 @@ func (es *EthSyncer) Update() {
 			val := external.AccountCache{
 				Account: es.Account, LastExtBalance: lastbalances, CurrentExtBalance: currentbalances, IsFirstEntry: isFirstEntry, IsNewAmountUpdate: isNewAmountUpdate,
 			}
-			es.ExBal.Set(es.Account.Address, val)
+			es.Storage.Set(es.Account.Address, val)
 		}
 
 	}
