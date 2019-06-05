@@ -39,7 +39,7 @@ type SupervisorI interface {
 	GetNextValidatorGroupHash() ([]byte, error)
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
-	ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error)
+	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error)
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
@@ -55,8 +55,51 @@ type Supervisor struct {
 	Validator           []*protobuf.Validator
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
-	StateRoot           []byte
+	stateRoot           []byte
 	memPoolChan         chan<- mempool.MemPool
+	env                 string
+	waitTime            int
+	noOfPeersInGroup    int
+}
+
+// StateRoot returns Supervisor current state root
+func (s *Supervisor) StateRoot() []byte {
+	return s.stateRoot
+}
+
+// SetStateRoot sets Supervisor state root
+func (s *Supervisor) SetStateRoot(stateRoot []byte) {
+	s.stateRoot = stateRoot
+}
+
+// Env returns environment name
+func (s *Supervisor) Env() string {
+	return s.env
+}
+
+// SetEnv sets Supervisor environment
+func (s *Supervisor) SetEnv(env string) {
+	s.env = env
+}
+
+// WaitTime returns wait time value
+func (s *Supervisor) WaitTime() int {
+	return s.waitTime
+}
+
+// SetWaitTime sets Supervisor wait time
+func (s *Supervisor) SetWaitTime(waitTime int) {
+	s.waitTime = waitTime
+}
+
+// NoOfPeersInGroup ...
+func (s *Supervisor) NoOfPeersInGroup() int {
+	return s.noOfPeersInGroup
+}
+
+// SetNoOfPeersInGroup ...
+func (s *Supervisor) SetNoOfPeersInGroup(n int) {
+	s.noOfPeersInGroup = n
 }
 
 //GetMutex ...
@@ -209,7 +252,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 		NextValidatorGroupHash: nvgHash,
 		ChildBlockHash:         cbMerkleHash,
 		LastVoteHash:           vcbz,
-		StateRoot:              s.StateRoot,
+		StateRoot:              s.stateRoot,
 		Time: &protobuf.Timestamp{
 			Seconds: ts.Unix(),
 			Nanos:   ts.UnixNano(),
@@ -335,16 +378,16 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // ProcessTxs will process transactions.
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
-func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *network.Network, waitTime, noOfPeersInGroup int, stateRoot []byte) (*protobuf.BaseBlock, error) {
+func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
 	select {
-	case <-time.After(time.Duration(waitTime) * time.Second):
-		backuper := aws.NewBackuper(env)
+	case <-time.After(time.Duration(s.waitTime) * time.Second):
+		backuper := aws.NewBackuper(s.env)
 		if len(s.Validator) <= 0 || len(*txs) <= 0 {
-			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", waitTime, len(*txs))
-			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, stateRoot)
+			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
+			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create singular base block: %v", err)
 			}
@@ -364,7 +407,7 @@ func (s *Supervisor) ProcessTxs(env string, lastBlock *protobuf.BaseBlock, net *
 
 			return baseBlock, nil
 		}
-		err := s.ShardToValidators(txs, net, stateRoot)
+		err := s.ShardToValidators(txs, net, s.stateRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 		}
@@ -392,7 +435,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 		Block_ID:    &protobuf.BlockID{},
 		LastBlockID: lastBlock.GetHeader().GetBlock_ID(),
 		Height:      lastBlock.Header.Height + 1,
-		StateRoot:   s.StateRoot,
+		StateRoot:   s.stateRoot,
 		Time: &protobuf.Timestamp{
 			Seconds: ts.Unix(),
 			Nanos:   ts.UnixNano(),
@@ -920,6 +963,6 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		log.Println("Failed to commit to state trie:", err)
 		plog.Error().Msgf("Failed to commit to state trie: %v", err)
 	}
-	s.StateRoot = root
+	s.SetStateRoot(root)
 	return txlist, nil
 }
