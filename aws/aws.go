@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,7 +32,7 @@ type BackuperI interface {
 	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
 	BackupNeededBaseBlocks(*protobuf.BaseBlock) error
 	backupBlock(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
-	backupStateDB(*s3manager.Uploader) (*s3manager.UploadOutput, error)
+	backupStateDB(*s3manager.Uploader) error
 	findBlockInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
 }
 
@@ -72,16 +74,10 @@ func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) 
 	}
 	log.Println("Uploaded base block file to S3:", res.Location)
 
-	res, err = b.backupStateDB(uploader)
+	err = b.backupStateDB(uploader)
 	if err != nil {
 		return false, fmt.Errorf("could not backup State DB to S3: %v", err)
 	}
-	if res == nil || res == (&s3manager.UploadOutput{}) {
-		return false, fmt.Errorf("did not upload State DB to S3, no files uploaded")
-	}
-
-	log.Printf("res: %+v", res)
-	log.Println("Uploaded State DB to S3:", res.Location)
 	return true, nil
 }
 
@@ -164,12 +160,11 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	if added <= 0 {
 		return err
 	}
-	res, err = b.backupStateDB(uploader)
+	err = b.backupStateDB(uploader)
 	if err != nil {
 		return fmt.Errorf("Nonfatal: could not backup state DB to S3: %v", err)
 	}
-	log.Println("Block backed up to S3:", res.Location)
-	return err
+	return nil
 }
 
 // findInS3 searches for a given baseBlock in S3 in the given bucket
@@ -240,61 +235,63 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 		Tagging:              aws.String(fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", heightStr, timeStamp, blockHash)),
 	})
 	if err != nil {
+		log.Println("failed to Upload file to S3: %v", err)
 		return nil, fmt.Errorf("failed to upload file to S3: %v", err)
 	}
 	return result, err
 }
 
-func (b *Backuper) backupStateDB(uploader *s3manager.Uploader) (*s3manager.UploadOutput, error) {
-	f := make(chan string)
+func (b *Backuper) backupStateDB(uploader *s3manager.Uploader) error {
 	w := walker{
-		files:    f,
 		uploader: uploader,
 	}
-	err := make(chan error)
-	log.Println("statdb path:", b.StateDirPath)
-	go func() {
-		errF := filepath.Walk(b.StateDirPath, w.walk)
-		if errF != nil {
-			err <- errF
-		}
-		close(w.files)
-	}()
+	err := filepath.Walk(b.StateDirPath, w.walk)
+	if err != nil {
+		return fmt.Errorf("couldn't walk dir: %v", err)
+	}
+	log.Printf("State DB files uploaded: [%+v]", strings.Join(w.files, ", "))
 
-	return nil, nil
+	return nil
 }
 
 type walker struct {
-	files    chan string
+	files    []string
 	uploader *s3manager.Uploader
 }
 
-// TODO https://golang.org/pkg/path/filepath/#Walk
-// TODO MAKE THIS METHO UPLOAD
 func (w *walker) walk(path string, info os.FileInfo, err error) error {
-	log.Println("walking path:", path)
 	if err != nil {
-		log.Println("err walking:", err)
-		return err
+		return fmt.Errorf("err walking (%q): %v", path, err)
 	}
-	if !info.IsDir() {
-		log.Println("found that path is dir")
-		w.files <- path
+	if info.IsDir() {
+		return nil
 	}
+	w.files = append(w.files, path)
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("couldn't open file %v: %v", path, err)
 	}
-	res, err := w.uploader.Upload(&s3manager.UploadInput{
+	defer f.Close()
+
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("couldn't get file info (%q): %v", path, err)
+	}
+	buffer := make([]byte, fileInfo.Size())
+	_, err = f.Read(buffer)
+	if err != nil {
+		return fmt.Errorf("couldn't read from file (%q): %v", path, err)
+	}
+
+	_, err = w.uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String("herdius-blockchain-backup-dev"),
 		Key:                  aws.String(fmt.Sprintf("/statedb/%v", path)),
-		Body:                 f,
+		Body:                 bytes.NewReader(buffer),
 		ServerSideEncryption: aws.String("AES256"),
 		Tagging:              aws.String("test=test"),
 	})
 	if err != nil {
-		return fmt.Errorf("couldn't upload file to S3: %v", err)
+		return fmt.Errorf("couldn't upload file (%q) to S3: %v", path, err)
 	}
-	log.Printf("uploaded %q to s3://%v\n", path, res.Location)
 	return nil
 }
