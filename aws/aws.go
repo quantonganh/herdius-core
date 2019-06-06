@@ -160,7 +160,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	if added <= 0 {
 		return err
 	}
-	err = b.backupStateDB(uploader)
+	err = b.backupStateDB(uploader, height)
 	if err != nil {
 		return fmt.Errorf("Nonfatal: could not backup state DB to S3: %v", err)
 	}
@@ -192,7 +192,6 @@ func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (boo
 func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
 	fileName := "tmpfile.txt"
 
-	// TODO CHANGE AWAY FROM MY OWN HOME DIR
 	tmpFile, err := ioutil.TempFile("", fileName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tmpfile: %v ", err)
@@ -235,16 +234,16 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 		Tagging:              aws.String(fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", heightStr, timeStamp, blockHash)),
 	})
 	if err != nil {
-		log.Println("failed to Upload file to S3: %v", err)
 		return nil, fmt.Errorf("failed to upload file to S3: %v", err)
 	}
 	return result, err
 }
 
-func (b *Backuper) backupStateDB(uploader *s3manager.Uploader) error {
+func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height string) error {
 	w := walker{
 		uploader: uploader,
 	}
+	err = w.setUploadPath(height)
 	err := filepath.Walk(b.StateDirPath, w.walk)
 	if err != nil {
 		return fmt.Errorf("couldn't walk dir: %v", err)
@@ -255,8 +254,9 @@ func (b *Backuper) backupStateDB(uploader *s3manager.Uploader) error {
 }
 
 type walker struct {
-	files    []string
-	uploader *s3manager.Uploader
+	files      []string
+	uploader   *s3manager.Uploader
+	uploadPath string
 }
 
 func (w *walker) walk(path string, info os.FileInfo, err error) error {
@@ -285,7 +285,7 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 
 	_, err = w.uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String("herdius-blockchain-backup-dev"),
-		Key:                  aws.String(fmt.Sprintf("/statedb/%v", path)),
+		Key:                  aws.String(w.uploadPath),
 		Body:                 bytes.NewReader(buffer),
 		ServerSideEncryption: aws.String("AES256"),
 		Tagging:              aws.String("test=test"),
@@ -293,5 +293,17 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("couldn't upload file (%q) to S3: %v", path, err)
 	}
+	return nil
+}
+
+func (w *walker) setUploadPath(height string) error {
+	currentPath := fmt.Sprintf("%v/CURRENT", height)
+	log.Println("currentPath:", currentPath)
+
+	cur := io.Read(currentPath)
+	log.Println("CURRENT file contents", cur)
+	curStr := string(cur)
+
+	w.blockPath = fmt.Sprintf("/%v/statedb/%v", height, curStr)
 	return nil
 }
