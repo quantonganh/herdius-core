@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -28,32 +29,35 @@ import (
 type BackuperI interface {
 	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
 	BackupNeededBaseBlocks(*protobuf.BaseBlock) error
-	backupToS3(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
-	findInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
+	backupBlock(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
+	backupStateDB(*s3manager.Uploader) (*s3manager.UploadOutput, error)
+	findBlockInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
 }
 
 // Backuper ...
 type Backuper struct {
-	Session *session.Session
-	Bucket  string
+	Session      *session.Session
+	Bucket       string
+	StateDirPath string
 }
 
 // NewBackuper creates a standard AWS SDK session
 func NewBackuper(env string) BackuperI {
 	bucket := config.GetConfiguration(env).S3Bucket
+	sdp := config.GetConfiguration(env).StateDBPath
 	sess := session.New()
-	b := &Backuper{
-		Bucket:  bucket,
-		Session: sess,
+	return &Backuper{
+		Bucket:       bucket,
+		Session:      sess,
+		StateDirPath: sdp,
 	}
-	return b
 }
 
 // TryBackupBaseBlock takes a single block, returns true if able and successfully backup, false if business logic makes backup
 // not useful, and errors if attempted backup fails
 func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
 	svc := s3.New(b.Session)
-	found, err := b.findInS3(svc, lastBlock)
+	found, err := b.findBlockInS3(svc, lastBlock)
 	if err != nil {
 		return false, fmt.Errorf("failure searching S3 for previous block backup: %v", err)
 	}
@@ -62,11 +66,22 @@ func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) 
 	}
 
 	uploader := s3manager.NewUploader(b.Session)
-	res, err := b.backupToS3(uploader, baseBlock)
+	res, err := b.backupBlock(uploader, baseBlock)
 	if err != nil {
 		return false, fmt.Errorf("could not backup new base block to S3: %v", err)
 	}
 	log.Println("Uploaded base block file to S3:", res.Location)
+
+	res, err = b.backupStateDB(uploader)
+	if err != nil {
+		return false, fmt.Errorf("could not backup State DB to S3: %v", err)
+	}
+	if res == nil || res == (&s3manager.UploadOutput{}) {
+		return false, fmt.Errorf("did not upload State DB to S3, no files uploaded")
+	}
+
+	log.Printf("res: %+v", res)
+	log.Println("Uploaded State DB to S3:", res.Location)
 	return true, nil
 }
 
@@ -86,14 +101,15 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 
 	svc := s3.New(b.Session)
 	uploader := s3manager.NewUploader(b.Session)
-	res, err := b.backupToS3(uploader, newBlock)
+	res, err := b.backupBlock(uploader, newBlock)
 	if err != nil {
-		return fmt.Errorf("aborting: while trying to backup all needed base blocks, could not backup new base block to S3: %v", err)
+		return fmt.Errorf("while trying to backup all needed base blocks, could not backup new base blocks to S3: %v", err)
 	}
 	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
 	added := 0
+	failed := 0
 	maxThread := 200
 	sem := make(chan struct{}, maxThread)
 
@@ -118,22 +134,21 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 			sem <- struct{}{}
 			go func(blockHash common.HexBytes) {
 				defer func() { <-sem }()
-				found, err := b.findInS3(svc, block)
+				found, err := b.findBlockInS3(svc, block)
 				if err != nil {
-					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
+					log.Println("Nonfatal: while attempting full chain backup, error while searching for block", err)
+					failed++
 					return
 				}
 				if found {
-					log.Printf("block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
+					log.Printf("Block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
 					return
 				}
-				log.Printf("block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
-				defer func() {
-					log.Println("Blocks backed up to S3:", added)
-				}()
-				res, err := b.backupToS3(uploader, block)
+				log.Printf("Block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
+				res, err := b.backupBlock(uploader, block)
 				if err != nil {
-					log.Println("nonfatal: could not backup base block to S3:", err)
+					log.Println("Nonfatal: could not backup base block to S3:", err)
+					failed++
 					return
 				}
 				log.Println("Block backed up to S3:", res.Location)
@@ -145,12 +160,20 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	for i := 0; i < cap(sem); i++ {
 		sem <- struct{}{}
 	}
-	log.Println("Finished backing up all blocks; added blocks:", added)
+	log.Printf("Finished backing up all blocks; added blocks: %v, blocks failed to backup: %v", added, failed)
+	if added <= 0 {
+		return err
+	}
+	res, err = b.backupStateDB(uploader)
+	if err != nil {
+		return fmt.Errorf("Nonfatal: could not backup state DB to S3: %v", err)
+	}
+	log.Println("Block backed up to S3:", res.Location)
 	return err
 }
 
 // findInS3 searches for a given baseBlock in S3 in the given bucket
-func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, error) {
+func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, error) {
 	var blockHash common.HexBytes
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
@@ -170,8 +193,8 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	return true, nil
 }
 
-// backupToS3 backs up a single baseBlock to S3 in the given bucket
-func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
+// backupBloc backs up a single baseBlock to S3 in the given Backuper.Bucket
+func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
 	fileName := "tmpfile.txt"
 
 	// TODO CHANGE AWAY FROM MY OWN HOME DIR
@@ -220,4 +243,58 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 		return nil, fmt.Errorf("failed to upload file to S3: %v", err)
 	}
 	return result, err
+}
+
+func (b *Backuper) backupStateDB(uploader *s3manager.Uploader) (*s3manager.UploadOutput, error) {
+	f := make(chan string)
+	w := walker{
+		files:    f,
+		uploader: uploader,
+	}
+	err := make(chan error)
+	log.Println("statdb path:", b.StateDirPath)
+	go func() {
+		errF := filepath.Walk(b.StateDirPath, w.walk)
+		if errF != nil {
+			err <- errF
+		}
+		close(w.files)
+	}()
+
+	return nil, nil
+}
+
+type walker struct {
+	files    chan string
+	uploader *s3manager.Uploader
+}
+
+// TODO https://golang.org/pkg/path/filepath/#Walk
+// TODO MAKE THIS METHO UPLOAD
+func (w *walker) walk(path string, info os.FileInfo, err error) error {
+	log.Println("walking path:", path)
+	if err != nil {
+		log.Println("err walking:", err)
+		return err
+	}
+	if !info.IsDir() {
+		log.Println("found that path is dir")
+		w.files <- path
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("couldn't open file %v: %v", path, err)
+	}
+	res, err := w.uploader.Upload(&s3manager.UploadInput{
+		Bucket:               aws.String("herdius-blockchain-backup-dev"),
+		Key:                  aws.String(fmt.Sprintf("/statedb/%v", path)),
+		Body:                 f,
+		ServerSideEncryption: aws.String("AES256"),
+		Tagging:              aws.String("test=test"),
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't upload file to S3: %v", err)
+	}
+	log.Printf("uploaded %q to s3://%v\n", path, res.Location)
+	return nil
 }
