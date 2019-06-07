@@ -305,7 +305,6 @@ func main() {
 		blockchain.LoadDB()
 		if restore == true {
 			succ := aws.Restore(env)
-			nlog.Println("aws.Restore status:", succ)
 		} else {
 			blockchain.LoadDB()
 		}
