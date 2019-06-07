@@ -34,6 +34,7 @@ type SupervisorI interface {
 	RemoveValidator(address string)
 	CreateChildBlock(net *network.Network, txs *transaction.TxList, height int64, previousBlockHash []byte) *protobuf.ChildBlock
 	SetWriteMutex()
+	SetBackup(bool)
 	GetChildBlockMerkleHash() ([]byte, error)
 	GetValidatorGroupHash() ([]byte, error)
 	GetNextValidatorGroupHash() ([]byte, error)
@@ -60,6 +61,7 @@ type Supervisor struct {
 	env                 string
 	waitTime            int
 	noOfPeersInGroup    int
+	backup              bool
 }
 
 // StateRoot returns Supervisor current state root
@@ -90,6 +92,16 @@ func (s *Supervisor) WaitTime() int {
 // SetWaitTime sets Supervisor wait time
 func (s *Supervisor) SetWaitTime(waitTime int) {
 	s.waitTime = waitTime
+}
+
+// SetBackup sets Supervisor backup to S3 process
+func (s *Supervisor) SetBackup(backup bool) {
+	s.backup = backup
+}
+
+// SetBackup sets Supervisor backup to S3 process
+func (s *Supervisor) Backup() bool {
+	return s.backup
 }
 
 // NoOfPeersInGroup ...
@@ -384,7 +396,6 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 
 	select {
 	case <-time.After(time.Duration(s.waitTime) * time.Second):
-		backuper := aws.NewBackuper(s.env)
 		if len(s.Validator) <= 0 || len(*txs) <= 0 {
 			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
@@ -392,7 +403,10 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 				return nil, fmt.Errorf("failed to create singular base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
-
+			if s.Backup() == false {
+				return baseBlock, nil
+			}
+			backuper := aws.NewBackuper(s.env)
 			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
 			if err != nil {
 				log.Println("nonfatal: failed to backup to S3:", err)

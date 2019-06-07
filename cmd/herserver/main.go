@@ -218,6 +218,8 @@ func main() {
 	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	waitTimeFlag := flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
+	restoreFlag := flag.Bool("restore", false, "restore blockchain from S3")
+	backupFlag := flag.Bool("backup", false, "backup blockchain to S3")
 	flag.Parse()
 
 	env := *envFlag
@@ -226,6 +228,8 @@ func main() {
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
 	waitTime := *waitTimeFlag
+	backup := *backupFlag
+	_ = *restoreFlag
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
@@ -336,6 +340,7 @@ func main() {
 			supsvc.SetWaitTime(waitTime)
 			supsvc.SetNoOfPeersInGroup(noOfPeersInGroup)
 			supsvc.SetStateRoot(stateRoot)
+			supsvc.SetBackup(backup)
 			// Check for deactivated validators and remove them from supervisor list
 			if supsvc.Validator != nil && len(supsvc.Validator) > 0 {
 				for _, v := range supsvc.Validator {
