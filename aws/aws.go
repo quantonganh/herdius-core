@@ -139,7 +139,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 					log.Printf("Block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
 					return
 				}
-				log.Printf("Block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
+				log.Printf("Block not found in S3, backing up: /%v/blocks/%v", block.Header.Height, blockHash)
 				res, err := b.backupBlock(uploader, block)
 				if err != nil {
 					log.Println("Nonfatal: could not backup base block to S3:", err)
@@ -175,7 +175,7 @@ func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (boo
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
-	prefixPattern := fmt.Sprintf("/%v/blocks/%v", blockHeight, blockHash)
+	prefixPattern := fmt.Sprintf("%v/blocks/%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
 		Prefix: aws.String(prefixPattern),
