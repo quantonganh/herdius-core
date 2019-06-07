@@ -302,6 +302,11 @@ func main() {
 	if *supervisorFlag {
 		accountStorage = external.New()
 		blockchain.LoadDB()
+		if restore == true {
+			succ := aws.Restore(env)
+		} else {
+			blockchain.LoadDB()
+		}
 		sup.LoadStateDB(accountStorage)
 		blockchainSvc := &blockchain.Service{}
 
