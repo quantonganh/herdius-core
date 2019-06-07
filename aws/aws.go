@@ -41,6 +41,7 @@ type Backuper struct {
 	Session      *session.Session
 	Bucket       string
 	StateDirPath string
+	BackupPath   string
 }
 
 // NewBackuper creates a standard AWS SDK session
@@ -136,10 +137,10 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 					return
 				}
 				if found {
-					log.Printf("Block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
+					log.Printf("Block found in s3 while backing up entire chain: %v", b.BackupPath)
 					return
 				}
-				log.Printf("Block not found in S3, backing up: /%v/blocks/%v", block.Header.Height, blockHash)
+				log.Printf("Block not found in S3, backing up: %v", b.BackupPath)
 				res, err := b.backupBlock(uploader, block)
 				if err != nil {
 					log.Println("Nonfatal: could not backup base block to S3:", err)
@@ -175,10 +176,10 @@ func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (boo
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
-	prefixPattern := fmt.Sprintf("%v/blocks/%v", blockHeight, blockHash)
+	b.BackupPath = fmt.Sprintf("%v/blocks/%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
-		Prefix: aws.String(prefixPattern),
+		Prefix: aws.String(b.BackupPath),
 	}
 	result, err := svc.ListObjectsV2(search)
 	if err != nil {
@@ -227,10 +228,11 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 	timeStamp := strconv.Itoa(int(time.Now().Unix()))
 	var blockHash common.HexBytes
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+	b.BackupPath = fmt.Sprintf("%v/blocks/%v", heightStr, blockHash)
 
 	result, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String(b.Bucket),
-		Key:                  aws.String(fmt.Sprintf("/%v/blocks/%v", heightStr, blockHash)),
+		Key:                  aws.String(b.BackupPath),
 		Body:                 tmpFile,
 		ServerSideEncryption: aws.String("AES256"),
 		Tagging:              aws.String(fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", heightStr, timeStamp, blockHash)),
@@ -315,6 +317,6 @@ func (w *walker) setUploadPath(height int64) error {
 	}
 	curStr := string(contents)
 
-	w.uploadPath = fmt.Sprintf("/%v/statedb/%v/", height, curStr)
+	w.uploadPath = fmt.Sprintf("%v/statedb/%v/", height, curStr)
 	return nil
 }
