@@ -32,7 +32,7 @@ type BackuperI interface {
 	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
 	BackupNeededBaseBlocks(*protobuf.BaseBlock) error
 	backupBlock(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
-	backupStateDB(*s3manager.Uploader) error
+	backupStateDB(*s3manager.Uploader, int64) error
 	findBlockInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
 }
 
@@ -74,7 +74,7 @@ func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) 
 	}
 	log.Println("Uploaded base block file to S3:", res.Location)
 
-	err = b.backupStateDB(uploader)
+	err = b.backupStateDB(uploader, baseBlock.Header.Height)
 	if err != nil {
 		return false, fmt.Errorf("could not backup State DB to S3: %v", err)
 	}
@@ -104,9 +104,8 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
-	added := 0
-	failed := 0
-	maxThread := 200
+	added, failed, maxThread := 0, 0, 200
+	height := int64(0)
 	sem := make(chan struct{}, maxThread)
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
@@ -147,6 +146,9 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 					failed++
 					return
 				}
+				if block.Header.Height > height {
+					height = block.Header.Height
+				}
 				log.Println("Block backed up to S3:", res.Location)
 				added++
 			}(blockHash)
@@ -156,7 +158,7 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	for i := 0; i < cap(sem); i++ {
 		sem <- struct{}{}
 	}
-	log.Printf("Finished backing up all blocks; added blocks: %v, blocks failed to backup: %v", added, failed)
+	log.Printf("Finished backing up all blocks; added blocks: %v, chain height: %v, blocks failed to backup: %v", added, height, failed)
 	if added <= 0 {
 		return err
 	}
@@ -173,7 +175,7 @@ func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (boo
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
-	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
+	prefixPattern := fmt.Sprintf("/%v/blocks/%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
 		Prefix: aws.String(prefixPattern),
@@ -228,7 +230,7 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 
 	result, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String(b.Bucket),
-		Key:                  aws.String(fmt.Sprintf("%v-%v", heightStr, blockHash)),
+		Key:                  aws.String(fmt.Sprintf("/%v/blocks/%v", heightStr, blockHash)),
 		Body:                 tmpFile,
 		ServerSideEncryption: aws.String("AES256"),
 		Tagging:              aws.String(fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", heightStr, timeStamp, blockHash)),
@@ -239,12 +241,15 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 	return result, err
 }
 
-func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height string) error {
+func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) error {
 	w := walker{
 		uploader: uploader,
 	}
-	err = w.setUploadPath(height)
-	err := filepath.Walk(b.StateDirPath, w.walk)
+	err := w.setUploadPath(height)
+	if err != nil {
+		return fmt.Errorf("couldn't set upload path: %v", err)
+	}
+	err = filepath.Walk(b.StateDirPath, w.walk)
 	if err != nil {
 		return fmt.Errorf("couldn't walk dir: %v", err)
 	}
@@ -282,10 +287,11 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read from file (%q): %v", path, err)
 	}
+	k := fmt.Sprintf("/%v/%v", w.uploadPath, fileInfo.Name())
 
 	_, err = w.uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String("herdius-blockchain-backup-dev"),
-		Key:                  aws.String(w.uploadPath),
+		Key:                  aws.String(k),
 		Body:                 bytes.NewReader(buffer),
 		ServerSideEncryption: aws.String("AES256"),
 		Tagging:              aws.String("test=test"),
@@ -296,14 +302,19 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (w *walker) setUploadPath(height string) error {
-	currentPath := fmt.Sprintf("%v/CURRENT", height)
-	log.Println("currentPath:", currentPath)
+func (w *walker) setUploadPath(height int64) error {
+	currentPath := fmt.Sprintf("herdius/statedb/CURRENT")
+	cur, err := os.Open(currentPath)
+	if err != nil {
+		return fmt.Errorf("couldn't open CURRENT statedb file: %v", err)
+	}
+	defer cur.Close()
+	contents, err := ioutil.ReadAll(cur)
+	if err != nil {
+		return fmt.Errorf("couldn't read contents from CURRENT statedb file: %v", err)
+	}
+	curStr := string(contents)
 
-	cur := io.Read(currentPath)
-	log.Println("CURRENT file contents", cur)
-	curStr := string(cur)
-
-	w.blockPath = fmt.Sprintf("/%v/statedb/%v", height, curStr)
+	w.uploadPath = fmt.Sprintf("/%v/statedb/%v/", height, curStr)
 	return nil
 }
