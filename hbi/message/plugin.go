@@ -208,9 +208,9 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			return errors.New("Failed to Masshal Tx: " + msg.Tx.GetSenderAddress())
 		}
 
-		txCount := mp.AddTx(txbz)
+		pending, queue := mp.AddTx(tx)
 
-		plog.Info().Msgf("Remaining mempool txcount: %v", txCount)
+		plog.Info().Msgf("Remaining mempool pending, queue: %+v %+v", pending, queue)
 
 		// Create the Transaction ID
 		txID := cmn.CreateTxID(txbz)
@@ -306,9 +306,9 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 		return errors.New("Failed to Masshal Tx: " + err.Error())
 	}
 
-	txCount := mp.AddTx(txbz)
+	pending, queue := mp.AddTx(tx)
 
-	plog.Info().Msgf("Remaining mempool txcount: %v", txCount)
+	plog.Info().Msgf("Remaining mempool pending, queue: %+v %+v", pending, queue)
 
 	// Create the Transaction ID
 	txID := cmn.CreateTxID(txbz)
