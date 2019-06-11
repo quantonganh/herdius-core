@@ -42,17 +42,20 @@ type Backuper struct {
 	Bucket       string
 	StateDirPath string
 	BackupPath   string
+	timeStamp    string
 }
 
 // NewBackuper creates a standard AWS SDK session
 func NewBackuper(env string) BackuperI {
 	bucket := config.GetConfiguration(env).S3Bucket
 	sdp := config.GetConfiguration(env).StateDBPath
+	timeStamp := strconv.Itoa(int(time.Now().Unix()))
 	sess := session.New()
 	return &Backuper{
 		Bucket:       bucket,
 		Session:      sess,
 		StateDirPath: sdp,
+		timeStamp:    timestamp,
 	}
 }
 
@@ -222,7 +225,6 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 	}
 
 	heightStr := strconv.Itoa(int(baseBlock.Header.Height))
-	timeStamp := strconv.Itoa(int(time.Now().Unix()))
 	var blockHash common.HexBytes
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	b.BackupPath = fmt.Sprintf("%v/blocks/%v", heightStr, blockHash)
@@ -242,12 +244,14 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 
 func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) error {
 	w := walker{
-		uploader: uploader,
+		uploader:     uploader,
+		uploadBucket: b.Bucket,
 	}
-	err := w.setUploadPath(height)
+	err := w.setUploadTags(height, blockHash)
 	if err != nil {
-		return fmt.Errorf("couldn't set upload path: %v", err)
+		return fmt.Errorf("couldn't set upload tags: %v", err)
 	}
+
 	err = filepath.Walk(b.StateDirPath, w.walk)
 	if err != nil {
 		return fmt.Errorf("couldn't walk dir: %v", err)
@@ -258,9 +262,11 @@ func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) err
 }
 
 type walker struct {
-	files      []string
-	uploader   *s3manager.Uploader
-	uploadPath string
+	files         []string
+	uploader      *s3manager.Uploader
+	uploadPath    string
+	uploadBucket  string
+	uploadTagsStr string
 }
 
 func (w *walker) walk(path string, info os.FileInfo, err error) error {
@@ -286,14 +292,17 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read from file (%q): %v", path, err)
 	}
-	k := fmt.Sprintf("/%v/%v", w.uploadPath, fileInfo.Name())
+	err := w.setUploadPath(height, fileInfo.Name())
+	if err != nil {
+		return fmt.Errorf("couldn't set uploadPath (%q): %v", path, err)
+	}
 
 	_, err = w.uploader.Upload(&s3manager.UploadInput{
-		Bucket:               aws.String("herdius-blockchain-backup-dev"),
-		Key:                  aws.String(k),
+		Bucket:               aws.String(w.uploadBucket),
+		Key:                  aws.String(w.uploadPath),
 		Body:                 bytes.NewReader(buffer),
 		ServerSideEncryption: aws.String("AES256"),
-		Tagging:              aws.String("test=test"),
+		Tagging:              aws.String(w.uploadTagsStr),
 	})
 	if err != nil {
 		return fmt.Errorf("couldn't upload file (%q) to S3: %v", path, err)
@@ -301,7 +310,7 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (w *walker) setUploadPath(height int64) error {
+func (w *walker) setUploadPath(height int64, fileName string) error {
 	currentPath := fmt.Sprintf("herdius/statedb/CURRENT")
 	cur, err := os.Open(currentPath)
 	if err != nil {
@@ -314,6 +323,11 @@ func (w *walker) setUploadPath(height int64) error {
 	}
 	curStr := string(contents)
 
-	w.uploadPath = fmt.Sprintf("%v/statedb/%v/", height, curStr)
+	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v/", height, curStr, fileName)
 	return nil
+}
+
+func (w *walker) setUploadTags(height int64, timeStamp, blockHash string) {
+	w.uploadTagsStr = fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", height, timeStamp, blockHash)
+	return
 }
