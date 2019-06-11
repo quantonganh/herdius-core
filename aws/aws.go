@@ -160,9 +160,6 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 		sem <- struct{}{}
 	}
 	log.Printf("Finished backing up all blocks; added blocks: %v, chain height: %v, blocks failed to backup: %v", added, height, failed)
-	if added <= 0 {
-		return err
-	}
 	err = b.backupStateDB(uploader, height)
 	if err != nil {
 		return fmt.Errorf("Nonfatal: could not backup state DB to S3: %v", err)
