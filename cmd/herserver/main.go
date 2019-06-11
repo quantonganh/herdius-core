@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/herdius/herdius-core/aws"
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
@@ -218,8 +219,8 @@ func main() {
 	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	waitTimeFlag := flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
-	restoreFlag := flag.Bool("restore", false, "restore blockchain from S3")
-	backupFlag := flag.Bool("backup", false, "backup blockchain to S3")
+	restore := *flag.Bool("restore", false, "restore blockchain from S3")
+	backup := *flag.Bool("backup", false, "backup blockchain to S3")
 	flag.Parse()
 
 	env := *envFlag
@@ -228,8 +229,6 @@ func main() {
 	peers := strings.Split(*peersFlag, ",")
 	noOfPeersInGroup := *groupSizeFlag
 	waitTime := *waitTimeFlag
-	backup := *backupFlag
-	_ = *restoreFlag
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
@@ -304,6 +303,7 @@ func main() {
 		blockchain.LoadDB()
 		if restore == true {
 			succ := aws.Restore(env)
+			nlog.Println("aws.Restore status:", succ)
 		} else {
 			blockchain.LoadDB()
 		}
