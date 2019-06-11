@@ -213,22 +213,18 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 func main() {
 
 	// process other flags
-	peersFlag := flag.String("peers", "", "peers to connect to")
+	peersFlag := *flag.String("peers", "", "peers to connect to")
 	supervisorFlag := flag.Bool("supervisor", false, "run as supervisor")
-	groupSizeFlag := flag.Int("groupsize", 3, "# of peers in a validator group")
-	portFlag := flag.Int("port", 0, "port to bind validator to")
-	envFlag := flag.String("env", "dev", "environment to build network and run process for")
-	waitTimeFlag := flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
+	noOfPeersInGroup := *flag.Int("groupsize", 3, "# of peers in a validator group")
+	port := *flag.Int("port", 0, "port to bind validator to")
+	env := *flag.String("env", "dev", "environment to build network and run process for")
+	waitTime := *flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
 	restore := *flag.Bool("restore", false, "restore blockchain from S3")
 	backup := *flag.Bool("backup", false, "backup blockchain to S3")
 	flag.Parse()
 
-	env := *envFlag
-	port := *portFlag
 	confg := config.GetConfiguration(env)
-	peers := strings.Split(*peersFlag, ",")
-	noOfPeersInGroup := *groupSizeFlag
-	waitTime := *waitTimeFlag
+	peers := strings.Split(peersFlag, ",")
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
