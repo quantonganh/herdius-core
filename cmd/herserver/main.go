@@ -233,7 +233,7 @@ func main() {
 	}
 
 	// Generate or Load Keys
-	nodeAddress := confg.SelfBroadcastIP + ":" + strconv.Itoa(port)
+	nodeAddress := confg.SelfBroadcastIP + "_" + strconv.Itoa(port)
 	nodekey, err := keystore.LoadOrGenNodeKey(nodeKeydir + nodeAddress + "_sk_peer_id.json")
 	if err != nil {
 		log.Error().Msgf("Failed to create or load node key: %v", err)
@@ -347,6 +347,7 @@ func main() {
 
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
+			supsvc.SetStateRoot(stateRoot)
 			baseBlock, err := supsvc.ProcessTxs(lastBlock, net)
 			if err != nil {
 				log.Error().Msg(err.Error())

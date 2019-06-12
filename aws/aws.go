@@ -1,12 +1,15 @@
 package aws
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,32 +31,38 @@ import (
 type BackuperI interface {
 	TryBackupBaseBlock(*protobuf.BaseBlock, *protobuf.BaseBlock) (bool, error)
 	BackupNeededBaseBlocks(*protobuf.BaseBlock) error
-	backupToS3(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
-	findInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
+	backupBlock(*s3manager.Uploader, *protobuf.BaseBlock) (*s3manager.UploadOutput, error)
+	backupStateDB(*s3manager.Uploader, int64) error
+	findBlockInS3(*s3.S3, *protobuf.BaseBlock) (bool, error)
 }
 
 // Backuper ...
 type Backuper struct {
-	Session *session.Session
-	Bucket  string
+	Session      *session.Session
+	Bucket       string
+	StateDirPath string
+	BackupPath   string
+	timeStamp    string
+	objectTags   string
 }
 
 // NewBackuper creates a standard AWS SDK session
 func NewBackuper(env string) BackuperI {
 	bucket := config.GetConfiguration(env).S3Bucket
+	sdp := config.GetConfiguration(env).StateDBPath
 	sess := session.New()
-	b := &Backuper{
-		Bucket:  bucket,
-		Session: sess,
+	return &Backuper{
+		Bucket:       bucket,
+		Session:      sess,
+		StateDirPath: sdp,
 	}
-	return b
 }
 
 // TryBackupBaseBlock takes a single block, returns true if able and successfully backup, false if business logic makes backup
 // not useful, and errors if attempted backup fails
 func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) (bool, error) {
 	svc := s3.New(b.Session)
-	found, err := b.findInS3(svc, lastBlock)
+	found, err := b.findBlockInS3(svc, lastBlock)
 	if err != nil {
 		return false, fmt.Errorf("failure searching S3 for previous block backup: %v", err)
 	}
@@ -62,11 +71,16 @@ func (b *Backuper) TryBackupBaseBlock(lastBlock, baseBlock *protobuf.BaseBlock) 
 	}
 
 	uploader := s3manager.NewUploader(b.Session)
-	res, err := b.backupToS3(uploader, baseBlock)
+	res, err := b.backupBlock(uploader, baseBlock)
 	if err != nil {
 		return false, fmt.Errorf("could not backup new base block to S3: %v", err)
 	}
 	log.Println("Uploaded base block file to S3:", res.Location)
+
+	err = b.backupStateDB(uploader, baseBlock.Header.Height)
+	if err != nil {
+		return false, fmt.Errorf("could not backup State DB to S3: %v", err)
+	}
 	return true, nil
 }
 
@@ -86,15 +100,15 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 
 	svc := s3.New(b.Session)
 	uploader := s3manager.NewUploader(b.Session)
-	res, err := b.backupToS3(uploader, newBlock)
+	res, err := b.backupBlock(uploader, newBlock)
 	if err != nil {
-		return fmt.Errorf("aborting: while trying to backup all needed base blocks, could not backup new base block to S3: %v", err)
+		return fmt.Errorf("while trying to backup all needed base blocks, could not backup new base blocks to S3: %v", err)
 	}
 	log.Println("Block backed up to S3:", res.Location)
 
 	var blockHash common.HexBytes
-	added := 0
-	maxThread := 200
+	added, failed, maxThread := 0, 0, 200
+	height := int64(0)
 	sem := make(chan struct{}, maxThread)
 
 	err = bDB.GetBadgerDB().View(func(txn *badger.Txn) error {
@@ -118,23 +132,25 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 			sem <- struct{}{}
 			go func(blockHash common.HexBytes) {
 				defer func() { <-sem }()
-				found, err := b.findInS3(svc, block)
+				found, err := b.findBlockInS3(svc, block)
 				if err != nil {
-					log.Println("nonfatal: while attempting full chain backup, error while searching for block", err)
+					log.Println("Nonfatal: while attempting full chain backup, error while searching for block", err)
+					failed++
 					return
 				}
 				if found {
-					log.Printf("block found in s3 while backing up entire chain: %v-%v", block.Header.Height, blockHash)
+					log.Printf("Block found in s3 while backing up entire chain: %v", b.BackupPath)
 					return
 				}
-				log.Printf("block not found in S3, backing up: %v-%v", block.Header.Height, blockHash)
-				defer func() {
-					log.Println("Blocks backed up to S3:", added)
-				}()
-				res, err := b.backupToS3(uploader, block)
+				log.Printf("Block not found in S3, backing up: %v", b.BackupPath)
+				res, err := b.backupBlock(uploader, block)
 				if err != nil {
-					log.Println("nonfatal: could not backup base block to S3:", err)
+					log.Println("Nonfatal: could not backup base block to S3:", err)
+					failed++
 					return
+				}
+				if block.Header.Height > height {
+					height = block.Header.Height
 				}
 				log.Println("Block backed up to S3:", res.Location)
 				added++
@@ -145,20 +161,24 @@ func (b *Backuper) BackupNeededBaseBlocks(newBlock *protobuf.BaseBlock) error {
 	for i := 0; i < cap(sem); i++ {
 		sem <- struct{}{}
 	}
-	log.Println("Finished backing up all blocks; added blocks:", added)
-	return err
+	log.Printf("Finished backing up all blocks; added blocks: %v, chain height: %v, blocks failed to backup: %v", added, height, failed)
+	err = b.backupStateDB(uploader, height)
+	if err != nil {
+		return fmt.Errorf("Nonfatal: could not backup state DB to S3: %v", err)
+	}
+	return nil
 }
 
 // findInS3 searches for a given baseBlock in S3 in the given bucket
-func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, error) {
+func (b *Backuper) findBlockInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, error) {
 	var blockHash common.HexBytes
 	blockHashBz := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	blockHash = blockHashBz
 	blockHeight := strconv.FormatInt(baseBlock.Header.Height, 10)
-	prefixPattern := fmt.Sprintf("%v-%v", blockHeight, blockHash)
+	b.BackupPath = fmt.Sprintf("%v/blocks/%v", blockHeight, blockHash)
 	search := &s3.ListObjectsV2Input{
 		Bucket: aws.String(b.Bucket),
-		Prefix: aws.String(prefixPattern),
+		Prefix: aws.String(b.BackupPath),
 	}
 	result, err := svc.ListObjectsV2(search)
 	if err != nil {
@@ -170,11 +190,10 @@ func (b *Backuper) findInS3(svc *s3.S3, baseBlock *protobuf.BaseBlock) (bool, er
 	return true, nil
 }
 
-// backupToS3 backs up a single baseBlock to S3 in the given bucket
-func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
+// backupBloc backs up a single baseBlock to S3 in the given Backuper.Bucket
+func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf.BaseBlock) (result *s3manager.UploadOutput, err error) {
 	fileName := "tmpfile.txt"
 
-	// TODO CHANGE AWAY FROM MY OWN HOME DIR
 	tmpFile, err := ioutil.TempFile("", fileName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tmpfile: %v ", err)
@@ -205,19 +224,109 @@ func (b *Backuper) backupToS3(uploader *s3manager.Uploader, baseBlock *protobuf.
 	}
 
 	heightStr := strconv.Itoa(int(baseBlock.Header.Height))
-	timeStamp := strconv.Itoa(int(time.Now().Unix()))
 	var blockHash common.HexBytes
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+	b.BackupPath = fmt.Sprintf("%v/blocks/%v", heightStr, blockHash)
+	b.timeStamp = strconv.Itoa(int(time.Now().Unix()))
+	b.objectTags = b.setObjectTags(heightStr, blockHash)
 
 	result, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String(b.Bucket),
-		Key:                  aws.String(fmt.Sprintf("%v-%v", heightStr, blockHash)),
+		Key:                  aws.String(b.BackupPath),
 		Body:                 tmpFile,
 		ServerSideEncryption: aws.String("AES256"),
-		Tagging:              aws.String(fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", heightStr, timeStamp, blockHash)),
+		Tagging:              aws.String(b.objectTags),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file to S3: %v", err)
 	}
 	return result, err
+}
+
+func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) error {
+	w := walker{
+		uploader:     uploader,
+		uploadBucket: b.Bucket,
+		objectTags:   b.objectTags,
+		objectHeight: height,
+	}
+
+	err := filepath.Walk(b.StateDirPath, w.walk)
+	if err != nil {
+		return fmt.Errorf("couldn't walk dir: %v", err)
+	}
+	log.Printf("State DB files uploaded: [%+v]", strings.Join(w.files, ", "))
+
+	return nil
+}
+
+func (b *Backuper) setObjectTags(height string, blockHash common.HexBytes) string {
+	return fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", height, b.timeStamp, blockHash)
+}
+
+type walker struct {
+	files        []string
+	uploader     *s3manager.Uploader
+	uploadPath   string
+	uploadBucket string
+	objectTags   string
+	objectHeight int64
+}
+
+func (w *walker) walk(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return fmt.Errorf("err walking (%q): %v", path, err)
+	}
+	if info.IsDir() {
+		return nil
+	}
+	w.files = append(w.files, path)
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("couldn't open file %v: %v", path, err)
+	}
+	defer f.Close()
+
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("couldn't get file info (%q): %v", path, err)
+	}
+	buffer := make([]byte, fileInfo.Size())
+	_, err = f.Read(buffer)
+	if err != nil {
+		return fmt.Errorf("couldn't read from file (%q): %v", path, err)
+	}
+	err = w.setUploadPath(fileInfo.Name())
+	if err != nil {
+		return fmt.Errorf("couldn't set uploadPath (%q): %v", path, err)
+	}
+
+	_, err = w.uploader.Upload(&s3manager.UploadInput{
+		Bucket:               aws.String(w.uploadBucket),
+		Key:                  aws.String(w.uploadPath),
+		Body:                 bytes.NewReader(buffer),
+		ServerSideEncryption: aws.String("AES256"),
+		Tagging:              aws.String(w.objectTags),
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't upload file (%q) to S3: %v", path, err)
+	}
+	return nil
+}
+
+func (w *walker) setUploadPath(fileName string) error {
+	currentPath := fmt.Sprintf("herdius/statedb/CURRENT")
+	cur, err := os.Open(currentPath)
+	if err != nil {
+		return fmt.Errorf("couldn't open CURRENT statedb file: %v", err)
+	}
+	defer cur.Close()
+	contents, err := ioutil.ReadAll(cur)
+	if err != nil {
+		return fmt.Errorf("couldn't read contents from CURRENT statedb file: %v", err)
+	}
+	curStr := string(contents)
+
+	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v", w.objectHeight, curStr, fileName)
+	return nil
 }
