@@ -219,7 +219,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		// Send Tx ID to client who sent the TX
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 			&protoplugin.TxResponse{
-				TxId: txID, Status: "success", Queued: 0, Pending: 0,
+				TxId: txID, Status: "success", Queued: int64(queue), Pending: int64(pending),
 			})
 		nonce++
 		if err != nil {

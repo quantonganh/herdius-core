@@ -134,6 +134,58 @@ func (m *MemPool) GetTx(id string) (int, *protobuf.Tx, error) {
 	return 0, nil, nil
 }
 
+// UpdateTx receives a Tx (newTx) and updates the corresponding Tx (origTx)
+// with all non-empty fields in newTx
+func (m *MemPool) UpdateTx(origI int, updated *protobuf.Tx) (*protobuf.Tx, error) {
+	log.Println("Beginning update of transaction")
+	//origBz := m.queue[origI].tx
+	//var cdc = amino.NewCodec()
+	orig := &protobuf.Tx{}
+	// err := cdc.UnmarshalJSON(origBz, orig)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to unmarshal orig tx bytes to structured: %v", err)
+	// }
+	if updated.RecieverAddress != "" && updated.RecieverAddress != orig.RecieverAddress {
+		orig.RecieverAddress = updated.RecieverAddress
+		log.Println("updated receiver address")
+	}
+	if updated.Message != "" && updated.Message != orig.Message {
+		orig.Message = updated.Message
+		log.Println("updated message")
+	}
+	if updated.Asset != nil && updated.Asset.Fee != 0 && updated.Asset.Fee != orig.Asset.Fee {
+		orig.Asset.Fee = updated.Asset.Fee
+		log.Println("updated tx fee")
+	}
+	if updated.Asset != nil && updated.Asset.Value != 0 && updated.Asset.Value != orig.Asset.Value {
+		log.Println("updated tx value")
+		orig.Asset.Value = updated.Asset.Value
+	}
+	if updated.Asset != nil && updated.Asset.Category != "" && updated.Asset.Category != orig.Asset.Category {
+		log.Println("updated tx category")
+		orig.Asset.Category = updated.Asset.Category
+	}
+	if updated.Asset != nil && updated.Asset.Symbol != "" && updated.Asset.Symbol != orig.Asset.Symbol {
+		log.Println("updated tx symbol")
+		orig.Asset.Symbol = updated.Asset.Symbol
+	}
+	if updated.Asset != nil && updated.Asset.Network != "" && updated.Asset.Network != orig.Asset.Network {
+		log.Println("updated tx network")
+		orig.Asset.Network = updated.Asset.Network
+	}
+	if updated.Type != "" && updated.Type != orig.Type {
+		log.Println("updated type")
+		orig.Type = updated.Type
+	}
+	//updatedBz, err := cdc.MarshalJSON(orig)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("could not marshal updated transaction back into memory pool: %v", err)
+	// }
+
+	m.pending[origI].tx = orig
+	return orig, nil
+}
+
 // DeleteTx deletes a transaction currently in the MemPool by the transaction ID
 // Returns true if successfully cancelled, false if can't find or cancel the transaction
 func (m *MemPool) DeleteTx(id string) bool {
