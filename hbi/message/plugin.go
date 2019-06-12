@@ -172,7 +172,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		update := Update.String()
 		if strings.EqualFold(tx.Type, update) {
-			postAccountUpdateTx(tx, ctx)
+			postAccountUpdateTx(tx, ctx, accSrv)
 			return nil
 		}
 
@@ -207,8 +207,8 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			}
 			return errors.New("Failed to Masshal Tx: " + msg.Tx.GetSenderAddress())
 		}
-
-		pending, queue := mp.AddTx(tx)
+		log.Println("Add tx to mempool")
+		pending, queue := mp.AddTx(tx, accSrv)
 
 		plog.Info().Msgf("Remaining mempool pending, queue: %+v %+v", pending, queue)
 
@@ -287,7 +287,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 	return nil
 }
 
-func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
+func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext, as account.ServiceI) error {
 	// Add Tx to Mempool
 	mp := mempool.GetMemPool()
 	txbz, err := cdc.MarshalJSON(tx)
@@ -306,7 +306,7 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext) error {
 		return errors.New("Failed to Masshal Tx: " + err.Error())
 	}
 
-	pending, queue := mp.AddTx(tx)
+	pending, queue := mp.AddTx(tx, as)
 
 	plog.Info().Msgf("Remaining mempool pending, queue: %+v %+v", pending, queue)
 

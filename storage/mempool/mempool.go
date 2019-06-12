@@ -51,31 +51,59 @@ func (memTx *mempoolTx) Height() int64 {
 
 // AddTx adds the tx Transaction to the MemPool and returns the total
 // number of current Transactions within the MemPool
-func (m *MemPool) AddTx(tx *protobuf.Tx) (int, int) {
-	accSrv := account.NewAccountService()
+func (m *MemPool) AddTx(tx *protobuf.Tx, accSrv account.ServiceI) (int, int) {
 	account, _ := accSrv.GetAccountByAddress(tx.GetSenderAddress())
 	mpSize := len(m.pending)
 	mt := mempoolTx{
 		tx:     tx,
 		height: int64(mpSize) + 1,
 	}
-	log.Println(tx.GetSenderAddress())
-
-	log.Println(tx.GetAsset().Nonce)
-	log.Println(account)
 
 	if account != nil {
 		if tx.GetAsset().Nonce == account.Nonce+1 {
+			log.Println("First time tx Add to pending")
 			m.pending = append(m.pending, mt)
+			return len(m.pending), len(m.queue)
 		}
 	}
-	m.queue = append(m.pending, mt)
+	if tx.GetAsset().Nonce == 0 {
+		log.Println("First time tx Add to pending")
+		m.pending = append(m.pending, mt)
+		return len(m.pending), len(m.queue)
+
+	}
+	log.Println(" Add tx to queue")
+	m.queue = append(m.queue, mt)
 	return len(m.pending), len(m.queue)
+}
+
+func (m *MemPool) processQueue(accountService account.ServiceI) {
+	/*
+		1) get all queue tx
+		2) compare account nonce with tx nonce
+
+	*/
+	log.Printf("Processing queue and pending txs, Size of pending %d, Size of queue: %d", len(m.pending), len(m.queue))
+
+	for i, mTx := range m.queue {
+		account, _ := accountService.GetAccountByAddress(mTx.tx.GetSenderAddress())
+		if account != nil {
+			if account.Nonce+1 == mTx.tx.GetAsset().GetNonce() {
+				m.pending = append(m.pending, mTx)
+				m.queue = append(m.queue[:i], m.queue[i+1:]...)
+			}
+		}
+	}
+	log.Printf("Finish Processing queue and pending txs, Size of pending %d, Size of queue: %d", len(m.pending), len(m.queue))
+
 }
 
 // GetTxs gets all transactions from the MemPool
 func (m *MemPool) GetTxs() *tx.Txs {
+	accSrv := account.NewAccountService()
+	m.processQueue(accSrv)
 	txs := &tx.Txs{}
+	m.processQueue(accSrv)
 	var cdc = amino.NewCodec()
 	for _, mt := range m.pending {
 		tx, _ := cdc.MarshalJSON(mt.tx)
@@ -106,58 +134,6 @@ func (m *MemPool) GetTx(id string) (int, *protobuf.Tx, error) {
 	return 0, nil, nil
 }
 
-// UpdateTx receives a Tx (newTx) and updates the corresponding Tx (origTx)
-// with all non-empty fields in newTx
-func (m *MemPool) UpdateTx(origI int, updated *protobuf.Tx) (*protobuf.Tx, error) {
-	log.Println("Beginning update of transaction")
-	//origBz := m.queue[origI].tx
-	//var cdc = amino.NewCodec()
-	orig := &protobuf.Tx{}
-	// err := cdc.UnmarshalJSON(origBz, orig)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to unmarshal orig tx bytes to structured: %v", err)
-	// }
-	if updated.RecieverAddress != "" && updated.RecieverAddress != orig.RecieverAddress {
-		orig.RecieverAddress = updated.RecieverAddress
-		log.Println("updated receiver address")
-	}
-	if updated.Message != "" && updated.Message != orig.Message {
-		orig.Message = updated.Message
-		log.Println("updated message")
-	}
-	if updated.Asset != nil && updated.Asset.Fee != 0 && updated.Asset.Fee != orig.Asset.Fee {
-		orig.Asset.Fee = updated.Asset.Fee
-		log.Println("updated tx fee")
-	}
-	if updated.Asset != nil && updated.Asset.Value != 0 && updated.Asset.Value != orig.Asset.Value {
-		log.Println("updated tx value")
-		orig.Asset.Value = updated.Asset.Value
-	}
-	if updated.Asset != nil && updated.Asset.Category != "" && updated.Asset.Category != orig.Asset.Category {
-		log.Println("updated tx category")
-		orig.Asset.Category = updated.Asset.Category
-	}
-	if updated.Asset != nil && updated.Asset.Symbol != "" && updated.Asset.Symbol != orig.Asset.Symbol {
-		log.Println("updated tx symbol")
-		orig.Asset.Symbol = updated.Asset.Symbol
-	}
-	if updated.Asset != nil && updated.Asset.Network != "" && updated.Asset.Network != orig.Asset.Network {
-		log.Println("updated tx network")
-		orig.Asset.Network = updated.Asset.Network
-	}
-	if updated.Type != "" && updated.Type != orig.Type {
-		log.Println("updated type")
-		orig.Type = updated.Type
-	}
-	//updatedBz, err := cdc.MarshalJSON(orig)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("could not marshal updated transaction back into memory pool: %v", err)
-	// }
-
-	m.pending[origI].tx = orig
-	return orig, nil
-}
-
 // DeleteTx deletes a transaction currently in the MemPool by the transaction ID
 // Returns true if successfully cancelled, false if can't find or cancel the transaction
 func (m *MemPool) DeleteTx(id string) bool {
@@ -179,7 +155,8 @@ func (m *MemPool) DeleteTx(id string) bool {
 
 // RemoveTxs transactions from the MemPool
 func (m *MemPool) RemoveTxs(i int) {
-	if len(m.pending) < i {
+	log.Println("Removing tx from mempool", i)
+	if len(m.pending) < 1 {
 		m.pending = m.pending[len(m.pending):]
 		return
 	}
