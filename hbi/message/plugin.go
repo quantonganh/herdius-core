@@ -396,18 +396,19 @@ func getAccount(address string, ctx *network.PluginContext) error {
 	}
 
 	if account != nil {
-		eBalances := make(map[string]*protoplugin.EBalance)
+		eBalances := make(map[string]*protoplugin.EBalanceAsset)
 
-		if account.EBalances != nil && len(account.EBalances) > 0 {
-			for key := range account.EBalances {
-				eBalance := account.EBalances[key]
-				eBalanceRes := &protobuf.EBalance{
-					Address:         eBalance.Address,
-					Balance:         eBalance.Balance,
-					LastBlockHeight: eBalance.LastBlockHeight,
-					Nonce:           eBalance.Nonce,
+		for asset, assetAccount := range account.EBalances {
+			eBalances[asset] = &protoplugin.EBalanceAsset{}
+			eBalances[asset].Asset = make(map[string]*protobuf.EBalance)
+			for _, eb := range assetAccount.Asset {
+				eBalanceRes := &protoplugin.EBalance{
+					Address:         eb.Address,
+					Balance:         eb.Balance,
+					LastBlockHeight: eb.LastBlockHeight,
+					Nonce:           eb.Nonce,
 				}
-				eBalances[key] = eBalanceRes
+				eBalances[asset].Asset[eb.Address] = eBalanceRes
 			}
 		}
 		accountResp := protoplugin.AccountResponse{

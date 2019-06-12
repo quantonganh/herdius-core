@@ -74,18 +74,19 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	if len(account.Address) == 0 {
 		return nil, nil
 	}
-	eBalances := make(map[string]*protobuf.EBalance)
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
 
-	if account.EBalances != nil && len(account.EBalances) > 0 {
-		for key := range account.EBalances {
-			eBalance := account.EBalances[key]
+	for asset, assetAccount := range account.EBalances {
+		eBalances[asset] = &protobuf.EBalanceAsset{}
+		eBalances[asset].Asset = make(map[string]*protobuf.EBalance)
+		for _, eb := range assetAccount {
 			eBalanceRes := &protobuf.EBalance{
-				Address:         eBalance.Address,
-				Balance:         eBalance.Balance,
-				LastBlockHeight: eBalance.LastBlockHeight,
-				Nonce:           eBalance.Nonce,
+				Address:         eb.Address,
+				Balance:         eb.Balance,
+				LastBlockHeight: eb.LastBlockHeight,
+				Nonce:           eb.Nonce,
 			}
-			eBalances[key] = eBalanceRes
+			eBalances[asset].Asset[eb.Address] = eBalanceRes
 		}
 	}
 
@@ -111,10 +112,11 @@ func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, asse
 		if a.Balance >= txValue {
 			return true
 		}
-	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[assetSymbol] != (&protobuf.EBalance{}) {
-		bal := a.EBalances[assetSymbol]
-		if bal.Balance >= txValue {
-			return true
+	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[assetSymbol] != nil {
+		for _, eb := range a.EBalances[assetSymbol].Asset {
+			if eb.Balance >= txValue {
+				return true
+			}
 		}
 	}
 	return false

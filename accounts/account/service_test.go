@@ -22,24 +22,28 @@ func TestVerifyAccountBalanceFalse(t *testing.T) {
 }
 
 func TestVerifyExternalAssetBalanceTrue(t *testing.T) {
-	eBalance := protobuf.EBalance{
+	eBalance := &protobuf.EBalance{
 		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
 		Balance: 10,
 	}
-	eBalances := make(map[string]*protobuf.EBalance)
-	eBalances["ETH"] = &eBalance
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
+	eBalances["ETH"] = &protobuf.EBalanceAsset{}
+	eBalances["ETH"].Asset = make(map[string]*protobuf.EBalance)
+	eBalances["ETH"].Asset[eBalance.Address] = eBalance
 	account := &protobuf.Account{Balance: 10, EBalances: eBalances}
 	accService := NewAccountService()
 	assert.True(t, accService.VerifyAccountBalance(account, 5, "ETH"))
 }
 
 func TestVerifyExternalAssetBalanceFalse(t *testing.T) {
-	eBalance := protobuf.EBalance{
+	eBalance := &protobuf.EBalance{
 		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
 		Balance: 1,
 	}
-	eBalances := make(map[string]*protobuf.EBalance)
-	eBalances["ETH"] = &eBalance
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
+	eBalances["ETH"] = &protobuf.EBalanceAsset{}
+	eBalances["ETH"].Asset = make(map[string]*protobuf.EBalance)
+	eBalances["ETH"].Asset[eBalance.Address] = eBalance
 	account := &protobuf.Account{Balance: 1, EBalances: eBalances}
 	accService := NewAccountService()
 	assert.False(t, accService.VerifyAccountBalance(account, 5, "ETH"))

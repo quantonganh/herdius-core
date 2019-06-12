@@ -18,10 +18,7 @@ import (
 */
 
 func TestInit(t *testing.T) {
-	var (
-		accountCache external.BalanceStorage
-		eBalances    map[string]statedb.EBalance
-	)
+	var accountCache external.BalanceStorage
 	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
 	accountCache = external.NewDB(badgerdb)
 	defer func() {
@@ -29,32 +26,32 @@ func TestInit(t *testing.T) {
 		os.RemoveAll("./test.syncdb")
 	}()
 
-	eBalances = make(map[string]statedb.EBalance)
-	eBalances["ETH"] = statedb.EBalance{Balance: uint64(0)}
+	addr := "ETH-1"
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances["ETH"] = make(map[string]statedb.EBalance)
+	eBalances["ETH"][addr] = statedb.EBalance{Address: addr, Balance: uint64(0)}
 
 	account := statedb.Account{}
 	account.EBalances = eBalances
 	account.Address = "testEthAddress1"
 
-	es := &EthSyncer{Account: account, Storage: accountCache}
+	es := newEthSyncer()
+	es.Account = account
+	es.Storage = accountCache
 	// Set external balance coming from infura
-	es.ExtBalance = big.NewInt(1)
-	es.Nonce = 5
-	es.BlockHeight = big.NewInt(2)
-
+	es.ExtBalance[addr] = big.NewInt(1)
+	es.Nonce[addr] = 5
+	es.BlockHeight[addr] = big.NewInt(2)
 	es.Update()
 	cachedAcc, ok := accountCache.Get(account.Address)
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Balance should be updated with external balance")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "LastBlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external Nonce")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Balance, es.ExtBalance[addr].Uint64(), "Balance should be updated with external balance")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "LastBlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external Nonce")
 
 }
 func TestExternalETHisGreater(t *testing.T) {
-	var (
-		accountCache external.BalanceStorage
-		eBalances    map[string]statedb.EBalance
-	)
+	var accountCache external.BalanceStorage
 	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
 	accountCache = external.NewDB(badgerdb)
 	defer func() {
@@ -62,49 +59,51 @@ func TestExternalETHisGreater(t *testing.T) {
 		os.RemoveAll("./test.syncdb")
 	}()
 
-	eBalances = make(map[string]statedb.EBalance)
-	eBalances["ETH"] = statedb.EBalance{Balance: uint64(8)}
+	addr := "ETH-1"
+	storageKey := "ETH-" + addr
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances["ETH"] = make(map[string]statedb.EBalance)
+	eBalances["ETH"][addr] = statedb.EBalance{Address: addr, Balance: uint64(8)}
 
 	account := statedb.Account{}
 	account.EBalances = eBalances
 	account.Address = "testEthAddress"
 
-	es := &EthSyncer{Account: account, Storage: accountCache}
+	es := newEthSyncer()
+	es.Account = account
+	es.Storage = accountCache
 	// Set external balance coming from infura
-	es.ExtBalance = big.NewInt(3)
-	es.Nonce = 5
-	es.BlockHeight = big.NewInt(2)
+	es.ExtBalance[addr] = big.NewInt(3)
+	es.Nonce[addr] = 5
+	es.BlockHeight[addr] = big.NewInt(2)
 	es.Update()
 	cachedAcc, ok := accountCache.Get(account.Address)
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "balance should be updated")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(3), "LastExtBalance should be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(3), "CurrentExtBalance should be updated")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], true, "IsFirstEntry should be updated")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "LastBlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external nonce")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Balance, es.ExtBalance[addr].Uint64(), "balance should be updated")
+	assert.Equal(t, cachedAcc.LastExtBalance[storageKey], big.NewInt(3), "LastExtBalance should be updated")
+	assert.Equal(t, cachedAcc.CurrentExtBalance[storageKey], big.NewInt(3), "CurrentExtBalance should be updated")
+	assert.Equal(t, cachedAcc.IsFirstEntry[storageKey], true, "IsFirstEntry should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "LastBlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external nonce")
 
-	es.ExtBalance = big.NewInt(20)
-	es.Nonce = 6
-	es.BlockHeight = big.NewInt(3)
+	es.ExtBalance[addr] = big.NewInt(20)
+	es.Nonce[addr] = 6
+	es.BlockHeight[addr] = big.NewInt(3)
 	es.Update()
 	cachedAcc, ok = accountCache.Get(account.Address)
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Balance should be updated")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], false, "IsFirstEntry should be updated")
-	assert.Equal(t, cachedAcc.IsNewAmountUpdate["ETH"], true, "IsNewAmountUpdate should be updated")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Balance, es.ExtBalance[addr].Uint64(), "Balance should be updated")
+	assert.Equal(t, cachedAcc.IsFirstEntry[storageKey], false, "IsFirstEntry should be updated")
+	assert.Equal(t, cachedAcc.IsNewAmountUpdate[storageKey], true, "IsNewAmountUpdate should be updated")
 
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(20), "LastExtBalance should be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(20), "CurrentExtBalance should be updated")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "LastBlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external Nonce")
+	assert.Equal(t, cachedAcc.LastExtBalance[storageKey], big.NewInt(20), "LastExtBalance should be updated")
+	assert.Equal(t, cachedAcc.CurrentExtBalance[storageKey], big.NewInt(20), "CurrentExtBalance should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "LastBlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external Nonce")
 }
 
 func TestExternalETHisLesser(t *testing.T) {
-	var (
-		accountCache external.BalanceStorage
-		eBalances    map[string]statedb.EBalance
-	)
+	var accountCache external.BalanceStorage
 	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
 	accountCache = external.NewDB(badgerdb)
 	defer func() {
@@ -112,50 +111,52 @@ func TestExternalETHisLesser(t *testing.T) {
 		os.RemoveAll("./test.syncdb")
 	}()
 
-	eBalances = make(map[string]statedb.EBalance)
-	eBalances["ETH"] = statedb.EBalance{Balance: uint64(8)}
+	addr := "ETH-1"
+	storageKey := "ETH-" + addr
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances["ETH"] = make(map[string]statedb.EBalance)
+	eBalances["ETH"][addr] = statedb.EBalance{Address: addr, Balance: uint64(8)}
 
 	account := statedb.Account{}
 	account.EBalances = eBalances
 	account.Address = "testEthAddress"
 
-	es := &EthSyncer{Account: account, Storage: accountCache}
+	es := newEthSyncer()
+	es.Account = account
+	es.Storage = accountCache
 	// Set external balance coming from infura
-	es.ExtBalance = big.NewInt(10)
-	es.Nonce = 6
-	es.BlockHeight = big.NewInt(3)
+	es.ExtBalance[addr] = big.NewInt(10)
+	es.Nonce[addr] = 6
+	es.BlockHeight[addr] = big.NewInt(3)
 	es.Update()
 	cachedAcc, ok := accountCache.Get(account.Address)
 
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Balance, es.ExtBalance.Uint64(), "Balance should be updated")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(10), "LastExtBalance should be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(10), "CurrentExtBalance should be updated")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], true, "IsFirstEntry should be updated")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "LastBlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external Nonce")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Balance, es.ExtBalance[addr].Uint64(), "Balance should be updated")
+	assert.Equal(t, cachedAcc.LastExtBalance[storageKey], big.NewInt(10), "LastExtBalance should be updated")
+	assert.Equal(t, cachedAcc.CurrentExtBalance[storageKey], big.NewInt(10), "CurrentExtBalance should be updated")
+	assert.Equal(t, cachedAcc.IsFirstEntry[storageKey], true, "IsFirstEntry should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "LastBlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external Nonce")
 
-	es.ExtBalance = big.NewInt(1)
-	es.Nonce = 7
-	es.BlockHeight = big.NewInt(4)
+	es.ExtBalance[addr] = big.NewInt(1)
+	es.Nonce[addr] = 7
+	es.BlockHeight[addr] = big.NewInt(4)
 	es.Update()
 	cachedAcc, ok = accountCache.Get(account.Address)
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.IsFirstEntry["ETH"], false, "IsFirstEntry should be updated")
-	assert.Equal(t, cachedAcc.IsNewAmountUpdate["ETH"], true, "IsNewAmountUpdate should be updated")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(1), "LastExtBalance should be updated")
-	assert.Equal(t, cachedAcc.CurrentExtBalance["ETH"], big.NewInt(1), "CurrentExtBalance should be updated")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "BlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external Nonce")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.IsFirstEntry[storageKey], false, "IsFirstEntry should be updated")
+	assert.Equal(t, cachedAcc.IsNewAmountUpdate[storageKey], true, "IsNewAmountUpdate should be updated")
+	assert.Equal(t, cachedAcc.LastExtBalance[storageKey], big.NewInt(1), "LastExtBalance should be updated")
+	assert.Equal(t, cachedAcc.CurrentExtBalance[storageKey], big.NewInt(1), "CurrentExtBalance should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "BlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external Nonce")
 
 }
 
 // Test if cache exists but Account cache dont have eth asset
 func Test(t *testing.T) {
-	var (
-		accountCache external.BalanceStorage
-		eBalances    map[string]statedb.EBalance
-	)
+	var accountCache external.BalanceStorage
 	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
 	accountCache = external.NewDB(badgerdb)
 	defer func() {
@@ -163,8 +164,11 @@ func Test(t *testing.T) {
 		os.RemoveAll("./test.syncdb")
 	}()
 
-	eBalances = make(map[string]statedb.EBalance)
-	eBalances["ETH"] = statedb.EBalance{Balance: uint64(8)}
+	addr := "ETH-1"
+	storageKey := "ETH-" + addr
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances["ETH"] = make(map[string]statedb.EBalance)
+	eBalances["ETH"][addr] = statedb.EBalance{Address: addr, Balance: uint64(8)}
 
 	account := statedb.Account{}
 	account.EBalances = eBalances
@@ -172,16 +176,18 @@ func Test(t *testing.T) {
 
 	accountCache.Set(account.Address, external.AccountCache{})
 
-	es := &EthSyncer{Account: account, Storage: accountCache}
+	es := newEthSyncer()
+	es.Account = account
+	es.Storage = accountCache
 	// Set external balance coming from infura
-	es.ExtBalance = big.NewInt(10)
-	es.Nonce = 7
-	es.BlockHeight = big.NewInt(4)
+	es.ExtBalance[addr] = big.NewInt(10)
+	es.Nonce[addr] = 7
+	es.BlockHeight[addr] = big.NewInt(4)
 	es.Update()
 	cachedAcc, ok := accountCache.Get(account.Address)
-	assert.Equal(t,ok,true,"cache should return account")
-	assert.Equal(t, cachedAcc.LastExtBalance["ETH"], big.NewInt(10), "should be updated")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].LastBlockHeight, es.BlockHeight.Uint64(), "LastBlockHeight should be updated with external height")
-	assert.Equal(t, cachedAcc.Account.EBalances["ETH"].Nonce, es.Nonce, "Nonce should be updated with external Nonce")
+	assert.Equal(t, ok, true, "cache should return account")
+	assert.Equal(t, cachedAcc.LastExtBalance[storageKey], big.NewInt(10), "should be updated")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].LastBlockHeight, es.BlockHeight[addr].Uint64(), "LastBlockHeight should be updated with external height")
+	assert.Equal(t, cachedAcc.Account.EBalances["ETH"][addr].Nonce, es.Nonce[addr], "Nonce should be updated with external Nonce")
 
 }

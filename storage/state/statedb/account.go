@@ -15,7 +15,7 @@ type Account struct {
 	Erc20Address    string
 	LastBlockHeight uint64
 	ExternalNonce   uint64
-	EBalances       map[string]EBalance
+	EBalances       map[string]map[string]EBalance
 }
 
 // EBalance is external balance model
@@ -26,12 +26,17 @@ type EBalance struct {
 	Nonce           uint64
 }
 
+// UpdateBalance sets EBalance's balance.
 func (eb *EBalance) UpdateBalance(b uint64) {
 	eb.Balance = b
 }
+
+// UpdateBlockHeight sets EBalance's last block height.
 func (eb *EBalance) UpdateBlockHeight(h uint64) {
 	eb.LastBlockHeight = h
 }
+
+// UpdateNonce sets EBalance's nonce.
 func (eb *EBalance) UpdateNonce(n uint64) {
 	eb.Nonce = n
 }

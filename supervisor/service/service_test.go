@@ -68,9 +68,11 @@ func TestUpdateHERAccountBalance(t *testing.T) {
 }
 
 func TestRegisterNewETHAddress(t *testing.T) {
+	symbol := "ETH"
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
 	asset := &pluginproto.Asset{
-		Symbol:                "ETH",
-		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 1,
 		Network:               "Herdius",
 	}
@@ -84,14 +86,16 @@ func TestRegisterNewETHAddress(t *testing.T) {
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
-	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
 }
 
 func TestRegisterMultipleExternalAssets(t *testing.T) {
+	symbol := "ETH"
+	extSenderAddress := " 0xD8f647855876549d2623f52126CE40D053a2ef6A"
 	// First add ETH
 	asset := &pluginproto.Asset{
-		Symbol:                "ETH",
-		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 1,
 		Network:               "Herdius",
 	}
@@ -105,12 +109,15 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) == 1)
-	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+	assert.True(t, len(account.EBalances[symbol]) == 1)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
 
+	newSymbol := "BTC"
+	newExtSenderAddress := "Bitcoin-Address"
 	// Second add BTC
 	asset = &pluginproto.Asset{
-		Symbol:                "BTC",
-		ExternalSenderAddress: "Bitcoin-Address",
+		Symbol:                newSymbol,
+		ExternalSenderAddress: newExtSenderAddress,
 		Nonce:                 2,
 		Network:               "Herdius",
 	}
@@ -122,13 +129,16 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) == 2)
-	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["BTC"].Address)
+	assert.True(t, len(account.EBalances[newSymbol]) == 1)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[newSymbol][newExtSenderAddress].Address)
 }
 
 func TestUpdateExternalAccountBalance(t *testing.T) {
+	symbol := "ETH"
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
 	asset := &pluginproto.Asset{
-		Symbol:                "ETH",
-		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 1,
 		Network:               "Herdius",
 	}
@@ -142,11 +152,11 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
-	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
 
 	asset = &pluginproto.Asset{
-		Symbol:                "ETH",
-		ExternalSenderAddress: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 2,
 		Network:               "Herdius",
 		Value:                 15,
@@ -159,56 +169,60 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
-	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances["ETH"].Address)
-	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
+	assert.Equal(t, uint64(15), account.EBalances[symbol][extSenderAddress].Balance)
 }
 
 func TestIsExternalAssetAddressExistTrue(t *testing.T) {
-	eBal := statedb.EBalance{
-		Address: "0xD8f647855876549d2623f52126CE40D053a2ef6A",
-	}
-	eBals := make(map[string]statedb.EBalance)
-	eBals["ETH"] = eBal
+	addr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBal := statedb.EBalance{Address: addr}
+	eBals := make(map[string]map[string]statedb.EBalance)
+	eBals["ETH"] = make(map[string]statedb.EBalance)
+	eBals["ETH"][addr] = eBal
 	account := &statedb.Account{
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	assert.True(t, isExternalAssetAddressExist(account, "ETH"))
+	assert.True(t, isExternalAssetAddressExist(account, "ETH", addr))
 }
 func TestIsExternalAssetAddressExistFalse(t *testing.T) {
-	eBal := statedb.EBalance{}
-	eBals := make(map[string]statedb.EBalance)
-	eBals["ETH"] = eBal
+	addr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBals := make(map[string]map[string]statedb.EBalance)
 	account := &statedb.Account{
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	assert.False(t, isExternalAssetAddressExist(account, "ETH"))
+	assert.False(t, isExternalAssetAddressExist(account, "ETH", addr))
 }
 
 func TestExternalAssetWithdrawFromAnAccount(t *testing.T) {
-	eBal := statedb.EBalance{Balance: 10}
-	eBals := make(map[string]statedb.EBalance)
-	eBals["ETH"] = eBal
+	addr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBal := statedb.EBalance{Balance: 10, Address: addr}
+	eBals := make(map[string]map[string]statedb.EBalance)
+	eBals["ETH"] = make(map[string]statedb.EBalance)
+	eBals["ETH"][addr] = eBal
 	account := &statedb.Account{
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	withdraw(account, "ETH", 5)
-	assert.Equal(t, uint64(5), account.EBalances["ETH"].Balance)
+	withdraw(account, "ETH", addr, 5)
+	assert.Equal(t, uint64(5), account.EBalances["ETH"][addr].Balance)
 }
 
 func TestExternalAssetDepositToAnAccount(t *testing.T) {
-	eBal := statedb.EBalance{Balance: 10}
-	eBals := make(map[string]statedb.EBalance)
-	eBals["ETH"] = eBal
+	addr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBal := statedb.EBalance{Balance: 10, Address: addr}
+	eBals := make(map[string]map[string]statedb.EBalance)
+	eBals["ETH"] = make(map[string]statedb.EBalance)
+	eBals["ETH"][addr] = eBal
 	account := &statedb.Account{
 		Address:   "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		EBalances: eBals,
 	}
-	deposit(account, "ETH", 5)
-	assert.Equal(t, uint64(15), account.EBalances["ETH"].Balance)
+	deposit(account, "ETH", addr, 5)
+	assert.Equal(t, uint64(15), account.EBalances["ETH"][addr].Balance)
 }
+
 func TestRemoveValidator(t *testing.T) {
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()
@@ -343,18 +357,20 @@ func TestShardToValidatorsTrue(t *testing.T) {
 func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	dir, err := ioutil.TempDir("", "temp-dir")
 
+	extAddr := "external-address-01"
 	eBalance := statedb.EBalance{
-		Address: "external-address-01",
+		Address: extAddr,
 		Balance: 0,
 	}
-	eBalances := make(map[string]statedb.EBalance)
-	eBalances["external-asset"] = eBalance
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances["external-asset"] = make(map[string]statedb.EBalance)
+	eBalances["external-asset"][extAddr] = eBalance
 	herAccount := statedb.Account{
 		Address:   "her-address-01",
 		EBalances: eBalances,
 	}
 
-	assert.Equal(t, herAccount.EBalances["external-asset"].Balance, uint64(0))
+	assert.Equal(t, herAccount.EBalances["external-asset"][extAddr].Balance, uint64(0))
 	trie = statedb.GetState(dir)
 	sactbz, err := cdc.MarshalJSON(herAccount)
 	err = trie.TryUpdate([]byte(herAccount.Address), sactbz)
@@ -377,7 +393,7 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	isFirstEntry["external-asset"] = true
 
 	eBalance.Balance = uint64(math.Pow10(18))
-	eBalances["external-asset"] = eBalance
+	eBalances["external-asset"][extAddr] = eBalance
 	herAccount.EBalances = eBalances
 	herCacheAccount := external.AccountCache{
 		Account:           herAccount,
@@ -385,11 +401,11 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 		LastExtBalance:    lastExternalBal,
 		IsFirstEntry:      isFirstEntry,
 	}
-	accountStorage.Set("external-address-01", herCacheAccount)
+	accountStorage.Set(extAddr, herCacheAccount)
 
 	updateStateWithNewExternalBalance(trie)
 
-	res, ok := accountStorage.Get("external-address-01")
+	res, ok := accountStorage.Get(extAddr)
 	assert.True(t, ok)
 	assert.False(t, res.IsFirstEntry["external-asset"])
 
