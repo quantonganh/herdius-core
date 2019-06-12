@@ -347,6 +347,7 @@ func main() {
 
 			lastBlock := blockchainSvc.GetLastBlock()
 			stateRoot = lastBlock.GetHeader().GetStateRoot()
+			supsvc.SetStateRoot(stateRoot)
 			baseBlock, err := supsvc.ProcessTxs(lastBlock, net)
 			if err != nil {
 				log.Error().Msg(err.Error())
