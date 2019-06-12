@@ -227,8 +227,8 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 	var blockHash common.HexBytes
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
 	b.BackupPath = fmt.Sprintf("%v/blocks/%v", heightStr, blockHash)
-	b.objectTags = b.setObjectTags(heightStr, blockHash)
 	b.timeStamp = strconv.Itoa(int(time.Now().Unix()))
+	b.objectTags = b.setObjectTags(heightStr, blockHash)
 
 	result, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:               aws.String(b.Bucket),
@@ -248,9 +248,10 @@ func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) err
 		uploader:     uploader,
 		uploadBucket: b.Bucket,
 		objectTags:   b.objectTags,
+		objectHeight: height,
 	}
 
-	err = filepath.Walk(b.StateDirPath, w.walk)
+	err := filepath.Walk(b.StateDirPath, w.walk)
 	if err != nil {
 		return fmt.Errorf("couldn't walk dir: %v", err)
 	}
@@ -259,7 +260,7 @@ func (b *Backuper) backupStateDB(uploader *s3manager.Uploader, height int64) err
 	return nil
 }
 
-func (b *Backuper) setObjectTags(height, blockHash string) string {
+func (b *Backuper) setObjectTags(height string, blockHash common.HexBytes) string {
 	return fmt.Sprintf("height=%v&timestamp=%v&blockhash=%v", height, b.timeStamp, blockHash)
 }
 
@@ -268,8 +269,8 @@ type walker struct {
 	uploader     *s3manager.Uploader
 	uploadPath   string
 	uploadBucket string
-	uploadBucket string
 	objectTags   string
+	objectHeight int64
 }
 
 func (w *walker) walk(path string, info os.FileInfo, err error) error {
@@ -295,7 +296,7 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read from file (%q): %v", path, err)
 	}
-	err = w.setUploadPath(height, fileInfo.Name())
+	err = w.setUploadPath(fileInfo.Name())
 	if err != nil {
 		return fmt.Errorf("couldn't set uploadPath (%q): %v", path, err)
 	}
@@ -313,7 +314,7 @@ func (w *walker) walk(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (w *walker) setUploadPath(height int64, fileName string) error {
+func (w *walker) setUploadPath(fileName string) error {
 	currentPath := fmt.Sprintf("herdius/statedb/CURRENT")
 	cur, err := os.Open(currentPath)
 	if err != nil {
@@ -326,6 +327,6 @@ func (w *walker) setUploadPath(height int64, fileName string) error {
 	}
 	curStr := string(contents)
 
-	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v/", height, curStr, fileName)
+	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v", w.objectHeight, curStr, fileName)
 	return nil
 }
