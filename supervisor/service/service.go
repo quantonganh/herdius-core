@@ -404,6 +404,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 			}
 			mp.RemoveTxs(len(*txs))
 			if s.Backup() == false {
+				log.Println("Backup value false, not backing up block or state")
 				return baseBlock, nil
 			}
 			backuper := aws.NewBackuper(s.env)
