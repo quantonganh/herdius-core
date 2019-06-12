@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/herdius/herdius-core/aws"
+	"github.com/herdius/herdius-core/aws/restore"
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
@@ -227,7 +227,7 @@ func main() {
 	port := *portFlag
 	env := *envFlag
 	waitTime := *waitTimeFlag
-	restore := *restoreFlag
+	restr := *restoreFlag
 	backup := *backupFlag
 	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
@@ -303,12 +303,14 @@ func main() {
 	if *supervisorFlag {
 		accountStorage = external.New()
 		blockchain.LoadDB()
-		if restore == true {
-			succ := aws.Restore(env)
-			nlog.Println("aws.Restore status:", succ)
-		} else {
-			blockchain.LoadDB()
+		if restr == true {
+			nlog.Println("Restore value true: proceeding to restore from AWS S3")
+			err := restore.Restore(env)
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
 		}
+		blockchain.LoadDB()
 		sup.LoadStateDB(accountStorage)
 		blockchainSvc := &blockchain.Service{}
 
