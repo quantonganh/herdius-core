@@ -555,23 +555,14 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 		senderAccount.Nonce = tx.Asset.Nonce
 	} else if !strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		tx.SenderAddress == senderAccount.Address {
-		//Register External Asset Addresses
-		// Check if an entry already exist for an address
+
+		// Update account's Nonce
+		senderAccount.Nonce = tx.Asset.Nonce
+
+		// Register External Asset Addresses if not exist
 		if assetEBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
-			//check if eBalance.Address matches with the asset.address in tx request
-			eBalance, ok := assetEBalance[tx.Asset.ExternalSenderAddress]
-			if ok && tx.Asset.ExternalSenderAddress == eBalance.Address {
-				eBalance.Balance += tx.Asset.Value
-				if tx.Asset.ExternalBlockHeight > 0 {
-					eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
-				}
-				if tx.Asset.ExternalNonce > 0 {
-					eBalance.Nonce = tx.Asset.ExternalNonce
-				}
-				senderAccount.EBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
-				senderAccount.Nonce = tx.Asset.Nonce
-			} else {
-				eBalance = statedb.EBalance{}
+			if _, ok := assetEBalance[tx.Asset.ExternalSenderAddress]; !ok {
+				eBalance := statedb.EBalance{}
 				eBalance.Address = tx.Asset.ExternalSenderAddress
 				eBalance.Balance = 0
 				eBalance.LastBlockHeight = 0
@@ -579,7 +570,6 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 				eBalances := senderAccount.EBalances
 				eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
 				senderAccount.EBalances = eBalances
-				senderAccount.Nonce = tx.Asset.Nonce
 			}
 		} else {
 			eBalance := statedb.EBalance{}
@@ -596,7 +586,6 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 			}
 			eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
 			senderAccount.EBalances = eBalances
-			senderAccount.Nonce = tx.Asset.Nonce
 		}
 	}
 	return senderAccount

@@ -170,7 +170,7 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
-	assert.Equal(t, uint64(15), account.EBalances[symbol][extSenderAddress].Balance)
+	assert.Equal(t, uint64(0), account.EBalances[symbol][extSenderAddress].Balance)
 }
 
 func TestIsExternalAssetAddressExistTrue(t *testing.T) {
