@@ -133,3 +133,14 @@ func (s *Service) VerifyAccountNonce(a *protobuf.Account, txNonce uint64) bool {
 	}
 	return false
 }
+
+// AccountExternalAddressExist reports whether an external address existed in EBalances
+func (s *Service) AccountExternalAddressExist(a *protobuf.Account, assetSymbol, extAddress string) bool {
+	if a != nil && a.EBalances != nil && a.EBalances[assetSymbol] != nil {
+		if asset := a.EBalances[assetSymbol].Asset; asset != nil {
+			_, ok := asset[extAddress]
+			return ok
+		}
+	}
+	return false
+}

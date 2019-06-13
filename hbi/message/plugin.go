@@ -172,6 +172,9 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		update := Update.String()
 		if strings.EqualFold(tx.Type, update) {
+			if accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+				return errors.New("External address existed")
+			}
 			postAccountUpdateTx(tx, ctx, accSrv)
 			return nil
 		}
