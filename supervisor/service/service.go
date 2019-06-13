@@ -471,31 +471,33 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 		accountInAccountCache := item
 		account := item.Account
 		for assetSymbol := range account.EBalances {
-			IsFirstEntry := item.IsFirstEntry[assetSymbol]
-			IsNewAmountUpdate := item.IsNewAmountUpdate[assetSymbol]
-			if IsNewAmountUpdate && !IsFirstEntry {
-				log.Printf("Account from cache to be persisted to state: %v", account)
-				sactbz, err := cdc.MarshalJSON(account)
-				if err != nil {
-					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-					continue
+			for _, eb := range account.EBalances[assetSymbol] {
+				storageKey := assetSymbol + "-" + eb.Address
+				IsFirstEntry := item.IsFirstEntry[storageKey]
+				IsNewAmountUpdate := item.IsNewAmountUpdate[storageKey]
+				if IsNewAmountUpdate && !IsFirstEntry {
+					log.Printf("Account from cache to be persisted to state: %v", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsNewAmountUpdate[storageKey] = false
+					accountStorage.Set(address, accountInAccountCache)
 				}
-				stateTrie.TryUpdate([]byte(address), sactbz)
-				accountInAccountCache.IsNewAmountUpdate[assetSymbol] = false
-				accountStorage.Set(address, accountInAccountCache)
-			}
-			if IsFirstEntry {
-				log.Println("Account from cache to be persisted to state first time: ", account)
-				sactbz, err := cdc.MarshalJSON(account)
-				if err != nil {
-					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-					continue
+				if IsFirstEntry {
+					log.Println("Account from cache to be persisted to state first time: ", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsFirstEntry[storageKey] = false
+					accountStorage.Set(address, accountInAccountCache)
 				}
-				stateTrie.TryUpdate([]byte(address), sactbz)
-				accountInAccountCache.IsFirstEntry[assetSymbol] = false
-				accountStorage.Set(address, accountInAccountCache)
 			}
-
 		}
 
 		// IF ERC20Address is presend update accoun balance

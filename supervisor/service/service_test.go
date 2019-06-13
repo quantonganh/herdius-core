@@ -358,19 +358,21 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	dir, err := ioutil.TempDir("", "temp-dir")
 
 	extAddr := "external-address-01"
+	asset := "external-asset"
+	storageKey := asset + "-" + extAddr
 	eBalance := statedb.EBalance{
 		Address: extAddr,
 		Balance: 0,
 	}
 	eBalances := make(map[string]map[string]statedb.EBalance)
-	eBalances["external-asset"] = make(map[string]statedb.EBalance)
-	eBalances["external-asset"][extAddr] = eBalance
+	eBalances[asset] = make(map[string]statedb.EBalance)
+	eBalances[asset][extAddr] = eBalance
 	herAccount := statedb.Account{
 		Address:   "her-address-01",
 		EBalances: eBalances,
 	}
 
-	assert.Equal(t, herAccount.EBalances["external-asset"][extAddr].Balance, uint64(0))
+	assert.Equal(t, herAccount.EBalances[asset][extAddr].Balance, uint64(0))
 	trie = statedb.GetState(dir)
 	sactbz, err := cdc.MarshalJSON(herAccount)
 	err = trie.TryUpdate([]byte(herAccount.Address), sactbz)
@@ -384,16 +386,16 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 		os.RemoveAll("./test.syncdb")
 	}()
 	currentExternalBal := make(map[string]*big.Int)
-	currentExternalBal["external-asset"] = big.NewInt(int64(math.Pow10(18)))
+	currentExternalBal[asset] = big.NewInt(int64(math.Pow10(18)))
 
 	lastExternalBal := make(map[string]*big.Int)
-	lastExternalBal["external-asset"] = big.NewInt(int64(0))
+	lastExternalBal[asset] = big.NewInt(int64(0))
 
 	isFirstEntry := make(map[string]bool)
-	isFirstEntry["external-asset"] = true
+	isFirstEntry[asset] = true
 
 	eBalance.Balance = uint64(math.Pow10(18))
-	eBalances["external-asset"][extAddr] = eBalance
+	eBalances[asset][extAddr] = eBalance
 	herAccount.EBalances = eBalances
 	herCacheAccount := external.AccountCache{
 		Account:           herAccount,
@@ -407,7 +409,7 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 
 	res, ok := accountStorage.Get(extAddr)
 	assert.True(t, ok)
-	assert.False(t, res.IsFirstEntry["external-asset"])
+	assert.False(t, res.IsFirstEntry[storageKey])
 
 	defer os.RemoveAll(dir)
 }
