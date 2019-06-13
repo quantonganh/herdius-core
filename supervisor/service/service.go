@@ -576,7 +576,7 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 				eBalance.Balance = 0
 				eBalance.LastBlockHeight = 0
 				eBalance.Nonce = 0
-				eBalances := make(map[string]map[string]statedb.EBalance)
+				eBalances := senderAccount.EBalances
 				eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
 				senderAccount.EBalances = eBalances
 				senderAccount.Nonce = tx.Asset.Nonce
