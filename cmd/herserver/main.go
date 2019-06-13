@@ -210,7 +210,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 }
 
 func main() {
-	accountStorage = external.New()
 
 	// process other flags
 	peersFlag := flag.String("peers", "", "peers to connect to")
@@ -297,6 +296,7 @@ func main() {
 
 	var stateRoot []byte
 	if *supervisorFlag {
+		accountStorage = external.New()
 		blockchain.LoadDB()
 		sup.LoadStateDB(accountStorage)
 		blockchainSvc := &blockchain.Service{}
