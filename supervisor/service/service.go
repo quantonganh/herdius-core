@@ -561,28 +561,25 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 			//check if eBalance.Address matches with the asset.address in tx request
 			eBalance, ok := assetEBalance[tx.Asset.ExternalSenderAddress]
 			if ok && tx.Asset.ExternalSenderAddress == eBalance.Address {
-				if len(senderAccount.EBalances) == 0 {
-					eBalance = statedb.EBalance{}
-					eBalance.Address = tx.Asset.ExternalSenderAddress
-					eBalance.Balance = 0
-					eBalance.LastBlockHeight = 0
-					eBalance.Nonce = 0
-					eBalances := make(map[string]map[string]statedb.EBalance)
-					eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
-					senderAccount.EBalances = eBalances
-					senderAccount.Nonce = tx.Asset.Nonce
-				} else {
-					eBalance.Balance += tx.Asset.Value
-					if tx.Asset.ExternalBlockHeight > 0 {
-						eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
-					}
-					if tx.Asset.ExternalNonce > 0 {
-						eBalance.Nonce = tx.Asset.ExternalNonce
-					}
-					senderAccount.EBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
-					senderAccount.Nonce = tx.Asset.Nonce
+				eBalance.Balance += tx.Asset.Value
+				if tx.Asset.ExternalBlockHeight > 0 {
+					eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
 				}
-
+				if tx.Asset.ExternalNonce > 0 {
+					eBalance.Nonce = tx.Asset.ExternalNonce
+				}
+				senderAccount.EBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
+				senderAccount.Nonce = tx.Asset.Nonce
+			} else {
+				eBalance = statedb.EBalance{}
+				eBalance.Address = tx.Asset.ExternalSenderAddress
+				eBalance.Balance = 0
+				eBalance.LastBlockHeight = 0
+				eBalance.Nonce = 0
+				eBalances := make(map[string]map[string]statedb.EBalance)
+				eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
+				senderAccount.EBalances = eBalances
+				senderAccount.Nonce = tx.Asset.Nonce
 			}
 		} else {
 			eBalance := statedb.EBalance{}
