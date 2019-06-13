@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"math/big"
 
@@ -25,6 +24,7 @@ type EthSyncer struct {
 	RPC            string
 	Account        statedb.Account
 	Storage        external.BalanceStorage
+	addressError   map[string]bool
 }
 
 func newEthSyncer() *EthSyncer {
@@ -33,6 +33,7 @@ func newEthSyncer() *EthSyncer {
 	e.LastExtBalance = make(map[string]*big.Int)
 	e.BlockHeight = make(map[string]*big.Int)
 	e.Nonce = make(map[string]uint64)
+	e.addressError = make(map[string]bool)
 
 	return e
 }
@@ -54,6 +55,8 @@ func (es *EthSyncer) GetExtBalance() error {
 		client, err := ethclient.Dial(es.RPC)
 		if err != nil {
 			log.Println("Error connecting ETH RPC", err)
+			es.addressError[ea.Address] = true
+			continue
 		}
 
 		account := common.HexToAddress(ea.Address)
@@ -62,24 +65,28 @@ func (es *EthSyncer) GetExtBalance() error {
 		latestBlockNumber, err = es.getLatestBlockNumber(client)
 		if err != nil {
 			log.Println("Error getting ETH Latest block from RPC", err)
-			return err
+			es.addressError[ea.Address] = true
+			continue
 		}
 
 		//Get nonce
 		nonce, err = es.getNonce(client, account, latestBlockNumber)
 		if err != nil {
 			log.Println("Error getting ETH Account nonce from RPC", err)
-			return err
+			es.addressError[ea.Address] = true
+			continue
 		}
 
 		balance, err = client.BalanceAt(context.Background(), account, latestBlockNumber)
 		if err != nil {
 			log.Println("Error getting ETH Balance from RPC", err)
-			return err
+			es.addressError[ea.Address] = true
+			continue
 		}
 		es.ExtBalance[ea.Address] = balance
 		es.BlockHeight[ea.Address] = latestBlockNumber
 		es.Nonce[ea.Address] = nonce
+		es.addressError[ea.Address] = false
 	}
 
 	return nil
@@ -90,7 +97,6 @@ func (es *EthSyncer) GetExtBalance() error {
 func (es *EthSyncer) Update() {
 	assetSymbol := "ETH"
 	for _, ethAccount := range es.Account.EBalances[assetSymbol] {
-		fmt.Printf("%#v\n", ethAccount)
 		herEthBalance := *big.NewInt(int64(0))
 		storageKey := assetSymbol + "-" + ethAccount.Address
 		if last, ok := es.Storage.Get(es.Account.Address); ok {
@@ -99,7 +105,9 @@ func (es *EthSyncer) Update() {
 			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok {
 				if lastExtBalance.Cmp(es.ExtBalance[ethAccount.Address]) < 0 {
 					log.Printf("lastExtBalance.Cmp(es.ExtBalance[%s])", ethAccount.Address)
+
 					herEthBalance.Sub(es.ExtBalance[ethAccount.Address], lastExtBalance)
+
 					ethAccount.Balance += herEthBalance.Uint64()
 					ethAccount.LastBlockHeight = es.BlockHeight[ethAccount.Address].Uint64()
 					ethAccount.Nonce = es.Nonce[ethAccount.Address]
@@ -110,11 +118,9 @@ func (es *EthSyncer) Update() {
 					last = last.UpdateIsFirstEntryByKey(storageKey, false)
 					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
 					last = last.UpdateAccount(es.Account)
+					es.Storage.Set(es.Account.Address, last)
 
 					log.Printf("New account balance after external balance credit: %v\n", last)
-					es.Storage.Set(es.Account.Address, last)
-					continue
-
 				}
 
 				// last-balance < External-ETH
@@ -123,36 +129,39 @@ func (es *EthSyncer) Update() {
 					log.Println("lastExtBalance.Cmp(es.ExtBalance) ============")
 
 					herEthBalance.Sub(lastExtBalance, es.ExtBalance[ethAccount.Address])
+
 					ethAccount.Balance -= herEthBalance.Uint64()
 					ethAccount.LastBlockHeight = es.BlockHeight[ethAccount.Address].Uint64()
 					ethAccount.Nonce = es.Nonce[ethAccount.Address]
+					es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
+
 					last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
 					last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
 					last = last.UpdateIsFirstEntryByKey(storageKey, false)
 					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
-
 					last = last.UpdateAccount(es.Account)
+					es.Storage.Set(es.Account.Address, last)
 
 					log.Printf("New account balance after external balance debit: %v\n", last)
+				}
+
+				if lastExtBalance.Cmp(es.ExtBalance[ethAccount.Address]) == 0 && lastExtBalance.Uint64() != ethAccount.Balance {
+					ethAccount.Balance = lastExtBalance.Uint64()
+					ethAccount.LastBlockHeight = es.BlockHeight[ethAccount.Address].Uint64()
+					ethAccount.Nonce = es.Nonce[ethAccount.Address]
+					es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
+
+					last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
+					last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
+					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
+					last = last.UpdateAccount(es.Account)
 					es.Storage.Set(es.Account.Address, last)
 				}
 				continue
 			}
-
-			log.Printf("Initialise external balance in cache: %v\n", last)
-			last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
-			last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
-			last = last.UpdateIsFirstEntryByKey(storageKey, true)
-			last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
-			ethAccount.UpdateBalance(es.ExtBalance[ethAccount.Address].Uint64())
-			ethAccount.UpdateBlockHeight(es.BlockHeight[ethAccount.Address].Uint64())
-			ethAccount.UpdateNonce(es.Nonce[ethAccount.Address])
-			es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
-			last = last.UpdateAccount(es.Account)
-			es.Storage.Set(es.Account.Address, last)
-			continue
 		}
+
+		log.Printf("Initialise account in cache.")
 		balance := es.ExtBalance[ethAccount.Address]
 		blockHeight := es.BlockHeight[ethAccount.Address]
 		lastbalances := make(map[string]*big.Int)
