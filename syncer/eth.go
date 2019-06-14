@@ -97,6 +97,10 @@ func (es *EthSyncer) GetExtBalance() error {
 func (es *EthSyncer) Update() {
 	assetSymbol := "ETH"
 	for _, ethAccount := range es.Account.EBalances[assetSymbol] {
+		if es.addressError[ethAccount.Address] {
+			log.Println("Account info is not available at this moment, skip sync: ", ethAccount.Address)
+			continue
+		}
 		herEthBalance := *big.NewInt(int64(0))
 		storageKey := assetSymbol + "-" + ethAccount.Address
 		if last, ok := es.Storage.Get(es.Account.Address); ok {
