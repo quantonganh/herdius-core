@@ -207,19 +207,6 @@ func (btc *BTCSyncer) Update() {
 
 					log.Printf("New account balance after external balance debit: %v\n", last)
 				}
-
-				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) == 0 && lastExtBalance.Uint64() != btcAccount.Balance {
-					btcAccount.Balance = lastExtBalance.Uint64()
-					btcAccount.LastBlockHeight = btc.BlockHeight[btcAccount.Address].Uint64()
-					btcAccount.Nonce = btc.Nonce[btcAccount.Address]
-					btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-
-					last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					last = last.UpdateAccount(btc.Account)
-					btc.Storage.Set(btc.Account.Address, last)
-				}
 				continue
 			}
 

@@ -146,19 +146,6 @@ func (es *EthSyncer) Update() {
 					es.Storage.Set(es.Account.Address, last)
 					log.Printf("New account balance after external balance debit: %v\n", last)
 				}
-
-				if lastExtBalance.Cmp(es.ExtBalance[ethAccount.Address]) == 0 && lastExtBalance.Uint64() != ethAccount.Balance {
-					ethAccount.Balance = lastExtBalance.Uint64()
-					ethAccount.LastBlockHeight = es.BlockHeight[ethAccount.Address].Uint64()
-					ethAccount.Nonce = es.Nonce[ethAccount.Address]
-					es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
-
-					last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
-					last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
-					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					last = last.UpdateAccount(es.Account)
-					es.Storage.Set(es.Account.Address, last)
-				}
 				continue
 			}
 
