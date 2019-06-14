@@ -897,8 +897,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			}
 
 			// Verify if Receiver has an address for corresponding external asset
-			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressExist(&rcvrAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+			if !strings.EqualFold(tx.Asset.Symbol, "HER") && len(rcvrAccount.EBalances[tx.Asset.Symbol]) == 0 {
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
