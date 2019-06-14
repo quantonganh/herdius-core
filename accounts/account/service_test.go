@@ -45,12 +45,12 @@ func TestVerifyExternalAssetBalanceFalse(t *testing.T) {
 	assert.False(t, accService.VerifyAccountBalance(account, 5, "ETH"))
 }
 
-func TestVerifyAccountNonceHighFalse(t *testing.T) {
+func TestVerifyAccountNonceHighTrue(t *testing.T) {
 	acc := &protobuf.Account{Nonce: 1}
 	txNonce := uint64(3)
 	s := NewAccountService()
 	res := s.VerifyAccountNonce(acc, txNonce)
-	assert.False(t, res)
+	assert.True(t, res)
 }
 
 func TestVerifyAccountNonceLowFalse(t *testing.T) {
