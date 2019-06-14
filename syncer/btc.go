@@ -143,7 +143,9 @@ func (btc *BTCSyncer) GetExtBalance() error {
 
 			btc.ExtBalance[ba.Address] = balance
 			btc.addressError[ba.Address] = false
+			continue
 		}
+		btc.addressError[ba.Address] = true
 	}
 	return nil
 
