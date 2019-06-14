@@ -106,7 +106,7 @@ func (es *EthSyncer) Update() {
 		if last, ok := es.Storage.Get(es.Account.Address); ok {
 			// last-balance < External-ETH
 			// Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok {
+			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok && lastExtBalance != nil {
 				if lastExtBalance.Cmp(es.ExtBalance[ethAccount.Address]) < 0 {
 					log.Printf("lastExtBalance.Cmp(es.ExtBalance[%s])", ethAccount.Address)
 
@@ -123,7 +123,6 @@ func (es *EthSyncer) Update() {
 					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
 					last = last.UpdateAccount(es.Account)
 					es.Storage.Set(es.Account.Address, last)
-
 					log.Printf("New account balance after external balance credit: %v\n", last)
 				}
 
@@ -145,7 +144,6 @@ func (es *EthSyncer) Update() {
 					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
 					last = last.UpdateAccount(es.Account)
 					es.Storage.Set(es.Account.Address, last)
-
 					log.Printf("New account balance after external balance debit: %v\n", last)
 				}
 
@@ -163,6 +161,25 @@ func (es *EthSyncer) Update() {
 				}
 				continue
 			}
+
+			log.Printf("Initialise external balance in cache: %v\n", last)
+			if es.ExtBalance[ethAccount.Address] == nil {
+				es.ExtBalance[ethAccount.Address] = big.NewInt(0)
+			}
+			if es.BlockHeight[ethAccount.Address] == nil {
+				es.BlockHeight[ethAccount.Address] = big.NewInt(0)
+			}
+			last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
+			last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[ethAccount.Address])
+			last = last.UpdateIsFirstEntryByKey(storageKey, true)
+			last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
+			ethAccount.UpdateBalance(es.ExtBalance[ethAccount.Address].Uint64())
+			ethAccount.UpdateBlockHeight(es.BlockHeight[ethAccount.Address].Uint64())
+			ethAccount.UpdateNonce(es.Nonce[ethAccount.Address])
+			es.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
+			last = last.UpdateAccount(es.Account)
+			es.Storage.Set(es.Account.Address, last)
+			continue
 		}
 
 		log.Printf("Initialise account in cache.")

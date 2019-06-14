@@ -165,7 +165,7 @@ func (btc *BTCSyncer) Update() {
 		if last, ok := btc.Storage.Get(btc.Account.Address); ok {
 			// last-balance < External-ETH
 			// Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok {
+			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok && lastExtBalance != nil {
 				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) < 0 {
 					log.Printf("lastExtBalance.Cmp(btc.ExtBalance[%s])", btcAccount.Address)
 
@@ -222,6 +222,25 @@ func (btc *BTCSyncer) Update() {
 				}
 				continue
 			}
+
+			log.Printf("Initialise external balance in cache: %v\n", last)
+			if btc.ExtBalance[btcAccount.Address] == nil {
+				btc.ExtBalance[btcAccount.Address] = big.NewInt(0)
+			}
+			if btc.BlockHeight[btcAccount.Address] == nil {
+				btc.BlockHeight[btcAccount.Address] = big.NewInt(0)
+			}
+			last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
+			last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
+			last = last.UpdateIsFirstEntryByKey(storageKey, true)
+			last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
+			btcAccount.UpdateBalance(btc.ExtBalance[btcAccount.Address].Uint64())
+			btcAccount.UpdateBlockHeight(btc.BlockHeight[btcAccount.Address].Uint64())
+			btcAccount.UpdateNonce(btc.Nonce[btcAccount.Address])
+			btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
+			last = last.UpdateAccount(btc.Account)
+			btc.Storage.Set(btc.Account.Address, last)
+			continue
 		}
 
 		log.Printf("Initialise account in cache.")

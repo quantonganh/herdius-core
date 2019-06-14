@@ -60,10 +60,12 @@ func TestExternalETHisGreater(t *testing.T) {
 	}()
 
 	addr := "ETH-1"
+	addr2 := "ETH-2"
 	storageKey := "ETH-" + addr
 	eBalances := make(map[string]map[string]statedb.EBalance)
 	eBalances["ETH"] = make(map[string]statedb.EBalance)
 	eBalances["ETH"][addr] = statedb.EBalance{Address: addr, Balance: uint64(8)}
+	eBalances["ETH"][addr2] = statedb.EBalance{Address: addr2, Balance: uint64(18)}
 
 	account := statedb.Account{}
 	account.EBalances = eBalances
