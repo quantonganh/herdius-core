@@ -81,7 +81,7 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		btcSyncer := newBTCSyncer()
 		btcSyncer.Account = senderAccount
 		btcSyncer.Storage = exBal
-		btcSyncer.RPC = rpc.ethRPC
+		btcSyncer.RPC = rpc.btcRPC
 		syncers = append(syncers, btcSyncer)
 
 		// HERDIUS syncer
