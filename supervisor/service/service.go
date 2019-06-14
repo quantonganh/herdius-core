@@ -551,6 +551,7 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 		senderAccount.PublicKey = tx.SenderPubkey
 		log.Println("Account register", tx)
 		senderAccount.Erc20Address = tx.Asset.ExternalSenderAddress
+		senderAccount.FirstExternalAddress = make(map[string]string)
 	} else if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		tx.SenderAddress == senderAccount.Address {
 		senderAccount.Balance += tx.Asset.Value
@@ -588,6 +589,10 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 			}
 			eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
 			senderAccount.EBalances = eBalances
+			if senderAccount.FirstExternalAddress == nil {
+				senderAccount.FirstExternalAddress = make(map[string]string)
+			}
+			senderAccount.FirstExternalAddress[tx.Asset.Symbol] = tx.Asset.ExternalSenderAddress
 		}
 	}
 	return senderAccount
@@ -909,7 +914,9 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.Value)
 
 			// Credit Reciever's Account
-			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.ExternalRecieverAddress, tx.Asset.Value)
+			// If credit to external address, pick first account
+			// TODO: Should we consider tx.Asset.ExternalRecieverAddress?
+			deposit(&rcvrAccount, tx.Asset.Symbol, rcvrAccount.FirstExternalAddress[tx.Asset.Symbol], tx.Asset.Value)
 
 			senderAccount.Nonce = tx.Asset.Nonce
 			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)

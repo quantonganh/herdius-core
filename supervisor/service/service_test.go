@@ -82,11 +82,13 @@ func TestRegisterNewETHAddress(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
+	assert.Equal(t, extSenderAddress, account.FirstExternalAddress[symbol])
 }
 
 func TestRegisterMultipleExternalAssets(t *testing.T) {
@@ -105,12 +107,14 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) == 1)
 	assert.True(t, len(account.EBalances[symbol]) == 1)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
+	assert.Equal(t, extSenderAddress, account.FirstExternalAddress[symbol])
 
 	newSymbol := "BTC"
 	newExtSenderAddress := "Bitcoin-Address"
@@ -131,6 +135,7 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 	assert.True(t, len(account.EBalances) == 2)
 	assert.True(t, len(account.EBalances[newSymbol]) == 1)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[newSymbol][newExtSenderAddress].Address)
+	assert.Equal(t, newExtSenderAddress, account.FirstExternalAddress[newSymbol])
 }
 
 func TestUpdateExternalAccountBalance(t *testing.T) {
@@ -148,10 +153,12 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
 	assert.True(t, len(account.EBalances) > 0)
+	assert.Equal(t, extSenderAddress, account.FirstExternalAddress[symbol])
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
 
 	asset = &pluginproto.Asset{
