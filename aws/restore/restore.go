@@ -87,6 +87,7 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 	key := *listResult.Contents[0].Key
 	downloadParams := &s3.GetObjectInput{
 		Bucket: aws.String(r.s3bucket),
+		Key:    aws.String(key),
 	}
 
 	for i := 0; i < r.heightToRestore; i++ {
@@ -95,7 +96,7 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
 		}
-		key, err = getKeyFromDownload(i, downResult)
+		key, err = getKeyFromDownload(i+1, downResult)
 		if err != nil {
 			return false, fmt.Errorf("failed to get key from prior block download (height=%v): %v", i, err)
 		}
