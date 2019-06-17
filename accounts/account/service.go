@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	herdiusZeroAddress = "Hx00000000000000000000000000000000"
+	herdiusZeroAddress      = "Hx00000000000000000000000000000000"
+	numAddressPerAssetLimit = 1024
 )
 
 var cdc = amino.NewCodec()
@@ -218,4 +219,12 @@ func (s *Service) AccountExternalAddressExist() bool {
 // when lock tx type is transmitted to herdius blockchain
 func (s *Service) IsHerdiusZeroAddress() bool {
 	return s.receiverAddress == herdiusZeroAddress
+}
+
+// AccountEBalancePerAssetReachLimit reports whether an account reaches limit for number of address per asset.
+func (s *Service) AccountEBalancePerAssetReachLimit(a *protobuf.Account, assetSymbol string) bool {
+	if a != nil && a.EBalances != nil && a.EBalances[assetSymbol] != nil {
+		return len(a.EBalances[assetSymbol].Asset) >= numAddressPerAssetLimit
+	}
+	return false
 }

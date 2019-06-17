@@ -190,6 +190,19 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				}
 				return errors.New(failedVerificationMsg)
 			}
+			if accSrv.AccountEBalancePerAssetReachLimit(account, tx.Asset.Symbol) {
+				failedVerificationMsg := "Account reached number of addresses limit"
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
 			postAccountUpdateTx(tx, ctx, accSrv)
 			return nil
 		}
