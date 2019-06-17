@@ -27,29 +27,29 @@ type HERToken struct {
 }
 
 //GetExtBalance Gets Asset balance from main chain
-func (es *HERToken) GetExtBalance() error {
+func (her *HERToken) GetExtBalance() error {
 	var (
 		latestBlockNumber *big.Int
 		nonce             uint64
 		err               error
 	)
-	client, err := ethclient.Dial(es.RPC)
+	client, err := ethclient.Dial(her.RPC)
 	if err != nil {
 		log.Println("Error connecting ETH RPC", err)
 		return err
 	}
-	tokenAddress := common.HexToAddress(es.TokenContractAddress)
-	address := common.HexToAddress(es.Account.Erc20Address)
+	tokenAddress := common.HexToAddress(her.TokenContractAddress)
+	address := common.HexToAddress(her.Account.Erc20Address)
 
 	// Get latest block number
-	latestBlockNumber, err = es.getLatestBlockNumber(client)
+	latestBlockNumber, err = her.getLatestBlockNumber(client)
 	if err != nil {
 		log.Println("Error getting TOKEN Latest block from RPC", err)
 		return err
 	}
 
 	//Get nonce
-	nonce, err = es.getNonce(client, address, latestBlockNumber)
+	nonce, err = her.getNonce(client, address, latestBlockNumber)
 	if err != nil {
 		log.Println("Error getting TOKEN Account nonce from RPC", err)
 		return err
@@ -64,85 +64,85 @@ func (es *HERToken) GetExtBalance() error {
 		return err
 	}
 
-	es.ExtBalance = bal
-	es.BlockHeight = latestBlockNumber
-	es.Nonce = nonce
+	her.ExtBalance = bal
+	her.BlockHeight = latestBlockNumber
+	her.Nonce = nonce
 
 	return nil
 }
 
 //Update Updates balance of asset in cache
-func (es *HERToken) Update() {
+func (her *HERToken) Update() {
 	herBalance := *big.NewInt(int64(0))
-	last, ok := es.Storage.Get(es.Account.Address)
+	last, ok := her.Storage.Get(her.Account.Address)
 
 	if ok {
 		//last-balance < External-ETH
 		//Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 		lastExtHERBalance := last.LastExtHERBalance
 		if lastExtHERBalance != nil {
-			if lastExtHERBalance.Cmp(es.ExtBalance) < 0 {
-				herBalance.Sub(es.ExtBalance, lastExtHERBalance)
-				es.Account.Balance += herBalance.Uint64()
-				es.Account.ExternalNonce = es.Nonce
-				es.Account.LastBlockHeight = es.BlockHeight.Uint64()
+			if lastExtHERBalance.Cmp(her.ExtBalance) < 0 {
+				herBalance.Sub(her.ExtBalance, lastExtHERBalance)
+				her.Account.Balance += herBalance.Uint64()
+				her.Account.ExternalNonce = her.Nonce
+				her.Account.LastBlockHeight = her.BlockHeight.Uint64()
 
-				last = last.UpdateAccount(es.Account)
-				last = last.UpdateLastExtHERBalance(es.ExtBalance)
-				last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
+				last = last.UpdateAccount(her.Account)
+				last = last.UpdateLastExtHERBalance(her.ExtBalance)
+				last = last.UpdateCurrentExtHERBalance(her.ExtBalance)
 				last = last.UpdateIsNewHERAmountUpdate(true)
 				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance credit: %v\n", last)
-				es.Storage.Set(es.Account.Address, last)
+				her.Storage.Set(her.Account.Address, last)
 				return
 
 			}
 
 			//last-balance < External-ETH
 			//Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
-			if lastExtHERBalance.Cmp(es.ExtBalance) > 0 {
-				herBalance.Sub(lastExtHERBalance, es.ExtBalance)
-				es.Account.Balance -= herBalance.Uint64()
-				es.Account.ExternalNonce = es.Nonce
-				es.Account.LastBlockHeight = es.BlockHeight.Uint64()
-				last = last.UpdateAccount(es.Account)
-				last = last.UpdateLastExtHERBalance(es.ExtBalance)
-				last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
+			if lastExtHERBalance.Cmp(her.ExtBalance) > 0 {
+				herBalance.Sub(lastExtHERBalance, her.ExtBalance)
+				her.Account.Balance -= herBalance.Uint64()
+				her.Account.ExternalNonce = her.Nonce
+				her.Account.LastBlockHeight = her.BlockHeight.Uint64()
+				last = last.UpdateAccount(her.Account)
+				last = last.UpdateLastExtHERBalance(her.ExtBalance)
+				last = last.UpdateCurrentExtHERBalance(her.ExtBalance)
 				last = last.UpdateIsNewHERAmountUpdate(true)
 				last = last.UpdateIsFirstHER(false)
 
 				log.Printf("New account balance after external balance debit: %v\n", last)
-				es.Storage.Set(es.Account.Address, last)
+				her.Storage.Set(her.Account.Address, last)
 				return
 			}
 		} else {
 
-			es.Account.Balance = es.ExtBalance.Uint64()
-			es.Account.ExternalNonce = es.Nonce
-			es.Account.LastBlockHeight = es.BlockHeight.Uint64()
+			her.Account.Balance = her.ExtBalance.Uint64()
+			her.Account.ExternalNonce = her.Nonce
+			her.Account.LastBlockHeight = her.BlockHeight.Uint64()
 
-			last = last.UpdateAccount(es.Account)
+			last = last.UpdateAccount(her.Account)
 			last = last.UpdateIsFirstHER(true)
-			last = last.UpdateLastExtHERBalance(es.ExtBalance)
-			last = last.UpdateCurrentExtHERBalance(es.ExtBalance)
+			last = last.UpdateLastExtHERBalance(her.ExtBalance)
+			last = last.UpdateCurrentExtHERBalance(her.ExtBalance)
 
-			es.Storage.Set(es.Account.Address, last)
+			her.Storage.Set(her.Account.Address, last)
 
 		}
 
 	} else {
-		if len(es.Account.Erc20Address) > 0 {
+		if len(her.Account.Erc20Address) > 0 {
 			val := external.AccountCache{
-				Account: es.Account,
+				Account: her.Account,
 			}
-			es.Storage.Set(es.Account.Address, val)
+			her.Storage.Set(her.Account.Address, val)
 		}
 	}
 
 }
 
-func (es *HERToken) getLatestBlockNumber(client *ethclient.Client) (*big.Int, error) {
+func (her *HERToken) getLatestBlockNumber(client *ethclient.Client) (*big.Int, error) {
 	header, err := client.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func (es *HERToken) getLatestBlockNumber(client *ethclient.Client) (*big.Int, er
 	return header.Number, nil
 }
 
-func (es *HERToken) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
+func (her *HERToken) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
 	nonce, err := client.NonceAt(context.Background(), account, block)
 	if err != nil {
 		return 0, err

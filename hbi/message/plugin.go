@@ -172,6 +172,19 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 
 		update := Update.String()
 		if strings.EqualFold(tx.Type, update) {
+			if accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+				failedVerificationMsg := "External account existed: " + tx.Asset.ExternalSenderAddress
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
 			postAccountUpdateTx(tx, ctx, accSrv)
 			return nil
 		}
@@ -396,18 +409,19 @@ func getAccount(address string, ctx *network.PluginContext) error {
 	}
 
 	if account != nil {
-		eBalances := make(map[string]*protoplugin.EBalance)
+		eBalances := make(map[string]*protoplugin.EBalanceAsset)
 
-		if account.EBalances != nil && len(account.EBalances) > 0 {
-			for key := range account.EBalances {
-				eBalance := account.EBalances[key]
-				eBalanceRes := &protobuf.EBalance{
-					Address:         eBalance.Address,
-					Balance:         eBalance.Balance,
-					LastBlockHeight: eBalance.LastBlockHeight,
-					Nonce:           eBalance.Nonce,
+		for asset, assetAccount := range account.EBalances {
+			eBalances[asset] = &protoplugin.EBalanceAsset{}
+			eBalances[asset].Asset = make(map[string]*protobuf.EBalance)
+			for _, eb := range assetAccount.Asset {
+				eBalanceRes := &protoplugin.EBalance{
+					Address:         eb.Address,
+					Balance:         eb.Balance,
+					LastBlockHeight: eb.LastBlockHeight,
+					Nonce:           eb.Nonce,
 				}
-				eBalances[key] = eBalanceRes
+				eBalances[asset].Asset[eb.Address] = eBalanceRes
 			}
 		}
 		accountResp := protoplugin.AccountResponse{

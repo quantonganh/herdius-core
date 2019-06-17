@@ -471,31 +471,33 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 		accountInAccountCache := item
 		account := item.Account
 		for assetSymbol := range account.EBalances {
-			IsFirstEntry := item.IsFirstEntry[assetSymbol]
-			IsNewAmountUpdate := item.IsNewAmountUpdate[assetSymbol]
-			if IsNewAmountUpdate && !IsFirstEntry {
-				log.Printf("Account from cache to be persisted to state: %v", account)
-				sactbz, err := cdc.MarshalJSON(account)
-				if err != nil {
-					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-					continue
+			for _, eb := range account.EBalances[assetSymbol] {
+				storageKey := assetSymbol + "-" + eb.Address
+				IsFirstEntry := item.IsFirstEntry[storageKey]
+				IsNewAmountUpdate := item.IsNewAmountUpdate[storageKey]
+				if IsNewAmountUpdate && !IsFirstEntry {
+					log.Printf("Account from cache to be persisted to state: %v", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsNewAmountUpdate[storageKey] = false
+					accountStorage.Set(address, accountInAccountCache)
 				}
-				stateTrie.TryUpdate([]byte(address), sactbz)
-				accountInAccountCache.IsNewAmountUpdate[assetSymbol] = false
-				accountStorage.Set(address, accountInAccountCache)
-			}
-			if IsFirstEntry {
-				log.Println("Account from cache to be persisted to state first time: ", account)
-				sactbz, err := cdc.MarshalJSON(account)
-				if err != nil {
-					plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
-					continue
+				if IsFirstEntry {
+					log.Println("Account from cache to be persisted to state first time: ", account)
+					sactbz, err := cdc.MarshalJSON(account)
+					if err != nil {
+						plog.Error().Msgf("Failed to Marshal sender's account: %v", err)
+						continue
+					}
+					stateTrie.TryUpdate([]byte(address), sactbz)
+					accountInAccountCache.IsFirstEntry[storageKey] = false
+					accountStorage.Set(address, accountInAccountCache)
 				}
-				stateTrie.TryUpdate([]byte(address), sactbz)
-				accountInAccountCache.IsFirstEntry[assetSymbol] = false
-				accountStorage.Set(address, accountInAccountCache)
 			}
-
 		}
 
 		// IF ERC20Address is presend update accoun balance
@@ -530,9 +532,11 @@ func updateStateWithNewExternalBalance(stateTrie statedb.Trie) statedb.Trie {
 	}
 	return stateTrie
 }
-func isExternalAssetAddressExist(account *statedb.Account, assetSymbol string) bool {
-	if account != nil && account.EBalances != nil &&
-		len(account.EBalances[assetSymbol].Address) > 0 {
+func isExternalAssetAddressExist(account *statedb.Account, assetSymbol, assetAddress string) bool {
+	if account == nil || account.EBalances == nil {
+		return false
+	}
+	if len(account.EBalances[assetSymbol][assetAddress].Address) > 0 {
 		return true
 	}
 	return false
@@ -547,60 +551,55 @@ func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.
 		senderAccount.PublicKey = tx.SenderPubkey
 		log.Println("Account register", tx)
 		senderAccount.Erc20Address = tx.Asset.ExternalSenderAddress
+		senderAccount.FirstExternalAddress = make(map[string]string)
 	} else if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		tx.SenderAddress == senderAccount.Address {
 		senderAccount.Balance += tx.Asset.Value
 		senderAccount.Nonce = tx.Asset.Nonce
 	} else if !strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		tx.SenderAddress == senderAccount.Address {
-		//Register External Asset Addresses
-		// Check if an entry already exist for an address
-		if eBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
-			//check if eBalance.Address matches with the asset.address in tx request
-			if tx.Asset.ExternalSenderAddress == senderAccount.EBalances[tx.Asset.Symbol].Address {
-				if len(senderAccount.EBalances) == 0 {
-					eBalance = statedb.EBalance{}
-					eBalance.Address = tx.Asset.ExternalSenderAddress
-					eBalance.Balance = 0
-					eBalance.LastBlockHeight = 0
-					eBalance.Nonce = 0
-					eBalances := make(map[string]statedb.EBalance)
-					eBalances[tx.Asset.Symbol] = eBalance
-					senderAccount.EBalances = eBalances
-					senderAccount.Nonce = tx.Asset.Nonce
-				} else {
-					eBalance.Balance += tx.Asset.Value
-					if tx.Asset.ExternalBlockHeight > 0 {
-						eBalance.LastBlockHeight = tx.Asset.ExternalBlockHeight
-					}
-					if tx.Asset.ExternalNonce > 0 {
-						eBalance.Nonce = tx.Asset.ExternalNonce
-					}
-					senderAccount.EBalances[tx.Asset.Symbol] = eBalance
-					senderAccount.Nonce = tx.Asset.Nonce
-				}
 
+		// Update account's Nonce
+		senderAccount.Nonce = tx.Asset.Nonce
+
+		// Register External Asset Addresses if not exist
+		if assetEBalance, ok := senderAccount.EBalances[tx.Asset.Symbol]; ok {
+			if _, ok := assetEBalance[tx.Asset.ExternalSenderAddress]; !ok {
+				eBalance := statedb.EBalance{}
+				eBalance.Address = tx.Asset.ExternalSenderAddress
+				eBalance.Balance = 0
+				eBalance.LastBlockHeight = 0
+				eBalance.Nonce = 0
+				eBalances := senderAccount.EBalances
+				eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
+				senderAccount.EBalances = eBalances
 			}
 		} else {
-			eBalance = statedb.EBalance{}
+			eBalance := statedb.EBalance{}
 			eBalance.Address = tx.Asset.ExternalSenderAddress
 			eBalance.Balance = 0
 			eBalance.LastBlockHeight = 0
 			eBalance.Nonce = 0
 			eBalances := senderAccount.EBalances
-			if eBalances == nil || len(eBalances) == 0 {
-				eBalances = make(map[string]statedb.EBalance)
+			if len(eBalances) == 0 {
+				eBalances = make(map[string]map[string]statedb.EBalance)
 			}
-			eBalances[tx.Asset.Symbol] = eBalance
+			if len(eBalances[tx.Asset.Symbol]) == 0 {
+				eBalances[tx.Asset.Symbol] = make(map[string]statedb.EBalance)
+			}
+			eBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress] = eBalance
 			senderAccount.EBalances = eBalances
-			senderAccount.Nonce = tx.Asset.Nonce
+			if senderAccount.FirstExternalAddress == nil {
+				senderAccount.FirstExternalAddress = make(map[string]string)
+			}
+			senderAccount.FirstExternalAddress[tx.Asset.Symbol] = tx.Asset.ExternalSenderAddress
 		}
 	}
 	return senderAccount
 }
 
 // Debit Sender's Account
-func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64) {
+func withdraw(senderAccount *statedb.Account, assetSymbol, assetExtAddress string, txValue uint64) {
 	if strings.EqualFold(assetSymbol, "HER") {
 		balance := senderAccount.Balance
 		if balance >= txValue {
@@ -608,23 +607,23 @@ func withdraw(senderAccount *statedb.Account, assetSymbol string, txValue uint64
 		}
 	} else {
 		// Get balance of the required external asset
-		eBalance := senderAccount.EBalances[strings.ToUpper(assetSymbol)]
+		eBalance := senderAccount.EBalances[strings.ToUpper(assetSymbol)][assetExtAddress]
 		if eBalance.Balance >= txValue {
 			eBalance.Balance -= txValue
-			senderAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
+			senderAccount.EBalances[strings.ToUpper(assetSymbol)][assetExtAddress] = eBalance
 		}
 	}
 }
 
 // Credit Receiver's Account
-func deposit(receiverAccount *statedb.Account, assetSymbol string, txValue uint64) {
+func deposit(receiverAccount *statedb.Account, assetSymbol, assetExtAddress string, txValue uint64) {
 	if strings.EqualFold(assetSymbol, "HER") {
 		receiverAccount.Balance += txValue
 	} else {
 		// Get balance of the required external asset
-		eBalance := receiverAccount.EBalances[strings.ToUpper(assetSymbol)]
+		eBalance := receiverAccount.EBalances[strings.ToUpper(assetSymbol)][assetExtAddress]
 		eBalance.Balance += txValue
-		receiverAccount.EBalances[strings.ToUpper(assetSymbol)] = eBalance
+		receiverAccount.EBalances[strings.ToUpper(assetSymbol)][assetExtAddress] = eBalance
 	}
 }
 
@@ -790,7 +789,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			// By default each of the new accounts will have HER token (with balance 0)
 			// added to the map object balances
-			balance := senderAccount.EBalances[symbol]
+			balance := senderAccount.EBalances[symbol][tx.Asset.ExternalSenderAddress]
 			if balance == (statedb.EBalance{}) {
 				plog.Error().Msgf("Sender has no assets for the given symbol: %v", symbol)
 				log.Printf("Sender has no assets for the given symbol: %v", symbol)
@@ -804,7 +803,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			balance.Balance -= tx.Asset.Value
 
 			senderAccount.Nonce = tx.Asset.Nonce
-			senderAccount.EBalances[symbol] = balance
+			senderAccount.EBalances[symbol][tx.Asset.ExternalSenderAddress] = balance
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
@@ -872,7 +871,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			// Verify if sender has an address for corresponding external asset
 			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressExist(&senderAccount, tx.Asset.Symbol) {
+				!isExternalAssetAddressExist(&senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
@@ -898,8 +897,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			}
 
 			// Verify if Receiver has an address for corresponding external asset
-			if !strings.EqualFold(tx.Asset.Symbol, "HER") &&
-				!isExternalAssetAddressExist(&rcvrAccount, tx.Asset.Symbol) {
+			if !strings.EqualFold(tx.Asset.Symbol, "HER") && len(rcvrAccount.EBalances[tx.Asset.Symbol]) == 0 {
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
@@ -912,10 +910,12 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			// TODO: Deduct Fee from Sender's Account when HER Fee is applied
 			//Withdraw fund from Sender Account
-			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.Value)
+			withdraw(&senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.Value)
 
 			// Credit Reciever's Account
-			deposit(&rcvrAccount, tx.Asset.Symbol, tx.Asset.Value)
+			// If credit to external address, pick first account
+			// TODO: Should we consider tx.Asset.ExternalRecieverAddress?
+			deposit(&rcvrAccount, tx.Asset.Symbol, rcvrAccount.FirstExternalAddress[tx.Asset.Symbol], tx.Asset.Value)
 
 			senderAccount.Nonce = tx.Asset.Nonce
 			updatedSenderAccount, err := cdc.MarshalJSON(senderAccount)
