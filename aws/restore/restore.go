@@ -37,7 +37,7 @@ func NewRestorer(env string, height int) RestorerI {
 func (r Restorer) Restore() error {
 	succ, err := r.testCompleteChainRemote()
 	if err != nil {
-		return fmt.Errorf("could not restore chain from backup: %v", err)
+		return fmt.Errorf("restore failed while trying to test remote chaink: %v", err)
 	}
 	if !succ {
 		return fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
@@ -69,6 +69,10 @@ func (r Restorer) clearOldChain() error {
 	return nil
 }
 
-func (r Restorer) downloadChain() error {}
+func (r Restorer) downloadChain() error {
+	return nil
+}
 
-func (r Restorer) replayChain() error {}
+func (r Restorer) replayChain() error {
+	return nil
+}

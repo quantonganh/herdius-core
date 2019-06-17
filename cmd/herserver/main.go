@@ -305,7 +305,8 @@ func main() {
 		blockchain.LoadDB()
 		if restr == true {
 			nlog.Println("Restore value true: proceeding to restore from AWS S3")
-			err := restore.Restore(env)
+			r := restore.NewRestorer(env, 15)
+			err := r.Restore()
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}

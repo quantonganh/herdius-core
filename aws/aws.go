@@ -330,9 +330,3 @@ func (w *walker) setUploadPath(fileName string) error {
 	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v", w.objectHeight, curStr, fileName)
 	return nil
 }
-
-// Restore retrieves and procceses an entire blockchain stored in S3
-// into the Supervisor's local blockchain and statedb
-func Restore(env string) bool {
-	return true
-}
