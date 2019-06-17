@@ -1,6 +1,7 @@
 package restore
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -94,7 +95,6 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
 		}
-		log.Printf("downResult: %+v", downResult)
 		key, err = getKeyFromDownload(i, downResult)
 		if err != nil {
 			return false, fmt.Errorf("failed to get key from prior block download (height=%v): %v", i, err)
@@ -126,7 +126,24 @@ func getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed read body of s3 object output (i=%v): %v", i, err)
 	}
-	log.Printf("body: %q", body[:])
-	//return fmt.Sprintf("%v/blocks/%v", i, hash), nil
-	return fmt.Sprintf("%v/blocks/abc", i), nil
+
+	type b struct {
+		Header struct {
+			BlockID struct {
+				BlockHash string `json:"blockHash"`
+			} `json:"block_ID"`
+		} `json:"header"`
+	}
+	var block b
+	err = json.Unmarshal(body, &block)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse json from request body (i=%v): %v", i, err)
+	}
+	if block.Header.BlockID.BlockHash == "" {
+		return "", fmt.Errorf("request body json contains no blockhash (i=%v)", i)
+	}
+	log.Printf("block parsed: %+v", block)
+	hash := block.Header.BlockID.BlockHash
+
+	return fmt.Sprintf("%v/blocks/%v", i, hash), nil
 }
