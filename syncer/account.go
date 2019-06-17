@@ -47,7 +47,7 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 
 	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
 	if err != nil {
-		fmt.Printf("Failed to retrieve the state trie: %v.", err)
+		log.Printf("Failed to retrieve the state trie: %v.", err)
 		return
 	}
 	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
@@ -57,15 +57,36 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		senderAddressBytes := it.Key
 		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
 		if err != nil {
-			fmt.Printf("Failed to retrieve account detail: %v", err)
+			log.Printf("Failed to retrieve account detail: %v", err)
 			continue
 		}
 
 		if len(senderActbz) > 0 {
 			err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
 			if err != nil {
-				fmt.Printf("Failed to Unmarshal account: %v", err)
-				continue
+				log.Printf("Failed to Unmarshal account: %v", err)
+				// Try unmarshal to old account struct
+				var oldAccount statedb.OldAccount
+				if err := cdc.UnmarshalJSON(senderActbz, &oldAccount); err != nil {
+					log.Printf("Failed to Unmarshal old account: %v", err)
+					continue
+				}
+				log.Printf("Sync old account before supporting multiple ebalances added.")
+				senderAccount.Address = oldAccount.Address
+				senderAccount.AddressHash = oldAccount.AddressHash
+				senderAccount.Balance = oldAccount.Balance
+				senderAccount.Erc20Address = oldAccount.Erc20Address
+				senderAccount.ExternalNonce = oldAccount.ExternalNonce
+				senderAccount.LastBlockHeight = oldAccount.LastBlockHeight
+				senderAccount.Nonce = oldAccount.Nonce
+				senderAccount.PublicKey = oldAccount.PublicKey
+				senderAccount.StateRoot = oldAccount.StateRoot
+				senderAccount.FirstExternalAddress = make(map[string]string)
+				senderAccount.EBalances = make(map[string]map[string]statedb.EBalance)
+				for asset, assetAccount := range oldAccount.EBalances {
+					senderAccount.EBalances[asset] = make(map[string]statedb.EBalance)
+					senderAccount.EBalances[asset][oldAccount.Address] = assetAccount
+				}
 			}
 		}
 		var syncers []Syncer
