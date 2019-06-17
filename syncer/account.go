@@ -85,7 +85,9 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 				senderAccount.EBalances = make(map[string]map[string]statedb.EBalance)
 				for asset, assetAccount := range oldAccount.EBalances {
 					senderAccount.EBalances[asset] = make(map[string]statedb.EBalance)
-					senderAccount.EBalances[asset][oldAccount.Address] = assetAccount
+					senderAccount.EBalances[asset][assetAccount.Address] = assetAccount
+					senderAccount.FirstExternalAddress = make(map[string]string)
+					senderAccount.FirstExternalAddress[asset] = assetAccount.Address
 				}
 			}
 		}
