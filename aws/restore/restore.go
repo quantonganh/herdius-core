@@ -3,12 +3,10 @@ package restore
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 
@@ -200,16 +198,12 @@ func (r Restorer) downloadChain() (*[]protobuf.BaseBlock, error) {
 			return nil, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
 		}
 
-		///////////
-		//_, err = downResult.Body.Read(content)
 		baseBlock := protobuf.BaseBlock{}
 		dec := json.NewDecoder(downResult.Body)
 		err = dec.Decode(&baseBlock)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal S3 object into baseblock (height=%v, key=%v): %v", i, key, err)
 		}
-		spew.Dump(baseBlock)
-		////////
 		*baseBlocks = append(*baseBlocks, baseBlock)
 
 		key, err = r.getKeyFromDownload(i+1, downResult)
@@ -225,7 +219,7 @@ func (r Restorer) replayChain(blocks *[]protobuf.BaseBlock) error {
 	log.Println("replaying chain, number of blocks:", len(*blocks))
 	chain := blockchain.Service{}
 	for _, block := range *blocks {
-		log.Printf("content: %+v", block)
+		log.Printf("content: %+v", block.Header.Block_ID.BlockHash)
 		err := chain.AddBaseBlock(&block)
 		if err != nil {
 			return fmt.Errorf("couldn't add base block to chain: %v", err)
@@ -235,32 +229,32 @@ func (r Restorer) replayChain(blocks *[]protobuf.BaseBlock) error {
 }
 
 func (r Restorer) getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
-	log.Println("body content length:", *obj.ContentLength)
-	body := make([]byte, *obj.ContentLength)
-	_, err := obj.Body.Read(body)
-	if err == io.EOF {
-		err = nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed read body of s3 object output (i=%v): %v", i, err)
-	}
+	// log.Println("body content length:", *obj.ContentLength)
+	// body := make([]byte, *obj.ContentLength)
+	// _, err := obj.Body.Read(body)
+	// if err == io.EOF {
+	// 	err = nil
+	// }
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed read body of s3 object output (i=%v): %v", i, err)
+	// }
 
-	type b struct {
-		Header struct {
-			BlockID struct {
-				BlockHash string `json:"blockHash"`
-			} `json:"block_ID"`
-		} `json:"header"`
-	}
-	var block b
-	err = json.Unmarshal(body, &block)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse json from request body (i=%v): %v", i, err)
-	}
-	if block.Header.BlockID.BlockHash == "" {
-		return "", fmt.Errorf("request body json contains no blockhash (i=%v)", i)
-	}
-	log.Printf("block parsed: %+v", block)
+	// type b struct {
+	// 	Header struct {
+	// 		BlockID struct {
+	// 			BlockHash string `json:"blockHash"`
+	// 		} `json:"block_ID"`
+	// 	} `json:"header"`
+	// }
+	// var block b
+	// err = json.Unmarshal(body, &block)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to parse json from request body (i=%v): %v", i, err)
+	// }
+	// if block.Header.BlockID.BlockHash == "" {
+	// 	return "", fmt.Errorf("request body json contains no blockhash (i=%v)", i)
+	// }
+	// log.Printf("block parsed: %+v", block)
 	//hash := block.Header.BlockID.BlockHash
 
 	// TODO ABOVE GETS HASH VALUE

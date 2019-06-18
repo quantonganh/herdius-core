@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dgraph-io/badger"
 	"github.com/spf13/viper"
 
@@ -164,6 +165,7 @@ func (s *Service) AddBaseBlock(bb *protobuf.BaseBlock) error {
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to Marshal Block ID: %v.", err))
 	}
+	spew.Dump(bbbz)
 
 	badgerDB.Set(blockhash, bbbz)
 	badgerDB.Set([]byte("LastBlock"), bbbz)
