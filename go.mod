@@ -1,7 +1,7 @@
 module github.com/herdius/herdius-core
 
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7
+	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9
 	github.com/allegro/bigcache v1.1.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190514202536-8f808a500156 // indirect
 	github.com/aws/aws-sdk-go v1.19.35
@@ -9,8 +9,7 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/dgraph-io/badger v1.5.4
-	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
+	github.com/dgraph-io/badger v1.5.5
 	github.com/ethereum/go-ethereum v1.8.22
 	github.com/fd/go-nat v1.0.0
 	github.com/go-kit/kit v0.8.0
@@ -29,8 +28,8 @@ require (
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/rs/zerolog v1.11.0
-	github.com/spf13/viper v1.3.1
-	github.com/stretchr/testify v1.2.2
+	github.com/spf13/viper v1.3.2
+	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66 // indirect
 	github.com/tendermint/btcd v0.1.1
 	github.com/tendermint/go-amino v0.14.1

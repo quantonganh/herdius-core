@@ -8,6 +8,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/herdius/herdius-core/blockchain"
+	"github.com/herdius/herdius-core/blockchain/protobuf"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -19,8 +23,8 @@ type RestorerI interface {
 	Restore() error
 	testCompleteChainRemote() (bool, error)
 	clearOld() error
-	downloadChain() (*[]s3.GetObjectOutput, error)
-	replayChain(*[]s3.GetObjectOutput) error
+	downloadChain() (*[]protobuf.BaseBlock, error)
+	replayChain(*[]protobuf.BaseBlock) error
 }
 
 type Restorer struct {
@@ -167,7 +171,7 @@ func (r Restorer) downloadState() error {
 	return nil
 }
 
-func (r Restorer) downloadChain() (*[]s3.GetObjectOutput, error) {
+func (r Restorer) downloadChain() (*[]protobuf.BaseBlock, error) {
 	listParams := &s3.ListObjectsV2Input{
 		Bucket:  aws.String(r.s3bucket),
 		Prefix:  aws.String("0/blocks/"),
@@ -182,19 +186,31 @@ func (r Restorer) downloadChain() (*[]s3.GetObjectOutput, error) {
 	}
 	log.Printf("root base block: %+v", *listResult.Contents[0].Key)
 
-	s3blocks := []s3.GetObjectOutput{}
 	key := *listResult.Contents[0].Key
 	downloadParams := &s3.GetObjectInput{
 		Bucket: aws.String(r.s3bucket),
 		Key:    aws.String(key),
 	}
+	baseBlocks := &[]protobuf.BaseBlock{}
+
 	for i := 0; i < r.heightToRestore; i++ {
 		downloadParams.Key = aws.String(key)
 		downResult, err := r.s3.GetObject(downloadParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
 		}
-		s3blocks = append(s3blocks, *downResult)
+
+		///////////
+		//_, err = downResult.Body.Read(content)
+		baseBlock := protobuf.BaseBlock{}
+		dec := json.NewDecoder(downResult.Body)
+		err = dec.Decode(&baseBlock)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal S3 object into baseblock (height=%v, key=%v): %v", i, key, err)
+		}
+		spew.Dump(baseBlock)
+		////////
+		*baseBlocks = append(*baseBlocks, baseBlock)
 
 		key, err = r.getKeyFromDownload(i+1, downResult)
 		if err != nil {
@@ -202,10 +218,19 @@ func (r Restorer) downloadChain() (*[]s3.GetObjectOutput, error) {
 		}
 
 	}
-	return &s3blocks, nil
+	return baseBlocks, nil
 }
 
-func (r Restorer) replayChain(jsonBlock *[]s3.GetObjectOutput) error {
+func (r Restorer) replayChain(blocks *[]protobuf.BaseBlock) error {
+	log.Println("replaying chain, number of blocks:", len(*blocks))
+	chain := blockchain.Service{}
+	for _, block := range *blocks {
+		log.Printf("content: %+v", block)
+		err := chain.AddBaseBlock(&block)
+		if err != nil {
+			return fmt.Errorf("couldn't add base block to chain: %v", err)
+		}
+	}
 	return nil
 }
 
