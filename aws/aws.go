@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/dgraph-io/badger"
 	"github.com/spf13/viper"
 	amino "github.com/tendermint/go-amino"
@@ -227,9 +226,6 @@ func (b *Backuper) backupBlock(uploader *s3manager.Uploader, baseBlock *protobuf
 	heightStr := strconv.Itoa(int(baseBlock.Header.Height))
 	var blockHash common.HexBytes
 	blockHash = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
-	log.Println("SUPPOSED BLOCK HASH:", blockHash)
-	log.Println("ACTUAL BLOCK HASH:", string((*baseBlock.Header).Block_ID.BlockHash))
-	spew.Dump(baseBlock)
 	b.BackupPath = fmt.Sprintf("%v/blocks/%v", heightStr, blockHash)
 	b.timeStamp = strconv.Itoa(int(time.Now().Unix()))
 	b.objectTags = b.setObjectTags(heightStr, blockHash)

@@ -9,12 +9,11 @@ import (
 
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
+	"github.com/herdius/herdius-core/config"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-
-	"github.com/herdius/herdius-core/config"
 )
 
 type RestorerI interface {
@@ -50,10 +49,10 @@ func NewRestorer(env string, height int) RestorerI {
 func (r Restorer) Restore() error {
 	succ, err := r.testCompleteChainRemote()
 	if err != nil {
-		err = fmt.Errorf("restore failed while trying to test remote chain: %v", err)
+		return fmt.Errorf("restore failed while trying to test remote chain: %v", err)
 	}
 	if !succ {
-		err = fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
+		return fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
 	}
 
 	err = r.clearOld()
@@ -66,12 +65,12 @@ func (r Restorer) Restore() error {
 		return fmt.Errorf("restore failed while trying to download state db: %v", err)
 	}
 
-	jsonBlocks, err := r.downloadChain()
+	blocks, err := r.downloadChain()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to download backed up chain: %v", err)
 	}
 
-	err = r.replayChain(jsonBlocks)
+	err = r.replayChain(blocks)
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to replay chain: %v", err)
 	}
@@ -229,36 +228,6 @@ func (r Restorer) replayChain(blocks *[]protobuf.BaseBlock) error {
 }
 
 func (r Restorer) getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
-	// log.Println("body content length:", *obj.ContentLength)
-	// body := make([]byte, *obj.ContentLength)
-	// _, err := obj.Body.Read(body)
-	// if err == io.EOF {
-	// 	err = nil
-	// }
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed read body of s3 object output (i=%v): %v", i, err)
-	// }
-
-	// type b struct {
-	// 	Header struct {
-	// 		BlockID struct {
-	// 			BlockHash string `json:"blockHash"`
-	// 		} `json:"block_ID"`
-	// 	} `json:"header"`
-	// }
-	// var block b
-	// err = json.Unmarshal(body, &block)
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed to parse json from request body (i=%v): %v", i, err)
-	// }
-	// if block.Header.BlockID.BlockHash == "" {
-	// 	return "", fmt.Errorf("request body json contains no blockhash (i=%v)", i)
-	// }
-	// log.Printf("block parsed: %+v", block)
-	//hash := block.Header.BlockID.BlockHash
-
-	// TODO ABOVE GETS HASH VALUE
-	// TODO BELOW IS WORKAROUND, AS FILES ARE NOT CURRENTLY STORED WITH CORRECT NAME
 	listParams := &s3.ListObjectsV2Input{
 		Bucket:  aws.String(r.s3bucket),
 		Prefix:  aws.String(fmt.Sprintf("%v/blocks/", i)),

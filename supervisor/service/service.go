@@ -404,7 +404,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 				return nil, fmt.Errorf("failed to create singular base block: %v", err)
 			}
 			mp.RemoveTxs(len(*txs))
-			if s.Backup() == false {
+			if !s.Backup() {
 				log.Println("Backup value false, not backing up block or state")
 				return baseBlock, nil
 			}

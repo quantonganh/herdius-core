@@ -303,7 +303,7 @@ func main() {
 	if *supervisorFlag {
 		accountStorage = external.New()
 		blockchain.LoadDB()
-		if restr == true {
+		if restr {
 			nlog.Println("Restore value true: proceeding to restore from AWS S3")
 			r := restore.NewRestorer(env, 3)
 			err := r.Restore()
