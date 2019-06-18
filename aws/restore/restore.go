@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -46,12 +47,13 @@ func NewRestorer(env string, height int) RestorerI {
 func (r Restorer) Restore() error {
 	succ, err := r.testCompleteChainRemote()
 	if err != nil {
-		return fmt.Errorf("restore failed while trying to test remote chain: %v", err)
+		err = fmt.Errorf("restore failed while trying to test remote chain: %v", err)
 	}
 	if !succ {
-		return fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
+		err = fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
 	}
 
+	log.Println("Clearing old chain")
 	err = r.clearOldChain()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to clean old chain: %v", err)
@@ -106,7 +108,7 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 }
 
 func (r Restorer) clearOldChain() error {
-	return nil
+	return os.RemoveAll(r.chainPath)
 }
 
 func (r Restorer) downloadChain() error {
