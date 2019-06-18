@@ -6,10 +6,12 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/herdius/herdius-core/config"
 )
@@ -17,7 +19,7 @@ import (
 type RestorerI interface {
 	Restore() error
 	testCompleteChainRemote() (bool, error)
-	clearOldChain() error
+	clearOld() error
 	downloadChain() error
 	replayChain() error
 }
@@ -54,7 +56,7 @@ func (r Restorer) Restore() error {
 	}
 
 	log.Println("Clearing old chain")
-	err = r.clearOldChain()
+	err = r.clearOld()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to clean old chain: %v", err)
 	}
@@ -62,6 +64,10 @@ func (r Restorer) Restore() error {
 	err = r.downloadChain()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to download backed up chain: %v", err)
+	}
+	err = r.downloadState()
+	if err != nil {
+		return fmt.Errorf("restore failed while trying to download state db: %v", err)
 	}
 
 	err = r.replayChain()
@@ -107,11 +113,61 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 	return true, nil
 }
 
-func (r Restorer) clearOldChain() error {
-	return os.RemoveAll(r.chainPath)
+func (r Restorer) clearOld() error {
+	err := os.RemoveAll(r.chainPath)
+	if err != nil {
+		return fmt.Errorf("failed to clear old chain path: %v", err)
+	}
+	err = os.RemoveAll(r.statePath)
+	if err != nil {
+		return fmt.Errorf("failed to clear old state path: %v", err)
+	}
+	return nil
 }
 
 func (r Restorer) downloadChain() error {
+	return nil
+}
+
+func (r Restorer) downloadState() error {
+	pre := fmt.Sprintf("%v/statedb/MANIFEST", r.heightToRestore)
+	listParams := &s3.ListObjectsV2Input{
+		Bucket: aws.String(r.s3bucket),
+		Prefix: aws.String(pre),
+	}
+	listResult, err := r.s3.ListObjectsV2(listParams)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve list of S3 objects: %v", err)
+	}
+	if len(listResult.Contents) <= 1 {
+		return fmt.Errorf("failed to find state db in S3 (key = %v)", pre)
+	}
+	spew.Dump(listResult)
+	downloadParams := &s3.GetObjectInput{
+		Bucket: aws.String(r.s3bucket),
+	}
+	err = os.Mkdir(r.statePath, 0777)
+	if err != nil {
+		return fmt.Errorf("failed to create state dir: %v", err)
+	}
+	for _, obj := range listResult.Contents {
+		downloadParams.Key = obj.Key
+		stateFile, err := r.s3.GetObject(downloadParams)
+		if err != nil {
+			return fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", r.heightToRestore, obj.Key, err)
+		}
+		f := strings.Split(*obj.Key, "/")
+		fileName := f[len(f)-1]
+		file, err := os.Create(fmt.Sprintf("/Users/bittelc/go/src/github.com/herdius/herdius-core/%v/%v", r.statePath, fileName))
+		if err != nil {
+			return fmt.Errorf("failed to create state file %v: %v", fileName, err)
+		}
+		defer file.Close()
+		body := make([]byte, *stateFile.ContentLength)
+		_, err = stateFile.Body.Read(body)
+		file.Write(body)
+		log.Printf("successfully wrote to %v", fileName)
+	}
 	return nil
 }
 
