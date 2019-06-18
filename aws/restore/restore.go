@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/herdius/herdius-core/config"
 )
@@ -20,8 +19,8 @@ type RestorerI interface {
 	Restore() error
 	testCompleteChainRemote() (bool, error)
 	clearOld() error
-	downloadChain() error
-	replayChain() error
+	downloadChain() (*[]s3.GetObjectOutput, error)
+	replayChain(*[]s3.GetObjectOutput) error
 }
 
 type Restorer struct {
@@ -55,27 +54,27 @@ func (r Restorer) Restore() error {
 		err = fmt.Errorf("could not restore chain from backup, specified chain in S3 is invalid")
 	}
 
-	log.Println("Clearing old chain")
 	err = r.clearOld()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to clean old chain: %v", err)
 	}
 
-	err = r.downloadChain()
-	if err != nil {
-		return fmt.Errorf("restore failed while trying to download backed up chain: %v", err)
-	}
 	err = r.downloadState()
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to download state db: %v", err)
 	}
 
-	err = r.replayChain()
+	jsonBlocks, err := r.downloadChain()
+	if err != nil {
+		return fmt.Errorf("restore failed while trying to download backed up chain: %v", err)
+	}
+
+	err = r.replayChain(jsonBlocks)
 	if err != nil {
 		return fmt.Errorf("restore failed while trying to replay chain: %v", err)
 	}
 
-	return fmt.Errorf("unable to restore chain entirely, but reached end of Remote()")
+	return nil
 }
 
 func (r Restorer) testCompleteChainRemote() (bool, error) {
@@ -104,7 +103,8 @@ func (r Restorer) testCompleteChainRemote() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
 		}
-		key, err = getKeyFromDownload(i+1, downResult)
+
+		key, err = r.getKeyFromDownload(i+1, downResult)
 		if err != nil {
 			return false, fmt.Errorf("failed to get key from prior block download (height=%v): %v", i, err)
 		}
@@ -125,11 +125,8 @@ func (r Restorer) clearOld() error {
 	return nil
 }
 
-func (r Restorer) downloadChain() error {
-	return nil
-}
-
 func (r Restorer) downloadState() error {
+
 	pre := fmt.Sprintf("%v/statedb/MANIFEST", r.heightToRestore)
 	listParams := &s3.ListObjectsV2Input{
 		Bucket: aws.String(r.s3bucket),
@@ -142,7 +139,6 @@ func (r Restorer) downloadState() error {
 	if len(listResult.Contents) <= 1 {
 		return fmt.Errorf("failed to find state db in S3 (key = %v)", pre)
 	}
-	spew.Dump(listResult)
 	downloadParams := &s3.GetObjectInput{
 		Bucket: aws.String(r.s3bucket),
 	}
@@ -171,11 +167,49 @@ func (r Restorer) downloadState() error {
 	return nil
 }
 
-func (r Restorer) replayChain() error {
+func (r Restorer) downloadChain() (*[]s3.GetObjectOutput, error) {
+	listParams := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(r.s3bucket),
+		Prefix:  aws.String("0/blocks/"),
+		MaxKeys: aws.Int64(1),
+	}
+	listResult, err := r.s3.ListObjectsV2(listParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve list of S3 objects: %v", err)
+	}
+	if len(listResult.Contents) != 1 {
+		return nil, fmt.Errorf("failed to find base block in S3 (block height = 0)")
+	}
+	log.Printf("root base block: %+v", *listResult.Contents[0].Key)
+
+	s3blocks := []s3.GetObjectOutput{}
+	key := *listResult.Contents[0].Key
+	downloadParams := &s3.GetObjectInput{
+		Bucket: aws.String(r.s3bucket),
+		Key:    aws.String(key),
+	}
+	for i := 0; i < r.heightToRestore; i++ {
+		downloadParams.Key = aws.String(key)
+		downResult, err := r.s3.GetObject(downloadParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download S3 objects (height=%v, key=%v): %v", i, key, err)
+		}
+		s3blocks = append(s3blocks, *downResult)
+
+		key, err = r.getKeyFromDownload(i+1, downResult)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get key from prior block download (height=%v): %v", i, err)
+		}
+
+	}
+	return &s3blocks, nil
+}
+
+func (r Restorer) replayChain(jsonBlock *[]s3.GetObjectOutput) error {
 	return nil
 }
 
-func getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
+func (r Restorer) getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
 	log.Println("body content length:", *obj.ContentLength)
 	body := make([]byte, *obj.ContentLength)
 	_, err := obj.Body.Read(body)
@@ -202,7 +236,23 @@ func getKeyFromDownload(i int, obj *s3.GetObjectOutput) (string, error) {
 		return "", fmt.Errorf("request body json contains no blockhash (i=%v)", i)
 	}
 	log.Printf("block parsed: %+v", block)
-	hash := block.Header.BlockID.BlockHash
+	//hash := block.Header.BlockID.BlockHash
 
-	return fmt.Sprintf("%v/blocks/%v", i, hash), nil
+	// TODO ABOVE GETS HASH VALUE
+	// TODO BELOW IS WORKAROUND, AS FILES ARE NOT CURRENTLY STORED WITH CORRECT NAME
+	listParams := &s3.ListObjectsV2Input{
+		Bucket:  aws.String(r.s3bucket),
+		Prefix:  aws.String(fmt.Sprintf("%v/blocks/", i)),
+		MaxKeys: aws.Int64(1),
+	}
+	listResult, err := r.s3.ListObjectsV2(listParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve list of S3 objects: %v", err)
+	}
+	if len(listResult.Contents) != 1 {
+		return "", fmt.Errorf("failed to find base block in S3 (block height = 0)")
+	}
+
+	return *listResult.Contents[0].Key, nil
+
 }

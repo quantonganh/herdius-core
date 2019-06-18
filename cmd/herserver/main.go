@@ -381,7 +381,6 @@ func main() {
 				log.Info().Msg("New Block Added")
 				log.Info().Msgf("Block Id: %v", bbh.String())
 				log.Info().Msgf("Last Block Id: %v", pbbh.String())
-
 				log.Info().Msgf("Block Height: %v", baseBlock.GetHeader().GetHeight())
 
 				s := lastBlock.GetHeader().GetTime().GetSeconds()
