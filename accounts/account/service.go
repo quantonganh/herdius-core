@@ -15,6 +15,10 @@ import (
 	amino "github.com/tendermint/go-amino"
 )
 
+const (
+	herdiusZeroAddress = "Hx00000000000000000000000000000000"
+)
+
 var cdc = amino.NewCodec()
 
 func init() {
@@ -104,18 +108,18 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	return acc, nil
 }
 
-// VerifyAccountBalance verifies if account has enough HER tokens
-// This only has to be verified and called for HER crypto asset
-func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string) bool {
+// VerifyAccountBalance verifies if account has enough HER tokens or external asset balances
+func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string, extAddress string) bool {
 	// Get the balance of required asset
-	if strings.EqualFold(assetSymbol, "HER") {
+	if strings.EqualFold(strings.ToUpper(assetSymbol), "HER") {
 		if a.Balance >= txValue {
 			return true
 		}
-	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[assetSymbol] != nil {
-		for _, eb := range a.EBalances[assetSymbol].Asset {
-			if eb.Balance >= txValue {
-				return true
+	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[strings.ToUpper(assetSymbol)] != nil {
+		if asset := a.EBalances[strings.ToUpper(assetSymbol)].Asset; asset != nil {
+			eb, ok := asset[extAddress]
+			if ok && eb.Balance >= txValue {
+				return ok
 			}
 		}
 	}
@@ -141,6 +145,15 @@ func (s *Service) AccountExternalAddressExist(a *protobuf.Account, assetSymbol, 
 			_, ok := asset[extAddress]
 			return ok
 		}
+	}
+	return false
+}
+
+// IsHerdiusZeroAddress checks if receiver address is of herdius zero address
+// when lock tx type is transmitted to herdius blockchain
+func (s *Service) IsHerdiusZeroAddress(address string) bool {
+	if address == herdiusZeroAddress {
+		return true
 	}
 	return false
 }

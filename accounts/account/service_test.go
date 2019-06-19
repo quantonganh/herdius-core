@@ -12,13 +12,13 @@ import (
 func TestVerifyAccountBalanceTrue(t *testing.T) {
 	account := &protobuf.Account{Balance: 10}
 	accService := NewAccountService()
-	assert.True(t, accService.VerifyAccountBalance(account, 5, "HER"))
+	assert.True(t, accService.VerifyAccountBalance(account, 5, "HER", ""))
 }
 
 func TestVerifyAccountBalanceFalse(t *testing.T) {
 	account := &protobuf.Account{Balance: 1}
 	accService := NewAccountService()
-	assert.False(t, accService.VerifyAccountBalance(account, 5, "HER"))
+	assert.False(t, accService.VerifyAccountBalance(account, 5, "HER", ""))
 }
 
 func TestVerifyExternalAssetBalanceTrue(t *testing.T) {
@@ -32,7 +32,7 @@ func TestVerifyExternalAssetBalanceTrue(t *testing.T) {
 	eBalances["ETH"].Asset[eBalance.Address] = eBalance
 	account := &protobuf.Account{Balance: 10, EBalances: eBalances}
 	accService := NewAccountService()
-	assert.True(t, accService.VerifyAccountBalance(account, 5, "ETH"))
+	assert.True(t, accService.VerifyAccountBalance(account, 5, "ETH", eBalance.Address))
 }
 
 func TestVerifyExternalAssetBalanceFalse(t *testing.T) {
@@ -46,7 +46,7 @@ func TestVerifyExternalAssetBalanceFalse(t *testing.T) {
 	eBalances["ETH"].Asset[eBalance.Address] = eBalance
 	account := &protobuf.Account{Balance: 1, EBalances: eBalances}
 	accService := NewAccountService()
-	assert.False(t, accService.VerifyAccountBalance(account, 5, "ETH"))
+	assert.False(t, accService.VerifyAccountBalance(account, 5, "ETH", eBalance.Address))
 }
 
 func TestVerifyAccountNonceHighTrue(t *testing.T) {

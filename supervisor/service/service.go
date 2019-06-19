@@ -44,6 +44,10 @@ type SupervisorI interface {
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
+const (
+	herdiusZeroAddress = "Hx00000000000000000000000000000000"
+)
+
 var (
 	_ SupervisorI = (*Supervisor)(nil)
 )
@@ -872,6 +876,17 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 			}
+			tx.Status = "success"
+			txbz, err = cdc.MarshalJSON(&tx)
+			(*txs)[i] = txbz
+			if err != nil {
+				log.Printf("Failed to encode failed tx: %v", err)
+				plog.Error().Msgf("Failed to encode failed tx: %v", err)
+			}
+			continue
+		} else if strings.EqualFold(tx.Type, "lock") {
+			// TODO: On completion of task https://app.asana.com/0/998359196895599/1127276530517142
+			// sender account will be updated in the state db.
 			tx.Status = "success"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz

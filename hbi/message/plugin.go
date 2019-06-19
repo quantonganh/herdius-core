@@ -24,12 +24,13 @@ type TxType int
 
 const (
 	Update TxType = iota
+	Lock   TxType = iota
 )
 
 var nonce uint64 = 1
 
 func (t TxType) String() string {
-	return [...]string{"Update"}[t]
+	return [...]string{"Update", "Lock"}[t]
 }
 
 // BlockMessagePlugin will receive all Block specific messages.
@@ -168,8 +169,8 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			}
 		}
 
-		//Check if tx is of type account update
-
+		// Check if tx is of type account update
+		// and verify external address exists
 		update := Update.String()
 		if strings.EqualFold(tx.Type, update) {
 			if accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
@@ -188,10 +189,41 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			postAccountUpdateTx(tx, ctx, accSrv)
 			return nil
 		}
-
+		// Check if tx is of type lock
+		// verify if external account address doesn't exists
+		// verify if receiver address is herdius zero address
+		lock := Lock.String()
+		if strings.EqualFold(tx.Type, lock) {
+			if !accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+				failedVerificationMsg := "External address does not exist: " + tx.Asset.ExternalSenderAddress
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
+			if !accSrv.IsHerdiusZeroAddress(tx.RecieverAddress) {
+				failedVerificationMsg := "Incorrect herdius zero address: " + tx.RecieverAddress
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
+		}
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
-		if !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value, tx.GetAsset().GetSymbol()) {
+		if !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value, tx.GetAsset().GetSymbol(), tx.GetAsset().GetExternalSenderAddress()) {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
