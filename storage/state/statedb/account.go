@@ -17,6 +17,7 @@ type Account struct {
 	ExternalNonce        uint64
 	EBalances            map[string]map[string]EBalance
 	FirstExternalAddress map[string]string
+	LockedBalance        map[string]uint64
 }
 
 // EBalance is external balance model
