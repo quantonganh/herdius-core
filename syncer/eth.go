@@ -107,6 +107,8 @@ func (es *EthSyncer) Update() {
 			// last-balance < External-ETH
 			// Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok && lastExtBalance != nil {
+				log.Println("lastExtBalance : ", lastExtBalance)
+				log.Println("es.ExtBalance[ethAccount.Address] : ", es.ExtBalance[ethAccount.Address])
 				if lastExtBalance.Cmp(es.ExtBalance[ethAccount.Address]) < 0 {
 					log.Printf("lastExtBalance.Cmp(es.ExtBalance[%s])", ethAccount.Address)
 
