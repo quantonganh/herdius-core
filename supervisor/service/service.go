@@ -44,10 +44,6 @@ type SupervisorI interface {
 	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
 }
 
-const (
-	herdiusZeroAddress = "Hx00000000000000000000000000000000"
-)
-
 var (
 	_ SupervisorI = (*Supervisor)(nil)
 )
