@@ -217,8 +217,5 @@ func (s *Service) AccountExternalAddressExist() bool {
 // IsHerdiusZeroAddress checks if receiver address is of herdius zero address
 // when lock tx type is transmitted to herdius blockchain
 func (s *Service) IsHerdiusZeroAddress() bool {
-	if s.receiverAddress == herdiusZeroAddress {
-		return true
-	}
-	return false
+	return s.receiverAddress == herdiusZeroAddress
 }
