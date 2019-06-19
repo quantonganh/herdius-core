@@ -557,6 +557,20 @@ func isExternalAssetAddressExist(account *statedb.Account, assetSymbol, assetAdd
 	return false
 }
 
+func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
+	if senderAccount.LockedBalance == nil {
+		senderAccount.LockedBalance = make(map[string]map[string]uint64)
+	}
+	asset := strings.ToUpper(tx.Asset.Symbol)
+	if senderAccount.LockedBalance[asset] == nil {
+		senderAccount.LockedBalance[asset] = make(map[string]uint64)
+	}
+	if tx.SenderAddress == senderAccount.Address {
+		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] += tx.Asset.Value
+	}
+
+	return senderAccount
+}
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		len(senderAccount.Address) == 0 {
@@ -849,9 +863,13 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			continue
 
-		} else if strings.EqualFold(tx.Type, "Update") {
+		} else if strings.EqualFold(tx.Type, "Update") || strings.EqualFold(tx.Type, "Lock") {
 
-			senderAccount = *(updateAccount(&senderAccount, &tx))
+			if strings.EqualFold(tx.Type, "Update") {
+				senderAccount = *(updateAccount(&senderAccount, &tx))
+			} else {
+				senderAccount = *(updateAccountLockedBalance(&senderAccount, &tx))
+			}
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
 			if err != nil {
@@ -872,17 +890,6 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				}
 			}
-			tx.Status = "success"
-			txbz, err = cdc.MarshalJSON(&tx)
-			(*txs)[i] = txbz
-			if err != nil {
-				log.Printf("Failed to encode failed tx: %v", err)
-				plog.Error().Msgf("Failed to encode failed tx: %v", err)
-			}
-			continue
-		} else if strings.EqualFold(tx.Type, "lock") {
-			// TODO: On completion of task https://app.asana.com/0/998359196895599/1127276530517142
-			// sender account will be updated in the state db.
 			tx.Status = "success"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
