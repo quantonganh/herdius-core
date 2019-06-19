@@ -131,6 +131,10 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 	case *protoplugin.TxRequest:
 		tx := msg.GetTx()
 		accSrv := account.NewAccountService()
+		accSrv.SetReceiverAddress(tx.RecieverAddress)
+		accSrv.SetAssetSymbol(tx.Asset.Symbol)
+		accSrv.SetExtAddress(tx.Asset.ExternalSenderAddress)
+		accSrv.SetTxValue(tx.Asset.Value)
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
@@ -168,12 +172,12 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				return errors.New(failedVerificationMsg)
 			}
 		}
-
+		accSrv.SetAccount(account)
 		// Check if tx is of type account update
 		// and verify external address exists
 		update := Update.String()
 		if strings.EqualFold(tx.Type, update) {
-			if accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+			if accSrv.AccountExternalAddressExist() {
 				failedVerificationMsg := "External account existed: " + tx.Asset.ExternalSenderAddress
 				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 					&protoplugin.TxResponse{
@@ -194,7 +198,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		// verify if receiver address is herdius zero address
 		lock := Lock.String()
 		if strings.EqualFold(tx.Type, lock) {
-			if !accSrv.AccountExternalAddressExist(account, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress) {
+			if !accSrv.AccountExternalAddressExist() {
 				failedVerificationMsg := "External address does not exist: " + tx.Asset.ExternalSenderAddress
 				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 					&protoplugin.TxResponse{
@@ -207,7 +211,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				}
 				return errors.New(failedVerificationMsg)
 			}
-			if !accSrv.IsHerdiusZeroAddress(tx.RecieverAddress) {
+			if !accSrv.IsHerdiusZeroAddress() {
 				failedVerificationMsg := "Incorrect herdius zero address: " + tx.RecieverAddress
 				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 					&protoplugin.TxResponse{
@@ -223,7 +227,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		}
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
-		if !accSrv.VerifyAccountBalance(account, tx.GetAsset().Value, tx.GetAsset().GetSymbol(), tx.GetAsset().GetExternalSenderAddress()) {
+		if !accSrv.VerifyAccountBalance() {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
