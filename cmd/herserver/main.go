@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/herdius/herdius-core/aws/restore"
 	"github.com/herdius/herdius-core/blockchain"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
@@ -218,14 +219,18 @@ func main() {
 	portFlag := flag.Int("port", 0, "port to bind validator to")
 	envFlag := flag.String("env", "dev", "environment to build network and run process for")
 	waitTimeFlag := flag.Int("waitTime", 15, "time to wait before the Memory Pool is flushed to a new block")
+	restoreFlag := flag.Bool("restore", false, "restore blockchain from S3")
+	backupFlag := flag.Bool("backup", false, "backup blockchain to S3")
 	flag.Parse()
 
-	env := *envFlag
+	noOfPeersInGroup := *groupSizeFlag
 	port := *portFlag
+	env := *envFlag
+	waitTime := *waitTimeFlag
+	restr := *restoreFlag
+	backup := *backupFlag
 	confg := config.GetConfiguration(env)
 	peers := strings.Split(*peersFlag, ",")
-	noOfPeersInGroup := *groupSizeFlag
-	waitTime := *waitTimeFlag
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
@@ -298,6 +303,15 @@ func main() {
 	if *supervisorFlag {
 		accountStorage = external.New()
 		blockchain.LoadDB()
+		if restr {
+			nlog.Println("Restore value true: proceeding to restore from AWS S3")
+			r := restore.NewRestorer(env, 3)
+			err := r.Restore()
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
+		}
+		blockchain.LoadDB()
 		sup.LoadStateDB(accountStorage)
 		blockchainSvc := &blockchain.Service{}
 
@@ -336,6 +350,7 @@ func main() {
 			supsvc.SetWaitTime(waitTime)
 			supsvc.SetNoOfPeersInGroup(noOfPeersInGroup)
 			supsvc.SetStateRoot(stateRoot)
+			supsvc.SetBackup(backup)
 			// Check for deactivated validators and remove them from supervisor list
 			if supsvc.Validator != nil && len(supsvc.Validator) > 0 {
 				for _, v := range supsvc.Validator {
@@ -366,7 +381,6 @@ func main() {
 				log.Info().Msg("New Block Added")
 				log.Info().Msgf("Block Id: %v", bbh.String())
 				log.Info().Msgf("Last Block Id: %v", pbbh.String())
-
 				log.Info().Msgf("Block Height: %v", baseBlock.GetHeader().GetHeight())
 
 				s := lastBlock.GetHeader().GetTime().GetSeconds()
