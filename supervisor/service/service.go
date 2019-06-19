@@ -391,7 +391,6 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // It will check whether to send the transactions to Validators
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error) {
-	log.Printf("PROCESSTX BASEBLOCK BLOCKHASH: %X", lastBlock.Header.Block_ID.BlockHash)
 	mp := mempool.GetMemPool()
 	txs := mp.GetTxs()
 
