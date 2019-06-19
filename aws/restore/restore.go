@@ -126,7 +126,7 @@ func (r Restorer) clearOld() error {
 	return nil
 }
 
-func (r Restorer) downloadState() (errr error) {
+func (r Restorer) downloadState() (downloadErr error) {
 
 	pre := fmt.Sprintf("%v/statedb/MANIFEST", r.heightToRestore)
 	listParams := &s3.ListObjectsV2Input{
@@ -162,7 +162,7 @@ func (r Restorer) downloadState() (errr error) {
 		defer func() {
 			err := file.Close()
 			if err != nil {
-				errr = fmt.Errorf("couldn't close state files: %v", err)
+				downloadErr = fmt.Errorf("couldn't close state files: %v", err)
 			}
 		}()
 		body := make([]byte, *stateFile.ContentLength)
