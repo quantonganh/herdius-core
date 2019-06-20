@@ -25,6 +25,7 @@ import (
 	"github.com/herdius/herdius-core/config"
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
 	"github.com/herdius/herdius-core/libs/common"
+	txbyte "github.com/herdius/herdius-core/tx"
 )
 
 // BackuperI ....
@@ -328,5 +329,25 @@ func (w *walker) setUploadPath(fileName string) error {
 	curStr := string(contents)
 
 	w.uploadPath = fmt.Sprintf("%v/statedb/%v/%v", w.objectHeight, curStr, fileName)
+	return nil
+}
+
+type LambdaPoster struct {
+	Txs txbyte.Txs
+}
+type LambdaPosterI interface {
+	PostLockedTxs() error
+	extractLockedTxs() error
+}
+
+func (l LambdaPoster) PostLockedTxs() error {
+	err := l.extractLockedTxs()
+	if err != nil {
+		return fmt.Errorf("couldn't extract locked txs: %v", err)
+	}
+	return nil
+}
+
+func (l LambdaPoster) extractLockedTxs() error {
 	return nil
 }

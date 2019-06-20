@@ -476,6 +476,7 @@ func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *net
 
 	// Remove processed transactions from Memory Pool
 	mp.RemoveTxs(len(txs))
+	aws.PostTxsToLambda(txs)
 	return baseBlock, nil
 }
 
