@@ -15,6 +15,10 @@ import (
 	amino "github.com/tendermint/go-amino"
 )
 
+const (
+	herdiusZeroAddress = "Hx00000000000000000000000000000000"
+)
+
 var cdc = amino.NewCodec()
 
 func init() {
@@ -28,10 +32,75 @@ type ServiceI interface {
 }
 
 // Service ...
-type Service struct{}
+type Service struct {
+	account         *protobuf.Account
+	assetSymbol     string
+	address         string
+	receiverAddress string
+	extAddress      string
+	txValue         uint64
+}
 
-// TODO: Make it better so as not a
-// global variable
+// Account returns state db account
+func (s *Service) Account() *protobuf.Account {
+	return s.account
+}
+
+// SetAccount sets Service account
+func (s *Service) SetAccount(account *protobuf.Account) {
+	s.account = account
+}
+
+// AssetSymbol returns servie asset symbol
+func (s *Service) AssetSymbol() string {
+	return s.assetSymbol
+}
+
+// SetAssetSymbol sets Service asset symbol
+func (s *Service) SetAssetSymbol(assetSymbol string) {
+	s.assetSymbol = assetSymbol
+}
+
+// Address returns service her account address
+func (s *Service) Address() string {
+	return s.address
+}
+
+// SetAddress sets Service asset symbol
+func (s *Service) SetAddress(address string) {
+	s.address = address
+}
+
+// ReceiverAddress returns receiver's her account address
+func (s *Service) ReceiverAddress() string {
+	return s.receiverAddress
+}
+
+// SetReceiverAddress sets receiver's her account address
+func (s *Service) SetReceiverAddress(receiverAddress string) {
+	s.receiverAddress = receiverAddress
+}
+
+// ExtAddress returns service ExtAddress
+func (s *Service) ExtAddress() string {
+	return s.extAddress
+}
+
+// SetExtAddress sets Service ExtAddress
+func (s *Service) SetExtAddress(extAddress string) {
+	s.extAddress = extAddress
+}
+
+// TxValue returns transaction transfer value
+func (s *Service) TxValue() uint64 {
+	return s.txValue
+}
+
+// SetTxValue sets transaction transfer value
+func (s *Service) SetTxValue(txValue uint64) {
+	s.txValue = txValue
+}
+
 var (
 	_ ServiceI = (*Service)(nil)
 )
@@ -104,18 +173,18 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 	return acc, nil
 }
 
-// VerifyAccountBalance verifies if account has enough HER tokens
-// This only has to be verified and called for HER crypto asset
-func (s *Service) VerifyAccountBalance(a *protobuf.Account, txValue uint64, assetSymbol string) bool {
+// VerifyAccountBalance verifies if account has enough HER tokens or external asset balances
+func (s *Service) VerifyAccountBalance() bool {
 	// Get the balance of required asset
-	if strings.EqualFold(assetSymbol, "HER") {
-		if a.Balance >= txValue {
+	if strings.EqualFold(strings.ToUpper(s.assetSymbol), "HER") {
+		if s.account.Balance >= s.txValue {
 			return true
 		}
-	} else if a != nil && len(a.EBalances) > 0 && a.EBalances[assetSymbol] != nil {
-		for _, eb := range a.EBalances[assetSymbol].Asset {
-			if eb.Balance >= txValue {
-				return true
+	} else if s.account != nil && len(s.account.EBalances) > 0 && s.account.EBalances[strings.ToUpper(s.assetSymbol)] != nil {
+		if asset := s.account.EBalances[strings.ToUpper(s.assetSymbol)].Asset; asset != nil {
+			eb, ok := asset[s.extAddress]
+			if ok && eb.Balance >= s.txValue {
+				return ok
 			}
 		}
 	}
@@ -135,12 +204,18 @@ func (s *Service) VerifyAccountNonce(a *protobuf.Account, txNonce uint64) bool {
 }
 
 // AccountExternalAddressExist reports whether an external address existed in EBalances
-func (s *Service) AccountExternalAddressExist(a *protobuf.Account, assetSymbol, extAddress string) bool {
-	if a != nil && a.EBalances != nil && a.EBalances[assetSymbol] != nil {
-		if asset := a.EBalances[assetSymbol].Asset; asset != nil {
-			_, ok := asset[extAddress]
+func (s *Service) AccountExternalAddressExist() bool {
+	if s.account != nil && s.account.EBalances != nil && s.account.EBalances[s.assetSymbol] != nil {
+		if asset := s.account.EBalances[s.assetSymbol].Asset; asset != nil {
+			_, ok := asset[s.extAddress]
 			return ok
 		}
 	}
 	return false
+}
+
+// IsHerdiusZeroAddress checks if receiver address is of herdius zero address
+// when lock tx type is transmitted to herdius blockchain
+func (s *Service) IsHerdiusZeroAddress() bool {
+	return s.receiverAddress == herdiusZeroAddress
 }
