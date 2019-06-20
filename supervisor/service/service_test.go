@@ -82,7 +82,7 @@ func TestRegisterNewETHAddress(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
@@ -107,7 +107,7 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
@@ -153,7 +153,7 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 		Type:          "update",
 	}
 	account := &statedb.Account{
-		Address:               "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		FirstExternalAddress: make(map[string]string),
 	}
 	account = updateAccount(account, tx)
@@ -419,4 +419,28 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	assert.False(t, res.IsFirstEntry[storageKey])
 
 	defer os.RemoveAll(dir)
+}
+
+func TestUpdateAccountLockedBalance(t *testing.T) {
+	symbol := "ETH"
+	lockedAmount := uint64(10)
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	asset := &pluginproto.Asset{
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
+		Nonce:                 1,
+		Network:               "Herdius",
+		Value:                 lockedAmount,
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "lock",
+	}
+	account := &statedb.Account{
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
+	}
+	account = updateAccountLockedBalance(account, tx)
+	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
 }
