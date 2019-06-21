@@ -1,6 +1,7 @@
 package account
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -141,4 +142,19 @@ func TestAccountExternalAddressExistTrue(t *testing.T) {
 	accService.SetAccount(account)
 	accService.SetExtAddress("0xD8f647855876549d2623f52126CE40D053a2ef6A")
 	assert.False(t, accService.AccountExternalAddressExist())
+}
+
+func TestVerifyAccountEBalancesLimit(t *testing.T) {
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
+	eBalances["ETH"] = &protobuf.EBalanceAsset{}
+	eBalances["ETH"].Asset = make(map[string]*protobuf.EBalance)
+	for i := 0; i < 1023; i++ {
+		address := fmt.Sprintf("%d", i)
+		eBalances["ETH"].Asset[address] = &protobuf.EBalance{Address: address}
+	}
+	account := &protobuf.Account{Balance: 1, EBalances: eBalances}
+	accService := NewAccountService()
+	assert.False(t, accService.AccountEBalancePerAssetReachLimit(account, "ETH"))
+	eBalances["ETH"].Asset["1024"] = nil
+	assert.True(t, accService.AccountEBalancePerAssetReachLimit(account, "ETH"))
 }
