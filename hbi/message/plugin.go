@@ -24,7 +24,7 @@ type TxType int
 
 const (
 	Update TxType = iota
-	Lock   TxType = iota
+	Lock
 )
 
 var nonce uint64 = 1
@@ -135,6 +135,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		accSrv.SetAssetSymbol(tx.Asset.Symbol)
 		accSrv.SetExtAddress(tx.Asset.ExternalSenderAddress)
 		accSrv.SetTxValue(tx.Asset.Value)
+		accSrv.SetTxLockedAmount(tx.Asset.LockedAmount)
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
@@ -190,7 +191,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				}
 				return errors.New(failedVerificationMsg)
 			}
-			if accSrv.AccountEBalancePerAssetReachLimit(account, tx.Asset.Symbol) {
+			if accSrv.AccountEBalancePerAssetReachLimit() {
 				failedVerificationMsg := "Account reached number of addresses limit"
 				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 					&protoplugin.TxResponse{
@@ -237,10 +238,23 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				}
 				return errors.New(failedVerificationMsg)
 			}
+			if !accSrv.VerifyLockedAmount() {
+				failedVerificationMsg := "Account does not have enough locked amount"
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
 		}
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
-		if !accSrv.VerifyAccountBalance() {
+		if !strings.EqualFold(tx.Type, lock) && !accSrv.VerifyAccountBalance() {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,

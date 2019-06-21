@@ -40,6 +40,7 @@ type Service struct {
 	receiverAddress string
 	extAddress      string
 	txValue         uint64
+	txLockedAmount  uint64
 }
 
 // Account returns state db account
@@ -100,6 +101,16 @@ func (s *Service) TxValue() uint64 {
 // SetTxValue sets transaction transfer value
 func (s *Service) SetTxValue(txValue uint64) {
 	s.txValue = txValue
+}
+
+// TxLockedAmount returns transaction transfer locked amount
+func (s *Service) TxLockedAmount() uint64 {
+	return s.txLockedAmount
+}
+
+// SetTxLockedAmount sets transaction transfer locked amount
+func (s *Service) SetTxLockedAmount(txLockedAmount uint64) {
+	s.txLockedAmount = txLockedAmount
 }
 
 var (
@@ -222,9 +233,19 @@ func (s *Service) IsHerdiusZeroAddress() bool {
 }
 
 // AccountEBalancePerAssetReachLimit reports whether an account reaches limit for number of address per asset.
-func (s *Service) AccountEBalancePerAssetReachLimit(a *protobuf.Account, assetSymbol string) bool {
-	if a != nil && a.EBalances != nil && a.EBalances[assetSymbol] != nil {
-		return len(a.EBalances[assetSymbol].Asset) >= numAddressPerAssetLimit
+func (s *Service) AccountEBalancePerAssetReachLimit() bool {
+	if s.account != nil && s.account.EBalances != nil && s.account.EBalances[s.assetSymbol] != nil {
+		return len(s.account.EBalances[s.assetSymbol].Asset) >= numAddressPerAssetLimit
+	}
+	return false
+}
+
+// VerifyLockedAmount checks account have enough external balance for lock.
+func (s *Service) VerifyLockedAmount() bool {
+	if s.account != nil && s.account.EBalances != nil && s.account.EBalances[s.assetSymbol] != nil {
+		if asset := s.account.EBalances[s.assetSymbol].Asset; asset != nil {
+			return s.txLockedAmount <= asset[s.extAddress].Balance
+		}
 	}
 	return false
 }

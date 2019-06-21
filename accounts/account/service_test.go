@@ -154,7 +154,31 @@ func TestVerifyAccountEBalancesLimit(t *testing.T) {
 	}
 	account := &protobuf.Account{Balance: 1, EBalances: eBalances}
 	accService := NewAccountService()
-	assert.False(t, accService.AccountEBalancePerAssetReachLimit(account, "ETH"))
+	accService.SetAccount(account)
+	accService.SetAssetSymbol("ETH")
+	assert.False(t, accService.AccountEBalancePerAssetReachLimit())
 	eBalances["ETH"].Asset["1024"] = nil
-	assert.True(t, accService.AccountEBalancePerAssetReachLimit(account, "ETH"))
+	assert.True(t, accService.AccountEBalancePerAssetReachLimit())
+}
+
+func TestVerifyLockedAmount(t *testing.T) {
+	accService := NewAccountService()
+	symbol := "ETH"
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBalance := &protobuf.EBalance{
+		Address: extAddr,
+		Balance: 1,
+	}
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
+	eBalances[symbol] = &protobuf.EBalanceAsset{}
+	eBalances[symbol].Asset = make(map[string]*protobuf.EBalance)
+	eBalances[symbol].Asset[eBalance.Address] = eBalance
+	account := &protobuf.Account{Balance: 1, EBalances: eBalances}
+	accService.SetAccount(account)
+	accService.SetAssetSymbol(symbol)
+	accService.SetTxLockedAmount(1)
+	accService.SetExtAddress(extAddr)
+	assert.True(t, accService.VerifyLockedAmount())
+	accService.SetTxLockedAmount(2)
+	assert.False(t, accService.VerifyLockedAmount())
 }
