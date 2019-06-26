@@ -359,6 +359,9 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		if err != nil {
 			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
+	case *protoplugin.TxLockedRequest:
+		log.Println("`locked` GET request received")
+		getLockedTxs(ctx)
 	}
 	return nil
 }
@@ -600,4 +603,13 @@ func putTxUpdateRequest(id string, newTx *protoplugin.Tx) (string, *protoplugin.
 	}
 	newID := common.CreateTxID(updatedBz)
 	return newID, updatedTx, nil
+}
+
+func getLockedTxs(ctx *network.PluginContext) error {
+	txSvc := &blockchain.TxService{}
+	txs, err := txSvc.GetLostTxs()
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
+	return err
 }

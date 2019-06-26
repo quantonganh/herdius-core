@@ -443,6 +443,10 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 	return txs, nil
 }
 
+func (s *TxService) GetLostTxs() (*pluginproto.TxLockedResponse, error) {
+	return nil, nil
+}
+
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
 // Initially 50 accounts will be loaded to state db
 func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
