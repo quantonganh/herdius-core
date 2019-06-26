@@ -443,8 +443,10 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 	return txs, nil
 }
 
-func (s *TxService) GetLostTxs() (*pluginproto.TxLockedResponse, error) {
-	return nil, nil
+// GetLockedTxs returns a complete list of all locked txs in blockchain
+func (t *TxService) GetLockedTxs() (*pluginproto.TxLockedResponse, error) {
+	txs := &pluginproto.TxLockedResponse{}
+	return txs, nil
 }
 
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.

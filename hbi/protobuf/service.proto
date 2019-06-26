@@ -164,5 +164,5 @@ message TxDeleteRequest {
 
 message TxLockedRequest {}
 message TxLockedResponse {
-    repeated TxDetailResponse txs = 1;
+    repeated Tx txs = 1;
 }

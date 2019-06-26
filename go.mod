@@ -7,6 +7,7 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/cespare/cp v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgraph-io/badger v1.5.5
 	github.com/edsrzf/mmap-go v1.0.0 // indirect

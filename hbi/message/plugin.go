@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
@@ -607,9 +608,19 @@ func putTxUpdateRequest(id string, newTx *protoplugin.Tx) (string, *protoplugin.
 
 func getLockedTxs(ctx *network.PluginContext) error {
 	txSvc := &blockchain.TxService{}
-	txs, err := txSvc.GetLostTxs()
+	txs, err := txSvc.GetLockedTxs()
+	if err != nil {
+		return fmt.Errorf("error getting lost transactions: %v", err)
+	}
 
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+	spew.Dump(apiClient)
+	if err != nil {
+		return fmt.Errorf("error getting API client: %v", err)
+	}
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
-	return err
+	if err != nil {
+		return fmt.Errorf("error replying to apiClient: %v", err)
+	}
+	return nil
 }
