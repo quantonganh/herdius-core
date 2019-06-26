@@ -571,6 +571,22 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 
 	return senderAccount
 }
+
+func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
+	if senderAccount.LockedBalance == nil {
+		senderAccount.LockedBalance = make(map[string]map[string]uint64)
+	}
+	asset := strings.ToUpper(tx.Asset.Symbol)
+	if senderAccount.LockedBalance[asset] == nil {
+		senderAccount.LockedBalance[asset] = make(map[string]uint64)
+	}
+	if tx.SenderAddress == senderAccount.Address &&
+		tx.Asset.Value <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
+		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.Value
+	}
+
+	return senderAccount
+}
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		len(senderAccount.Address) == 0 {
@@ -863,10 +879,14 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			continue
 
-		} else if strings.EqualFold(tx.Type, "Update") || strings.EqualFold(tx.Type, "Lock") {
+		} else if strings.EqualFold(tx.Type, "Update") ||
+			strings.EqualFold(tx.Type, "Lock") ||
+			strings.EqualFold(tx.Type, "Redeem") {
 
 			if strings.EqualFold(tx.Type, "Update") {
 				senderAccount = *(updateAccount(&senderAccount, &tx))
+			} else if strings.EqualFold(tx.Type, "Redeem") {
+				senderAccount = *(updateRedeemAccountLockedBalance(&senderAccount, &tx))
 			} else {
 				senderAccount = *(updateAccountLockedBalance(&senderAccount, &tx))
 			}
