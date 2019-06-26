@@ -883,12 +883,13 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			strings.EqualFold(tx.Type, "Lock") ||
 			strings.EqualFold(tx.Type, "Redeem") {
 
-			if strings.EqualFold(tx.Type, "Update") {
+			switch txType := strings.ToUpper(tx.Type); txType {
+			case "UPDATE":
 				senderAccount = *(updateAccount(&senderAccount, &tx))
-			} else if strings.EqualFold(tx.Type, "Redeem") {
-				senderAccount = *(updateRedeemAccountLockedBalance(&senderAccount, &tx))
-			} else {
+			case "LOCK":
 				senderAccount = *(updateAccountLockedBalance(&senderAccount, &tx))
+			case "REDEEM":
+				senderAccount = *(updateRedeemAccountLockedBalance(&senderAccount, &tx))
 			}
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
