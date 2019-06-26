@@ -574,11 +574,11 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 
 func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if senderAccount.LockedBalance == nil {
-		senderAccount.LockedBalance = make(map[string]map[string]uint64)
+		return senderAccount
 	}
 	asset := strings.ToUpper(tx.Asset.Symbol)
 	if senderAccount.LockedBalance[asset] == nil {
-		senderAccount.LockedBalance[asset] = make(map[string]uint64)
+		return senderAccount
 	}
 	if tx.SenderAddress == senderAccount.Address &&
 		tx.Asset.Value <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
