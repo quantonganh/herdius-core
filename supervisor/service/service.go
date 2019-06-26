@@ -581,8 +581,8 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 		return senderAccount
 	}
 	if tx.SenderAddress == senderAccount.Address &&
-		tx.Asset.Value <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
-		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.Value
+		tx.Asset.RedeemedAmount <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
+		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.RedeemedAmount
 	}
 
 	return senderAccount
