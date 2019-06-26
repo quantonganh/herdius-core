@@ -444,3 +444,47 @@ func TestUpdateAccountLockedBalance(t *testing.T) {
 	account = updateAccountLockedBalance(account, tx)
 	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
 }
+
+func TestUpdateRedeemAccountLockedBalance(t *testing.T) {
+	symbol := "ETH"
+	lockedAmount := uint64(10)
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	asset := &pluginproto.Asset{
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
+		Nonce:                 1,
+		Network:               "Herdius",
+		Value:                 lockedAmount,
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "lock",
+	}
+	account := &statedb.Account{
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
+	}
+	account = updateAccountLockedBalance(account, tx)
+	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
+
+	// Redeem test
+	symbol = "ETH"
+	value := uint64(5)
+	extSenderAddress = "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	asset = &pluginproto.Asset{
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
+		Nonce:                 2,
+		Network:               "Herdius",
+		RedeemedAmount:        value,
+	}
+	tx = &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "redeem",
+	}
+
+	account = updateRedeemAccountLockedBalance(account, tx)
+	assert.Equal(t, value, account.LockedBalance[symbol][extSenderAddress])
+}

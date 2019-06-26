@@ -571,6 +571,22 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 
 	return senderAccount
 }
+
+func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
+	if senderAccount.LockedBalance == nil {
+		return senderAccount
+	}
+	asset := strings.ToUpper(tx.Asset.Symbol)
+	if senderAccount.LockedBalance[asset] == nil {
+		return senderAccount
+	}
+	if tx.SenderAddress == senderAccount.Address &&
+		tx.Asset.RedeemedAmount <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
+		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.RedeemedAmount
+	}
+
+	return senderAccount
+}
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
 	if strings.EqualFold(strings.ToUpper(tx.Asset.Symbol), "HER") &&
 		len(senderAccount.Address) == 0 {
@@ -863,12 +879,17 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 
 			continue
 
-		} else if strings.EqualFold(tx.Type, "Update") || strings.EqualFold(tx.Type, "Lock") {
+		} else if strings.EqualFold(tx.Type, "Update") ||
+			strings.EqualFold(tx.Type, "Lock") ||
+			strings.EqualFold(tx.Type, "Redeem") {
 
-			if strings.EqualFold(tx.Type, "Update") {
+			switch txType := strings.ToUpper(tx.Type); txType {
+			case "UPDATE":
 				senderAccount = *(updateAccount(&senderAccount, &tx))
-			} else {
+			case "LOCK":
 				senderAccount = *(updateAccountLockedBalance(&senderAccount, &tx))
+			case "REDEEM":
+				senderAccount = *(updateRedeemAccountLockedBalance(&senderAccount, &tx))
 			}
 
 			sactbz, err := cdc.MarshalJSON(senderAccount)
