@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/storage/mempool"
@@ -614,11 +613,11 @@ func getLockedTxs(ctx *network.PluginContext) error {
 	}
 
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
-	spew.Dump(apiClient)
 	if err != nil {
 		return fmt.Errorf("error getting API client: %v", err)
 	}
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
+	nonce++
 	if err != nil {
 		return fmt.Errorf("error replying to apiClient: %v", err)
 	}

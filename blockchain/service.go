@@ -445,8 +445,57 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 
 // GetLockedTxs returns a complete list of all locked txs in blockchain
 func (t *TxService) GetLockedTxs() (*pluginproto.TxLockedResponse, error) {
-	txs := &pluginproto.TxLockedResponse{}
-	return txs, nil
+
+	transXs := make([]*pluginproto.Tx, 0)
+
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+
+			var baseBlock protobuf.BaseBlock
+			err = cdc.UnmarshalJSON(v, &baseBlock)
+			if err != nil {
+				return nil
+			}
+
+			// Check if base block has an transaction in it
+			if baseBlock.GetTxsData() != nil &&
+				len(baseBlock.GetTxsData().GetTx()) > 0 {
+
+				// Get all the transaction from the base block
+				txs := baseBlock.GetTxsData().GetTx()
+
+				for _, txbz := range txs {
+					var tx pluginproto.Tx
+					err := cdc.UnmarshalJSON(txbz, &tx)
+					if err != nil {
+						log.Printf("Failed to Unmarshal tx: %v", err)
+						continue
+					}
+					if strings.EqualFold("locked", tx.Type) {
+						transXs = append(transXs, &tx)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Error().Msgf("Failed to get blocks due to: %v", err.Error())
+		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
+	}
+
+	return &pluginproto.TxLockedResponse{
+		Txs: transXs,
+	}, nil
 }
 
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
