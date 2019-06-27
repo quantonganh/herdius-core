@@ -183,6 +183,36 @@ func TestVerifyLockedAmount(t *testing.T) {
 	assert.False(t, accService.VerifyLockedAmount())
 }
 
+func TestVerifyAccountBalanceWithLockAmount(t *testing.T) {
+	accService := NewAccountService()
+	symbol := "ETH"
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	eBalance := &protobuf.EBalance{
+		Address: extAddr,
+		Balance: 1,
+	}
+	eBalances := make(map[string]*protobuf.EBalanceAsset)
+	eBalances[symbol] = &protobuf.EBalanceAsset{}
+	eBalances[symbol].Asset = make(map[string]*protobuf.EBalance)
+	eBalances[symbol].Asset[eBalance.Address] = eBalance
+
+	lockedBalances := make(map[string]*protobuf.LockBalanceAsset)
+	lockedBalances[symbol] = &protobuf.LockBalanceAsset{}
+	lockedBalances[symbol].Asset = make(map[string]uint64)
+	lockedBalances[symbol].Asset[extAddr] = 0
+
+	account := &protobuf.Account{Balance: 1, EBalances: eBalances, LockBalances: lockedBalances}
+	accService.SetAccount(account)
+	accService.SetExtAddress(extAddr)
+	accService.SetAssetSymbol(symbol)
+	accService.SetTxValue(1)
+	assert.True(t, accService.VerifyAccountBalance())
+	lockedBalances[symbol].Asset[extAddr] = 1
+	assert.False(t, accService.VerifyAccountBalance())
+	lockedBalances[symbol].Asset[extAddr] = 2
+	assert.False(t, accService.VerifyAccountBalance())
+}
+
 func TestVerifyRedeemAmount(t *testing.T) {
 	accService := NewAccountService()
 	symbol := "ETH"

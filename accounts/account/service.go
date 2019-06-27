@@ -209,16 +209,21 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 
 // VerifyAccountBalance verifies if account has enough HER tokens or external asset balances
 func (s *Service) VerifyAccountBalance() bool {
+	symbol := strings.ToUpper(s.assetSymbol)
 	// Get the balance of required asset
-	if strings.EqualFold(strings.ToUpper(s.assetSymbol), "HER") {
+	if strings.EqualFold(symbol, "HER") {
 		if s.account.Balance >= s.txValue {
 			return true
 		}
-	} else if s.account != nil && len(s.account.EBalances) > 0 && s.account.EBalances[strings.ToUpper(s.assetSymbol)] != nil {
-		if asset := s.account.EBalances[strings.ToUpper(s.assetSymbol)].Asset; asset != nil {
+	} else if s.account != nil && len(s.account.EBalances) > 0 && s.account.EBalances[symbol] != nil {
+		lockedAmount := uint64(0)
+		if s.account.LockBalances[symbol] != nil {
+			lockedAmount = s.account.LockBalances[symbol].Asset[s.extAddress]
+		}
+		if asset := s.account.EBalances[symbol].Asset; asset != nil {
 			eb, ok := asset[s.extAddress]
-			if ok && eb.Balance >= s.txValue {
-				return ok
+			if ok && eb.Balance > lockedAmount {
+				return (eb.Balance - lockedAmount) >= s.txValue
 			}
 		}
 	}
