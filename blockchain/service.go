@@ -480,7 +480,7 @@ func (t *TxService) GetLockedTxs() (*pluginproto.TxLockedResponse, error) {
 						log.Printf("Failed to Unmarshal tx: %v", err)
 						continue
 					}
-					if strings.EqualFold("locked", tx.Type) {
+					if strings.EqualFold("lock", tx.Type) {
 						transXs = append(transXs, &tx)
 					}
 				}
