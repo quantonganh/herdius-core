@@ -101,7 +101,6 @@ func (m *MemPool) processQueue(accountService account.ServiceI) {
 // GetTxs gets all transactions from the MemPool
 func (m *MemPool) GetTxs() *tx.Txs {
 	accSrv := account.NewAccountService()
-	m.processQueue(accSrv)
 	txs := &tx.Txs{}
 	m.processQueue(accSrv)
 	var cdc = amino.NewCodec()
