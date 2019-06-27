@@ -17,6 +17,7 @@ message Account {
     uint64 last_block_height = 8;
 
     map<string,EBalanceAsset> eBalances = 9;
+    map<string,LockBalanceAsset> lockBalances = 10;
 }
 
 message AccountRegisterRequest{
@@ -32,4 +33,8 @@ message EBalance{
 
 message EBalanceAsset {
     map<string,EBalance> asset = 1;
+}
+
+message LockBalanceAsset {
+    map<string,uint64> asset = 1;
 }
