@@ -41,6 +41,7 @@ type Service struct {
 	extAddress      string
 	txValue         uint64
 	txLockedAmount  uint64
+	txRedeemAmount  uint64
 }
 
 // Account returns state db account
@@ -113,6 +114,16 @@ func (s *Service) SetTxLockedAmount(txLockedAmount uint64) {
 	s.txLockedAmount = txLockedAmount
 }
 
+// TxRedeemAmount returns transaction transfer redeem amount
+func (s *Service) TxRedeemAmount() uint64 {
+	return s.txRedeemAmount
+}
+
+// SetTxRedeemAmount sets transaction transfer redeem amount
+func (s *Service) SetTxRedeemAmount(txRedeemAmount uint64) {
+	s.txRedeemAmount = txRedeemAmount
+}
+
 var (
 	_ ServiceI = (*Service)(nil)
 )
@@ -171,6 +182,16 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 		}
 	}
 
+	lockBalances := make(map[string]*protobuf.LockBalanceAsset)
+
+	for asset, assetAccount := range account.LockedBalance {
+		lockBalances[asset] = &protobuf.LockBalanceAsset{}
+		lockBalances[asset].Asset = make(map[string]uint64)
+		for addr, lockAmount := range assetAccount {
+			lockBalances[asset].Asset[addr] = lockAmount
+		}
+	}
+
 	acc := &protobuf.Account{
 		PublicKey:       account.PublicKey,
 		Address:         account.Address,
@@ -178,6 +199,7 @@ func (s *Service) GetAccountByAddress(address string) (*protobuf.Account, error)
 		Balance:         account.Balance,
 		StorageRoot:     stateRootHex.String(),
 		EBalances:       eBalances,
+		LockBalances:    lockBalances,
 		Erc20Address:    account.Erc20Address,
 		ExternalNonce:   account.ExternalNonce,
 		LastBlockHeight: account.LastBlockHeight,
@@ -245,6 +267,16 @@ func (s *Service) VerifyLockedAmount() bool {
 	if s.account != nil && s.account.EBalances != nil && s.account.EBalances[s.assetSymbol] != nil {
 		if asset := s.account.EBalances[s.assetSymbol].Asset; asset != nil {
 			return s.txLockedAmount <= asset[s.extAddress].Balance
+		}
+	}
+	return false
+}
+
+// VerifyRedeemAmount checks account have proper locked amount for redeeming
+func (s *Service) VerifyRedeemAmount() bool {
+	if s.account != nil && s.account.LockBalances != nil && s.account.LockBalances[s.assetSymbol] != nil {
+		if asset := s.account.LockBalances[s.assetSymbol].Asset; asset != nil {
+			return s.txRedeemAmount <= asset[s.extAddress]
 		}
 	}
 	return false

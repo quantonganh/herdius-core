@@ -25,12 +25,13 @@ type TxType int
 const (
 	Update TxType = iota
 	Lock
+	Redeem
 )
 
 var nonce uint64 = 1
 
 func (t TxType) String() string {
-	return [...]string{"Update", "Lock"}[t]
+	return [...]string{"Update", "Lock", "Redeem"}[t]
 }
 
 // BlockMessagePlugin will receive all Block specific messages.
@@ -136,6 +137,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		accSrv.SetExtAddress(tx.Asset.ExternalSenderAddress)
 		accSrv.SetTxValue(tx.Asset.Value)
 		accSrv.SetTxLockedAmount(tx.Asset.LockedAmount)
+		accSrv.SetTxRedeemAmount(tx.Asset.RedeemedAmount)
 		account, err := accSrv.GetAccountByAddress(msg.Tx.GetSenderAddress())
 
 		apiClient, err := ctx.Network().Client(ctx.Client().Address)
@@ -252,9 +254,26 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				return errors.New(failedVerificationMsg)
 			}
 		}
+		redeem := Redeem.String()
+		if strings.EqualFold(tx.Type, redeem) {
+			if !accSrv.VerifyRedeemAmount() {
+				failedVerificationMsg := "Redeem amount greater than account locked amount"
+				err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
+					&protoplugin.TxResponse{
+						TxId: "", Status: "failed", Queued: 0, Pending: 0,
+						Message: failedVerificationMsg,
+					})
+				nonce++
+				if err != nil {
+					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+				}
+				return errors.New(failedVerificationMsg)
+			}
+		}
+
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
-		if !strings.EqualFold(tx.Type, lock) && !accSrv.VerifyAccountBalance() {
+		if strings.EqualFold(tx.Type, update) && !accSrv.VerifyAccountBalance() {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxResponse{
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,

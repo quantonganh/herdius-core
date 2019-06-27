@@ -182,3 +182,22 @@ func TestVerifyLockedAmount(t *testing.T) {
 	accService.SetTxLockedAmount(2)
 	assert.False(t, accService.VerifyLockedAmount())
 }
+
+func TestVerifyRedeemAmount(t *testing.T) {
+	accService := NewAccountService()
+	symbol := "ETH"
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	lockBalances := make(map[string]*protobuf.LockBalanceAsset)
+	lockBalances[symbol] = &protobuf.LockBalanceAsset{}
+	lockBalances[symbol].Asset = make(map[string]uint64)
+	lockBalances[symbol].Asset[extAddr] = 1
+
+	account := &protobuf.Account{Balance: 1, LockBalances: lockBalances}
+	accService.SetAccount(account)
+	accService.SetAssetSymbol(symbol)
+	accService.SetTxRedeemAmount(1)
+	accService.SetExtAddress(extAddr)
+	assert.True(t, accService.VerifyRedeemAmount())
+	accService.SetTxRedeemAmount(2)
+	assert.False(t, accService.VerifyRedeemAmount())
+}
