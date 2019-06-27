@@ -2,6 +2,10 @@
 
 ***Herdius*** is a P2P network and Byzantine Fault Tolerant blockchain. The Herdius blockchain is specifically tailored for fast transaction settlement. It is the backbone of all products built at Herdius including wallet, trading enginer, interoperability, etc. Our aim is to create an inter-blockchain gateway and so called "highway" through which the whole of decentralised web becomes accessible. 
 
+## Test Status
+
+[![CircleCI](https://circleci.com/gh/herdius/herdius-core/tree/master.svg?style=svg)](https://circleci.com/gh/herdius/herdius-core/tree/master)
+
 ## Current architecture
 
 One of the highlights of the Herdius blockchain is the **State-split and transaction batching mechanism** we call these two processes **BoB** Blocks-on Blocks. Currently a single node called the **Supervisor** receives all transactions from clients, places them in different batches, then assigns them to different **Validator Groups** creating so called **Child-blocks** in the process. These **Child-blocks** are linked to a **Base-block** and form a trie together, where each individual **Child-block** corresponds to their own State and network shard. Once **Validator groups** receive their assigned **Child-block** each of the validators within the group proceeds to validate each individual transaction inside their batch. Once validators reach consesus among their peers in their own validator groups, they transmit the result of the agreement (consensus) back to the **Supervisor**. Once all the responses are collected, the **Supervisor** finalizes the block with all of its **Child-blocks** which in turn becomes a block in the blockchain.
