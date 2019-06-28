@@ -162,7 +162,10 @@ func (s *Service) AddBaseBlock(bb *protobuf.BaseBlock) error {
 	blockhash := bb.GetHeader().GetBlock_ID().GetBlockHash()
 	bbbz, err := cdc.MarshalJSON(bb)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("Failed to Marshal Block ID: %v.", err))
+		return fmt.Errorf(fmt.Sprintf("failed to Marshal Block ID: %v", err))
+	}
+	if len(blockhash) == 0 || len(bbbz) == 0 {
+		return fmt.Errorf("couldn't get blockhash or bytes for adding to base block")
 	}
 
 	badgerDB.Set(blockhash, bbbz)
