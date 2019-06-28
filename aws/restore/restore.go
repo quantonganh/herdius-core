@@ -3,6 +3,7 @@ package restore
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -171,7 +172,8 @@ func (r Restorer) downloadState() (downloadErr error) {
 		}()
 		body := make([]byte, *stateFile.ContentLength)
 		_, err = stateFile.Body.Read(body)
-		if err != nil {
+
+		if err != nil && err != io.EOF {
 			return fmt.Errorf("couldn't read statefile body: %v", err)
 		}
 		file.Write(body)
