@@ -155,7 +155,11 @@ func (r Restorer) downloadState() (downloadErr error) {
 		}
 		f := strings.Split(*obj.Key, "/")
 		fileName := f[len(f)-1]
-		file, err := os.Create(fmt.Sprintf("/Users/bittelc/go/src/github.com/herdius/herdius-core/%v/%v", r.statePath, fileName))
+		path, ok := os.LookupEnv("GOPATH")
+		if !ok {
+			return fmt.Errorf("failed to get statePath, GOPATH env var unset")
+		}
+		file, err := os.Create(fmt.Sprintf("%v/src/github.com/herdius/herdius-core/%v/%v", path, r.statePath, fileName))
 		if err != nil {
 			return fmt.Errorf("failed to create state file %v: %v", fileName, err)
 		}
