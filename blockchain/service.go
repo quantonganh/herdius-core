@@ -443,6 +443,49 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 	return txs, nil
 }
 
+// GetLockedTxsByBlockNumber returns a list of all locked txs in a block
+func (t *TxService) GetLockedTxsByBlockNumber(blockNumber string) (*pluginproto.TxLockedResponse, error) {
+
+	txs := make([]*pluginproto.Tx, 0)
+
+	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(blockNumber))
+		if err != nil {
+			return err
+		}
+		v, err := item.Value()
+		if err != nil {
+			return err
+		}
+
+		var baseBlock protobuf.BaseBlock
+		err = cdc.UnmarshalJSON(v, &baseBlock)
+		if err != nil {
+			return nil
+		}
+
+		// Check if base block has an transaction in it
+		if baseBlock.GetTxsData() != nil {
+			for _, txbz := range baseBlock.GetTxsData().GetTx() {
+				var tx pluginproto.Tx
+				err := cdc.UnmarshalJSON(txbz, &tx)
+				if err != nil {
+					return err
+				}
+				if strings.EqualFold("lock", tx.Type) {
+					txs = append(txs, &tx)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
+	}
+
+	return &pluginproto.TxLockedResponse{Txs: txs}, nil
+}
+
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
 // Initially 50 accounts will be loaded to state db
 func (s *Service) LoadStateDBWithInitialAccounts() ([]byte, error) {
