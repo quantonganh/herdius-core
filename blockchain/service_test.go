@@ -165,3 +165,44 @@ func createBlock(height int64, txs txbyte.Txs, t *testing.T) *protobuf.BaseBlock
 func LoadDBTest(dirname string) {
 	badgerDB = db.NewDB("badger", db.GoBadgerBackend, dirname)
 }
+
+func addBlocksWithLockedTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) int64 {
+	var txsBatch txbyte.Txs
+
+	for i := 1; i <= 5; i++ {
+		tx := getTx(i, privKey)
+		txbz, err := cdc.MarshalJSON(tx)
+		require.Nil(t, err)
+		txsBatch = append(txsBatch, txbz)
+	}
+	for i := 1; i <= 5; i++ {
+		tx := getTx(i, privKey)
+		tx.Type = "Lock"
+		txbz, err := cdc.MarshalJSON(tx)
+		require.Nil(t, err)
+		txsBatch = append(txsBatch, txbz)
+	}
+	assert.Equal(t, 10, len(txsBatch))
+
+	baseBlock := createBlock(1, txsBatch, t)
+	blockhash := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+	bbbz, err := cdc.MarshalJSON(baseBlock)
+	require.Nil(t, err)
+	badgerDB.Set(blockhash, bbbz)
+	return baseBlock.GetHeader().GetHeight()
+}
+
+func TestGetLockedTxsByBlockNumber(t *testing.T) {
+	dirname, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	require.Nil(t, err)
+	LoadDBTest(dirname)
+	defer os.RemoveAll(dirname)
+	defer badgerDB.Close() // Close the db to release the lock
+
+	privKey := secp256k1.GenPrivKey()
+	blockNumber := addBlocksWithLockedTxs(privKey, t)
+	txSrv := TxService{}
+	txs, err := txSrv.GetLockedTxsByBlockNumber(blockNumber)
+	require.Nil(t, err)
+	assert.Equal(t, 5, len(txs.Txs))
+}
