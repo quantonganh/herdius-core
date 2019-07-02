@@ -267,6 +267,8 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1124), &protoplugin.TxUpdateRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1125), &protoplugin.TxUpdateResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1126), &protoplugin.TxDeleteRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1127), &protoplugin.TxLockedRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1128), &protoplugin.TxLockedResponse{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
