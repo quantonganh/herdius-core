@@ -164,7 +164,7 @@ message TxDeleteRequest {
 }
 
 message TxLockedRequest {
-    string block_number = 1;
+    int64 block_number = 1;
 }
 
 message TxLockedResponse {

@@ -30,7 +30,7 @@ func (m *Timestamp) Reset()         { *m = Timestamp{} }
 func (m *Timestamp) String() string { return proto.CompactTextString(m) }
 func (*Timestamp) ProtoMessage()    {}
 func (*Timestamp) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{0}
+	return fileDescriptor_service_add11d50b03b0803, []int{0}
 }
 func (m *Timestamp) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Timestamp.Unmarshal(m, b)
@@ -75,7 +75,7 @@ func (m *BlockHeightRequest) Reset()         { *m = BlockHeightRequest{} }
 func (m *BlockHeightRequest) String() string { return proto.CompactTextString(m) }
 func (*BlockHeightRequest) ProtoMessage()    {}
 func (*BlockHeightRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{1}
+	return fileDescriptor_service_add11d50b03b0803, []int{1}
 }
 func (m *BlockHeightRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockHeightRequest.Unmarshal(m, b)
@@ -118,7 +118,7 @@ func (m *BlockResponse) Reset()         { *m = BlockResponse{} }
 func (m *BlockResponse) String() string { return proto.CompactTextString(m) }
 func (*BlockResponse) ProtoMessage()    {}
 func (*BlockResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{2}
+	return fileDescriptor_service_add11d50b03b0803, []int{2}
 }
 func (m *BlockResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BlockResponse.Unmarshal(m, b)
@@ -177,7 +177,7 @@ func (m *AccountRequest) Reset()         { *m = AccountRequest{} }
 func (m *AccountRequest) String() string { return proto.CompactTextString(m) }
 func (*AccountRequest) ProtoMessage()    {}
 func (*AccountRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{3}
+	return fileDescriptor_service_add11d50b03b0803, []int{3}
 }
 func (m *AccountRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountRequest.Unmarshal(m, b)
@@ -223,7 +223,7 @@ func (m *AccountResponse) Reset()         { *m = AccountResponse{} }
 func (m *AccountResponse) String() string { return proto.CompactTextString(m) }
 func (*AccountResponse) ProtoMessage()    {}
 func (*AccountResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{4}
+	return fileDescriptor_service_add11d50b03b0803, []int{4}
 }
 func (m *AccountResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountResponse.Unmarshal(m, b)
@@ -328,7 +328,7 @@ func (m *Asset) Reset()         { *m = Asset{} }
 func (m *Asset) String() string { return proto.CompactTextString(m) }
 func (*Asset) ProtoMessage()    {}
 func (*Asset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{5}
+	return fileDescriptor_service_add11d50b03b0803, []int{5}
 }
 func (m *Asset) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Asset.Unmarshal(m, b)
@@ -451,7 +451,7 @@ func (m *Tx) Reset()         { *m = Tx{} }
 func (m *Tx) String() string { return proto.CompactTextString(m) }
 func (*Tx) ProtoMessage()    {}
 func (*Tx) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{6}
+	return fileDescriptor_service_add11d50b03b0803, []int{6}
 }
 func (m *Tx) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Tx.Unmarshal(m, b)
@@ -538,7 +538,7 @@ func (m *TxRequest) Reset()         { *m = TxRequest{} }
 func (m *TxRequest) String() string { return proto.CompactTextString(m) }
 func (*TxRequest) ProtoMessage()    {}
 func (*TxRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{7}
+	return fileDescriptor_service_add11d50b03b0803, []int{7}
 }
 func (m *TxRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxRequest.Unmarshal(m, b)
@@ -580,7 +580,7 @@ func (m *TxResponse) Reset()         { *m = TxResponse{} }
 func (m *TxResponse) String() string { return proto.CompactTextString(m) }
 func (*TxResponse) ProtoMessage()    {}
 func (*TxResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{8}
+	return fileDescriptor_service_add11d50b03b0803, []int{8}
 }
 func (m *TxResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxResponse.Unmarshal(m, b)
@@ -646,7 +646,7 @@ func (m *AccountRegisterRequest) Reset()         { *m = AccountRegisterRequest{}
 func (m *AccountRegisterRequest) String() string { return proto.CompactTextString(m) }
 func (*AccountRegisterRequest) ProtoMessage()    {}
 func (*AccountRegisterRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{9}
+	return fileDescriptor_service_add11d50b03b0803, []int{9}
 }
 func (m *AccountRegisterRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountRegisterRequest.Unmarshal(m, b)
@@ -685,7 +685,7 @@ func (m *TxDetailRequest) Reset()         { *m = TxDetailRequest{} }
 func (m *TxDetailRequest) String() string { return proto.CompactTextString(m) }
 func (*TxDetailRequest) ProtoMessage()    {}
 func (*TxDetailRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{10}
+	return fileDescriptor_service_add11d50b03b0803, []int{10}
 }
 func (m *TxDetailRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxDetailRequest.Unmarshal(m, b)
@@ -727,7 +727,7 @@ func (m *TxDetailResponse) Reset()         { *m = TxDetailResponse{} }
 func (m *TxDetailResponse) String() string { return proto.CompactTextString(m) }
 func (*TxDetailResponse) ProtoMessage()    {}
 func (*TxDetailResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{11}
+	return fileDescriptor_service_add11d50b03b0803, []int{11}
 }
 func (m *TxDetailResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxDetailResponse.Unmarshal(m, b)
@@ -789,7 +789,7 @@ func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{12}
+	return fileDescriptor_service_add11d50b03b0803, []int{12}
 }
 func (m *Transaction) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Transaction.Unmarshal(m, b)
@@ -848,7 +848,7 @@ func (m *TransactionRequest) Reset()         { *m = TransactionRequest{} }
 func (m *TransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionRequest) ProtoMessage()    {}
 func (*TransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{13}
+	return fileDescriptor_service_add11d50b03b0803, []int{13}
 }
 func (m *TransactionRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TransactionRequest.Unmarshal(m, b)
@@ -889,7 +889,7 @@ func (m *TransactionResponse) Reset()         { *m = TransactionResponse{} }
 func (m *TransactionResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionResponse) ProtoMessage()    {}
 func (*TransactionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{14}
+	return fileDescriptor_service_add11d50b03b0803, []int{14}
 }
 func (m *TransactionResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TransactionResponse.Unmarshal(m, b)
@@ -949,7 +949,7 @@ func (m *TxsByAddressRequest) Reset()         { *m = TxsByAddressRequest{} }
 func (m *TxsByAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*TxsByAddressRequest) ProtoMessage()    {}
 func (*TxsByAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{15}
+	return fileDescriptor_service_add11d50b03b0803, []int{15}
 }
 func (m *TxsByAddressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxsByAddressRequest.Unmarshal(m, b)
@@ -988,7 +988,7 @@ func (m *TxsResponse) Reset()         { *m = TxsResponse{} }
 func (m *TxsResponse) String() string { return proto.CompactTextString(m) }
 func (*TxsResponse) ProtoMessage()    {}
 func (*TxsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{16}
+	return fileDescriptor_service_add11d50b03b0803, []int{16}
 }
 func (m *TxsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxsResponse.Unmarshal(m, b)
@@ -1028,7 +1028,7 @@ func (m *TxsByAssetAndAddressRequest) Reset()         { *m = TxsByAssetAndAddres
 func (m *TxsByAssetAndAddressRequest) String() string { return proto.CompactTextString(m) }
 func (*TxsByAssetAndAddressRequest) ProtoMessage()    {}
 func (*TxsByAssetAndAddressRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{17}
+	return fileDescriptor_service_add11d50b03b0803, []int{17}
 }
 func (m *TxsByAssetAndAddressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxsByAssetAndAddressRequest.Unmarshal(m, b)
@@ -1075,7 +1075,7 @@ func (m *TxUpdateRequest) Reset()         { *m = TxUpdateRequest{} }
 func (m *TxUpdateRequest) String() string { return proto.CompactTextString(m) }
 func (*TxUpdateRequest) ProtoMessage()    {}
 func (*TxUpdateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{18}
+	return fileDescriptor_service_add11d50b03b0803, []int{18}
 }
 func (m *TxUpdateRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxUpdateRequest.Unmarshal(m, b)
@@ -1124,7 +1124,7 @@ func (m *TxUpdateResponse) Reset()         { *m = TxUpdateResponse{} }
 func (m *TxUpdateResponse) String() string { return proto.CompactTextString(m) }
 func (*TxUpdateResponse) ProtoMessage()    {}
 func (*TxUpdateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{19}
+	return fileDescriptor_service_add11d50b03b0803, []int{19}
 }
 func (m *TxUpdateResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxUpdateResponse.Unmarshal(m, b)
@@ -1186,7 +1186,7 @@ func (m *EBalance) Reset()         { *m = EBalance{} }
 func (m *EBalance) String() string { return proto.CompactTextString(m) }
 func (*EBalance) ProtoMessage()    {}
 func (*EBalance) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{20}
+	return fileDescriptor_service_add11d50b03b0803, []int{20}
 }
 func (m *EBalance) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EBalance.Unmarshal(m, b)
@@ -1245,7 +1245,7 @@ func (m *EBalanceAsset) Reset()         { *m = EBalanceAsset{} }
 func (m *EBalanceAsset) String() string { return proto.CompactTextString(m) }
 func (*EBalanceAsset) ProtoMessage()    {}
 func (*EBalanceAsset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{21}
+	return fileDescriptor_service_add11d50b03b0803, []int{21}
 }
 func (m *EBalanceAsset) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EBalanceAsset.Unmarshal(m, b)
@@ -1283,7 +1283,7 @@ func (m *TxDeleteRequest) Reset()         { *m = TxDeleteRequest{} }
 func (m *TxDeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*TxDeleteRequest) ProtoMessage()    {}
 func (*TxDeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{22}
+	return fileDescriptor_service_add11d50b03b0803, []int{22}
 }
 func (m *TxDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxDeleteRequest.Unmarshal(m, b)
@@ -1311,7 +1311,7 @@ func (m *TxDeleteRequest) GetTxId() string {
 }
 
 type TxLockedRequest struct {
-	BlockNumber          string   `protobuf:"bytes,1,opt,name=block_number,json=blockNumber,proto3" json:"block_number,omitempty"`
+	BlockNumber          int64    `protobuf:"varint,1,opt,name=block_number,json=blockNumber,proto3" json:"block_number,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1321,7 +1321,7 @@ func (m *TxLockedRequest) Reset()         { *m = TxLockedRequest{} }
 func (m *TxLockedRequest) String() string { return proto.CompactTextString(m) }
 func (*TxLockedRequest) ProtoMessage()    {}
 func (*TxLockedRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{23}
+	return fileDescriptor_service_add11d50b03b0803, []int{23}
 }
 func (m *TxLockedRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxLockedRequest.Unmarshal(m, b)
@@ -1341,11 +1341,11 @@ func (m *TxLockedRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_TxLockedRequest proto.InternalMessageInfo
 
-func (m *TxLockedRequest) GetBlockNumber() string {
+func (m *TxLockedRequest) GetBlockNumber() int64 {
 	if m != nil {
 		return m.BlockNumber
 	}
-	return ""
+	return 0
 }
 
 type TxLockedResponse struct {
@@ -1359,7 +1359,7 @@ func (m *TxLockedResponse) Reset()         { *m = TxLockedResponse{} }
 func (m *TxLockedResponse) String() string { return proto.CompactTextString(m) }
 func (*TxLockedResponse) ProtoMessage()    {}
 func (*TxLockedResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_service_20d81be79e55ccf7, []int{24}
+	return fileDescriptor_service_add11d50b03b0803, []int{24}
 }
 func (m *TxLockedResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TxLockedResponse.Unmarshal(m, b)
@@ -1416,10 +1416,10 @@ func init() {
 	proto.RegisterType((*TxLockedResponse)(nil), "protobuf.TxLockedResponse")
 }
 
-func init() { proto.RegisterFile("hbi/protobuf/service.proto", fileDescriptor_service_20d81be79e55ccf7) }
+func init() { proto.RegisterFile("hbi/protobuf/service.proto", fileDescriptor_service_add11d50b03b0803) }
 
-var fileDescriptor_service_20d81be79e55ccf7 = []byte{
-	// 1174 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_service_add11d50b03b0803 = []byte{
+	// 1172 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x57, 0x4b, 0x6f, 0xdb, 0xc6,
 	0x13, 0x07, 0xf5, 0xb0, 0xc5, 0x91, 0x64, 0x25, 0xeb, 0x3c, 0x14, 0x27, 0xff, 0xc0, 0xff, 0x0d,
 	0xd2, 0x28, 0x41, 0xe3, 0x14, 0x4a, 0xd1, 0x06, 0x31, 0x7a, 0xb0, 0xe1, 0x14, 0x09, 0x9a, 0x06,
@@ -1489,9 +1489,9 @@ var fileDescriptor_service_20d81be79e55ccf7 = []byte{
 	0x2f, 0xec, 0x94, 0x35, 0x9d, 0x74, 0xc3, 0x7d, 0xaf, 0x45, 0xaf, 0x5f, 0x14, 0x3a, 0x60, 0xef,
 	0x2d, 0x40, 0x01, 0xae, 0x79, 0x49, 0x0c, 0xaa, 0x2f, 0x09, 0xb2, 0x9a, 0xb9, 0xfc, 0x88, 0x30,
 	0x07, 0xd4, 0x0c, 0x2f, 0xe7, 0x95, 0x7e, 0x29, 0xfd, 0xde, 0xaa, 0x4b, 0x6f, 0xe5, 0xbd, 0x1c,
-	0xa7, 0xf3, 0x09, 0x32, 0xe3, 0xae, 0x9f, 0xbe, 0xef, 0x14, 0x44, 0x87, 0x92, 0x6f, 0x1b, 0x65,
-	0xf8, 0xbe, 0x5f, 0x96, 0x71, 0x95, 0x43, 0xb9, 0x70, 0xfc, 0x14, 0xae, 0x07, 0xc9, 0xfc, 0xe0,
-	0x0c, 0x59, 0x18, 0xa5, 0x5c, 0xaf, 0x1f, 0x77, 0x5e, 0x6b, 0xf3, 0x54, 0x5a, 0xa7, 0xce, 0x8f,
-	0xf9, 0x1f, 0x81, 0xc9, 0x96, 0xfa, 0xf5, 0xfc, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xcb, 0x6f,
-	0xe1, 0x50, 0x37, 0x0c, 0x00, 0x00,
+	0xa7, 0xf3, 0x09, 0xb2, 0xca, 0xd3, 0xf7, 0x9d, 0x82, 0xe8, 0x50, 0xf2, 0x6d, 0xa3, 0x0c, 0xdf,
+	0xf7, 0xcb, 0x32, 0xae, 0x72, 0x28, 0x17, 0x8e, 0x9f, 0xc2, 0xf5, 0x20, 0x99, 0x1f, 0x9c, 0x21,
+	0x0b, 0xa3, 0x94, 0xeb, 0xf5, 0xe3, 0xce, 0x6b, 0x6d, 0x9e, 0x4a, 0xeb, 0xd4, 0xf9, 0x31, 0xff,
+	0x23, 0x30, 0xd9, 0x52, 0xbf, 0x9e, 0xff, 0x13, 0x00, 0x00, 0xff, 0xff, 0x5e, 0x6f, 0x26, 0x58,
+	0x37, 0x0c, 0x00, 0x00,
 }

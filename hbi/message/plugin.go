@@ -623,7 +623,7 @@ func putTxUpdateRequest(id string, newTx *protoplugin.Tx) (string, *protoplugin.
 	return newID, updatedTx, nil
 }
 
-func getLockedTxsByBlockNumber(ctx *network.PluginContext, blockNumber string) error {
+func getLockedTxsByBlockNumber(ctx *network.PluginContext, blockNumber int64) error {
 	txSvc := &blockchain.TxService{}
 	txs, err := txSvc.GetLockedTxsByBlockNumber(blockNumber)
 	if err != nil {

@@ -444,43 +444,47 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 }
 
 // GetLockedTxsByBlockNumber returns a list of all locked txs in a block
-func (t *TxService) GetLockedTxsByBlockNumber(blockNumber string) (*pluginproto.TxLockedResponse, error) {
+func (t *TxService) GetLockedTxsByBlockNumber(blockNumber int64) (*pluginproto.TxLockedResponse, error) {
 
 	txs := make([]*pluginproto.Tx, 0)
 
 	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(blockNumber))
-		if err != nil {
-			return err
-		}
-		v, err := item.Value()
-		if err != nil {
-			return err
-		}
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+			baseBlock := &protobuf.BaseBlock{}
+			if err := cdc.UnmarshalJSON(v, baseBlock); err != nil {
+				return err
+			}
 
-		var baseBlock protobuf.BaseBlock
-		err = cdc.UnmarshalJSON(v, &baseBlock)
-		if err != nil {
-			return nil
-		}
-
-		// Check if base block has an transaction in it
-		if baseBlock.GetTxsData() != nil {
-			for _, txbz := range baseBlock.GetTxsData().GetTx() {
-				var tx pluginproto.Tx
-				err := cdc.UnmarshalJSON(txbz, &tx)
-				if err != nil {
-					return err
+			if blockNumber == baseBlock.GetHeader().GetHeight() {
+				// Check if base block has an transaction in it
+				if baseBlock.GetTxsData() != nil {
+					for _, txbz := range baseBlock.GetTxsData().GetTx() {
+						var tx pluginproto.Tx
+						err := cdc.UnmarshalJSON(txbz, &tx)
+						if err != nil {
+							return err
+						}
+						if strings.EqualFold("lock", tx.Type) {
+							txs = append(txs, &tx)
+						}
+					}
 				}
-				if strings.EqualFold("lock", tx.Type) {
-					txs = append(txs, &tx)
-				}
+				return nil
 			}
 		}
-		return nil
+		return fmt.Errorf("block number %d not found", blockNumber)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get blocks due to: %v", err.Error())
+		return nil, fmt.Errorf(fmt.Sprintf("Failed to find the block: %v.", err))
 	}
 
 	return &pluginproto.TxLockedResponse{Txs: txs}, nil

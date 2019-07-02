@@ -166,7 +166,7 @@ func LoadDBTest(dirname string) {
 	badgerDB = db.NewDB("badger", db.GoBadgerBackend, dirname)
 }
 
-func addBlocksWithLockedTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) (blockNumber string) {
+func addBlocksWithLockedTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) int64 {
 	var txsBatch txbyte.Txs
 
 	for i := 1; i <= 5; i++ {
@@ -189,8 +189,7 @@ func addBlocksWithLockedTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) (b
 	bbbz, err := cdc.MarshalJSON(baseBlock)
 	require.Nil(t, err)
 	badgerDB.Set(blockhash, bbbz)
-
-	return string(blockhash)
+	return baseBlock.GetHeader().GetHeight()
 }
 
 func TestGetLockedTxsByBlockNumber(t *testing.T) {
