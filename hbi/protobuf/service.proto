@@ -168,5 +168,5 @@ message TxLockedRequest {
 }
 
 message TxLockedResponse {
-    repeated Tx txs = 1;
+    repeated TxDetailResponse txs = 1;
 }

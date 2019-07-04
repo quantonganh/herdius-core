@@ -446,7 +446,7 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 // GetLockedTxsByBlockNumber returns a list of all locked txs in a block
 func (t *TxService) GetLockedTxsByBlockNumber(blockNumber int64) (*pluginproto.TxLockedResponse, error) {
 
-	txs := make([]*pluginproto.Tx, 0)
+	txs := make([]*pluginproto.TxDetailResponse, 0)
 
 	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -474,7 +474,16 @@ func (t *TxService) GetLockedTxsByBlockNumber(blockNumber int64) (*pluginproto.T
 							return err
 						}
 						if strings.EqualFold("lock", tx.Type) {
-							txs = append(txs, &tx)
+							txDetailRes := &pluginproto.TxDetailResponse{}
+							txDetailRes.Tx = &tx
+							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+							ts := &pluginproto.Timestamp{
+								Seconds: baseBlock.GetHeader().Time.Seconds,
+								Nanos:   baseBlock.GetHeader().Time.Nanos,
+							}
+							txDetailRes.CreationDt = ts
+							txDetailRes.TxId = getTxIDWithoutStatus(&tx)
+							txs = append(txs, txDetailRes)
 						}
 					}
 				}
