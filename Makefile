@@ -50,18 +50,21 @@ delete-db-dirs:
 create_db_dirs:
 	@ mkdir -p ./herdius && mkdir -p ./herdius/chaindb/ && mkdir -p ./herdius/statedb/ && mkdir -p ./herdius/syncdb/
 
-build: 
+build:
 	$(GOBUILD) ./...
 
-run-test: 
+build-herserver:
+	$(GOBUILD) -o ./herserver ./cmd/herserver/main.go
+
+run-test:
 	@$(GOTEST) -v ./...
 
 all: install run-test create_db_dirs
 
-start-supervisor:
+start-supervisor: build-herserver
 	@echo "Starting supervisor node"$(GOPARAMETERS)
-	@$(GORUN) cmd/herserver/main.go -supervisor=true$(GOPARAMETERS)
+	@./herserver -supervisor=true$(GOPARAMETERS)
 
 start-validator:
 	@echo "Starting validator node"
-	@$(GORUN) cmd/herserver/main.go$(GOPARAMETERS)
+	@./herserver $(GOPARAMETERS)
