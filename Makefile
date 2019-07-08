@@ -67,4 +67,4 @@ start-supervisor: build-herserver
 
 start-validator:
 	@echo "Starting validator node"
-	@./herserver $(GOPARAMETERS)
+	@./herserver$(GOPARAMETERS)

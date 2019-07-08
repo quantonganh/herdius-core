@@ -39,7 +39,7 @@ esac
 
 # Kill old process if existed
 if [[ -f "$pidfile" ]]; then
-  kill "$(cat "$pidfile")"
+  kill "$(cat "$pidfile")" || :
 fi
 
 # Preparation
