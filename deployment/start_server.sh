@@ -28,9 +28,6 @@ case "$type" in
    (validator)
                pidfile="${RUNDIR}/validator.pid"
                logfile="${LOGDIR}/validator.log"
-               PORT=3001
-               PEERS="tcp://127.0.0.1:3000"
-               HOST="127.0.0.1"
                ;;
            (*)
                usage
@@ -47,16 +44,24 @@ cd /home/ec2-user/go/src/github.com/herdius/herdius-core
 
 if [[ ! -d "$LOGDIR" ]]; then
   mkdir -p "$LOGDIR"
+  chmod 733 -R "$LOGDIR"
 fi
 
-chmod 733 -R /var/log/herdius/
 
 if [[ ! -d "$RUNDIR" ]]; then
   mkdir -p "$RUNDIR"
+  chmod 733 -R "$RUNDIR"
 fi
 
+# Build server
+make build-herserver
+
 # Start supervisor or validator base on $type
-make start-"$type" ENV=staging PORT="$PORT" PEERS="$PEERS" HOST="$HOST" >"$logfile" 2>&1 </dev/null &
+if [ "$type" = "supervisor" ]; then
+  ./herserver -supervisor=true -groupsize=3 -port=0 -waitTime=15 -env=staging >"$logfile" 2>&1 </dev/null &
+else
+  ./herserver -peers="tcp://127.0.0.1:3000" -groupsize=3 -port=3001 -waitTime=15 -env=staging >"$logfile" 2>&1 </dev/null &
+fi
 
 # Save the pid to kill later
 printf '%s\n' "$!" >"$pidfile"
