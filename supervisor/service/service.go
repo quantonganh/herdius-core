@@ -392,10 +392,9 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
-	txs := mp.GetTxs()
-
 	select {
 	case <-time.After(time.Duration(s.waitTime) * time.Second):
+		txs := mp.GetTxs()
 		if len(s.Validator) <= 0 || len(*txs) <= 0 {
 			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
