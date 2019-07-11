@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
@@ -55,7 +56,7 @@ func (hs *HBTCSyncer) GetExtBalance() error {
 		return err
 	}
 
-	balance, err := strconv.ParseInt(string(body), 10, 64)
+	balance, err := strconv.ParseInt(strings.TrimSuffix(string(body), "\n"), 10, 64)
 	if err != nil {
 		return err
 	}
@@ -69,13 +70,14 @@ func (hs *HBTCSyncer) GetExtBalance() error {
 // external chains are updated.
 func (hs *HBTCSyncer) Update() {
 	assetSymbol := "HBTC"
-	if hs.Account.EBalances[assetSymbol] == nil {
+	ethSymbol := "ETH"
+	if hs.Account.EBalances[ethSymbol] == nil {
 		log.Println("No HBTC account available, skip")
 		return
 	}
 
 	// HBTC account is first ETH account of user.
-	ethAccount := hs.Account.EBalances[assetSymbol][hs.Account.FirstExternalAddress["ETH"]]
+	ethAccount := hs.Account.EBalances[assetSymbol][hs.Account.FirstExternalAddress[ethSymbol]]
 	hBTCBalance := *big.NewInt(int64(0))
 	storageKey := assetSymbol + "-" + ethAccount.Address
 	if last, ok := hs.Storage.Get(hs.Account.Address); ok {
