@@ -13,7 +13,6 @@ import (
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
 
-// CI CD fix test
 // HBTCSyncer syncs all HBTC external accounts
 // HBCT account is the first ETH account of user
 type HBTCSyncer struct {
