@@ -18,21 +18,15 @@ import (
 type HBTCSyncer struct {
 	LastExtBalance map[string]*big.Int
 	ExtBalance     map[string]*big.Int
-	BlockHeight    map[string]*big.Int
-	Nonce          map[string]uint64
 	RPC            string
 	Account        statedb.Account
 	Storage        external.BalanceStorage
-	addressError   map[string]bool
 }
 
 func newHBTCSyncer() *HBTCSyncer {
 	e := &HBTCSyncer{}
 	e.ExtBalance = make(map[string]*big.Int)
 	e.LastExtBalance = make(map[string]*big.Int)
-	e.BlockHeight = make(map[string]*big.Int)
-	e.Nonce = make(map[string]uint64)
-	e.addressError = make(map[string]bool)
 
 	return e
 }
@@ -76,17 +70,12 @@ func (hs *HBTCSyncer) GetExtBalance() error {
 func (hs *HBTCSyncer) Update() {
 	assetSymbol := "HBTC"
 	if hs.Account.EBalances[assetSymbol] == nil {
-		log.Println("No ETH account available, skip")
+		log.Println("No HBTC account available, skip")
 		return
 	}
 
 	// HBTC account is first ETH account of user.
 	ethAccount := hs.Account.EBalances[assetSymbol][hs.Account.FirstExternalAddress["ETH"]]
-	if hs.addressError[ethAccount.Address] {
-		log.Println("Account info is not available at this moment, skip sync: ", ethAccount.Address)
-		return
-	}
-
 	hBTCBalance := *big.NewInt(int64(0))
 	storageKey := assetSymbol + "-" + ethAccount.Address
 	if last, ok := hs.Storage.Get(hs.Account.Address); ok {
@@ -135,16 +124,11 @@ func (hs *HBTCSyncer) Update() {
 		if hs.ExtBalance[ethAccount.Address] == nil {
 			hs.ExtBalance[ethAccount.Address] = big.NewInt(0)
 		}
-		if hs.BlockHeight[ethAccount.Address] == nil {
-			hs.BlockHeight[ethAccount.Address] = big.NewInt(0)
-		}
 		last = last.UpdateLastExtBalanceByKey(storageKey, hs.ExtBalance[ethAccount.Address])
 		last = last.UpdateCurrentExtBalanceByKey(storageKey, hs.ExtBalance[ethAccount.Address])
 		last = last.UpdateIsFirstEntryByKey(storageKey, true)
 		last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
 		ethAccount.UpdateBalance(hs.ExtBalance[ethAccount.Address].Uint64())
-		ethAccount.UpdateBlockHeight(hs.BlockHeight[ethAccount.Address].Uint64())
-		ethAccount.UpdateNonce(hs.Nonce[ethAccount.Address])
 		hs.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
 		last = last.UpdateAccount(hs.Account)
 		hs.Storage.Set(hs.Account.Address, last)
@@ -153,7 +137,6 @@ func (hs *HBTCSyncer) Update() {
 
 	log.Printf("Initialise account in cache.")
 	balance := hs.ExtBalance[ethAccount.Address]
-	blockHeight := hs.BlockHeight[ethAccount.Address]
 	lastbalances := make(map[string]*big.Int)
 	lastbalances[storageKey] = hs.ExtBalance[ethAccount.Address]
 
@@ -170,10 +153,6 @@ func (hs *HBTCSyncer) Update() {
 	if balance != nil {
 		ethAccount.UpdateBalance(balance.Uint64())
 	}
-	if blockHeight != nil {
-		ethAccount.UpdateBlockHeight(blockHeight.Uint64())
-	}
-	ethAccount.UpdateNonce(hs.Nonce[ethAccount.Address])
 
 	hs.Account.EBalances[assetSymbol][ethAccount.Address] = ethAccount
 	val := external.AccountCache{
