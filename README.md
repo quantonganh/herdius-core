@@ -1,6 +1,6 @@
 # Herdius
 
-***Herdius*** is a P2P network and Byzantine Fault Tolerant blockchain. The Herdius blockchain is specifically tailored for fast transaction settlement. It is the backbone of all products built at Herdius including wallet, trading enginer, interoperability, etc. Our aim is to create an inter-blockchain gateway and so called "highway" through which the whole of decentralised web becomes accessible. 
+***Herdius*** is a P2P network and Byzantine Fault Tolerant blockchain. The Herdius blockchain is specifically tailored for fast transaction settlement. It is the backbone of all products built at Herdius including wallet, trading enginer, interoperability, etc. Our aim is to create an inter-blockchain gateway and so called "highway" through which the whole of decentralised web becomes accessible.
 
 ## Test Status
 
