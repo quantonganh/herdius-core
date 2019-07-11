@@ -1,14 +1,20 @@
 package sync
 
 import (
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
+	"net/http"
+	"strconv"
 
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
 
-// HBTCSyncer syncs all ETH external accounts
+// HBTCSyncer syncs all HBTC external accounts
+// HBCT account is the first ETH account of user
 type HBTCSyncer struct {
 	LastExtBalance map[string]*big.Int
 	ExtBalance     map[string]*big.Int
@@ -33,7 +39,35 @@ func newHBTCSyncer() *HBTCSyncer {
 
 // GetExtBalance ...
 func (hs *HBTCSyncer) GetExtBalance() error {
-	// TODO: implement later
+	// If ETH account exists
+	ethAccount, ok := hs.Account.EBalances["ETH"]
+	if !ok {
+		return errors.New("ETH account does not exists")
+	}
+
+	hbtcAccount, ok := ethAccount[hs.Account.FirstExternalAddress["ETH"]]
+	if !ok {
+		return errors.New("HBTC account does not exists")
+	}
+
+	resp, err := http.Get(fmt.Sprintf("%s/%s", hs.RPC, hbtcAccount.Address))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	balance, err := strconv.ParseInt(string(body), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	hs.ExtBalance[hbtcAccount.Address] = big.NewInt(balance)
+
 	return nil
 }
 

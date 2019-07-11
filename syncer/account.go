@@ -17,6 +17,7 @@ type apiEndponts struct {
 	btcRPC          string
 	ethRPC          string
 	herTokenAddress string
+	hbtcRPC         string
 }
 
 func SyncAllAccounts(exBal external.BalanceStorage) {
@@ -27,12 +28,10 @@ func SyncAllAccounts(exBal external.BalanceStorage) {
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
-		infuraProjectID := os.Getenv("INFURAID")
-		rpc.ethRPC = viper.GetString("dev.ethrpc")
-		rpc.ethRPC = rpc.ethRPC + infuraProjectID
-		log.Printf("Infura Url with Project ID: %v\n", rpc.ethRPC)
+		rpc.ethRPC = viper.GetString("dev.ethrpc") + os.Getenv("INFURAID")
 		rpc.herTokenAddress = viper.GetString("dev.hercontractaddress")
 		rpc.btcRPC = viper.GetString("dev.blockchaininforpc")
+		rpc.hbtcRPC = viper.GetString("dev.hbtcrpc")
 
 	}
 	for {
@@ -106,6 +105,13 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		btcSyncer.Storage = exBal
 		btcSyncer.RPC = rpc.btcRPC
 		syncers = append(syncers, btcSyncer)
+
+		// HBTC syncer
+		hbtcSyncer := newHBTCSyncer()
+		hbtcSyncer.Account = senderAccount
+		hbtcSyncer.Storage = exBal
+		hbtcSyncer.RPC = rpc.hbtcRPC
+		syncers = append(syncers, hbtcSyncer)
 
 		// HERDIUS syncer
 		syncers = append(syncers, &HERToken{Account: senderAccount, Storage: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
