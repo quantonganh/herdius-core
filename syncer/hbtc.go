@@ -77,6 +77,7 @@ func (hs *HBTCSyncer) Update() {
 	}
 	if hs.Account.EBalances[assetSymbol] == nil {
 		hs.Account.EBalances[assetSymbol] = make(map[string]statedb.EBalance)
+		hs.Account.EBalances[assetSymbol][hs.Account.FirstExternalAddress[ethSymbol]] = statedb.EBalance{Address: hs.Account.FirstExternalAddress[ethSymbol]}
 	}
 
 	// HBTC account is first ETH account of user.
