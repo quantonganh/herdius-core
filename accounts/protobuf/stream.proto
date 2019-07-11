@@ -18,6 +18,8 @@ message Account {
 
     map<string,EBalanceAsset> eBalances = 9;
     map<string,LockBalanceAsset> lockBalances = 10;
+    map<string,string> FirstExternalAddress = 11;
+
 }
 
 message AccountRegisterRequest{
