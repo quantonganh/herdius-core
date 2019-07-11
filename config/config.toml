@@ -12,6 +12,7 @@ ethrpc = "https://ropsten.infura.io/v3/"
 blockchaininforpc = "https://blockchain.info/rawaddr/"
 hercontractaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
 s3backupbucket = "herdius-blockchain-backup-dev"
+hbtcrpc = "http://34.226.196.216:81/contract/hbtc"
 
 [staging]
 selfbroadcastip = "10.0.1.159"
@@ -26,6 +27,7 @@ nodekeydir = "./supervisor/testdata/"
 blockchaininforpc = "https://blockchain.info/q"
 ethrpc = "https://ropsten.infura.io/v3/"
 s3backupbucket = "herdius-blockchain-backup-staging"
+hbtcrpc = "http://34.226.196.216:81/contract/hbtc"
 
 
 [prod]
@@ -40,3 +42,4 @@ leveldb = "goleveldb"
 ethrpc = "https://mainnet.infura.io/v3/"
 blockchaininforpc = "https://blockchain.info/q"
 s3backupbucket = "herdius-blockchain-backup-prod"
+hbtcrpc = "http://34.226.196.216:81/contract/hbtc"
