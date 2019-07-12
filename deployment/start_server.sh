@@ -2,7 +2,8 @@
 
 set -ex
 
-export LOGDIR=/var/log/herdius/herdius-core/log
+LOGDIR_BASE=/var/log/herdius
+export LOGDIR="${LOGDIR_BASE}/herdius-core/log"
 export RUNDIR=/var/run/herdius
 export PATH=$PATH:/usr/local/go/bin
 export GO111MODULE=on
@@ -19,6 +20,7 @@ usage() {
 type=${1:-"supervisor"}
 pidfile=""
 logfile=""
+runuser="ec2-user"
 
 case "$type" in
   (supervisor)
@@ -36,21 +38,21 @@ esac
 
 # Kill old process if existed
 if [[ -f "$pidfile" ]]; then
-  kill "$(cat "$pidfile")" || :
+  sudo kill "$(cat "$pidfile")" || :
 fi
 
 # Preparation
 cd /home/ec2-user/go/src/github.com/herdius/herdius-core
 
 if [[ ! -d "$LOGDIR" ]]; then
-  mkdir -p "$LOGDIR"
-  chmod 733 -R "$LOGDIR"
+  sudo mkdir -p "$LOGDIR"
+  sudo chown -R "$runuser" "$LOGDIR_BASE"
 fi
 
 
 if [[ ! -d "$RUNDIR" ]]; then
-  mkdir -p "$RUNDIR"
-  chmod 733 -R "$RUNDIR"
+  sudo mkdir -p "$RUNDIR"
+  sudo chown -R "$runuser" "$RUNDIR"
 fi
 
 # Build server
