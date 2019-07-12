@@ -17,7 +17,7 @@ func init() {
 	RegisterTrieAmino(cdc)
 }
 
-//RegisterTrieAmino ...
+// RegisterTrieAmino ...
 func RegisterTrieAmino(cdc *amino.Codec) {
 	cryptoAmino.RegisterAmino(cdc)
 
@@ -41,10 +41,10 @@ type Trie interface {
 type state struct {
 	trie *trie.Trie
 	db   *trie.Database
+	mu   sync.Mutex
 }
 
-// GetState :
-// once.Do function ensures that the singleton is only instantiated once
+// GetState return global singleton state.
 func GetState(dir string) Trie {
 	once.Do(func() {
 		var (
@@ -66,7 +66,7 @@ func GetState(dir string) Trie {
 	return singleton
 }
 
-//NewTrie
+// NewTrie returns state which implements Trie interface
 func NewTrie(hash common.Hash) (Trie, error) {
 	state := new(state)
 	t, err := trie.New(hash, singleton.db)
@@ -84,12 +84,14 @@ func (s *state) GetTrie() *trie.Trie {
 	return s.trie
 }
 
-//GetDB ...
+// GetDB ...
 func GetDB() *trie.Database {
 	return singleton.db
 }
 
 func (s *state) TryGet(key []byte) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := s.trie
 	value, err := t.TryGet(key)
 	if err != nil {
@@ -99,6 +101,8 @@ func (s *state) TryGet(key []byte) ([]byte, error) {
 }
 
 func (s *state) TryUpdate(key, value []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := s.trie
 
 	err := t.TryUpdate(key, value)
@@ -121,6 +125,8 @@ func (s *state) TryDelete(key []byte) error {
 }
 
 func (s *state) Commit(onleaf trie.LeafCallback) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := s.trie
 	root, err := t.Commit(nil)
 	if err != nil {
@@ -132,6 +138,8 @@ func (s *state) Commit(onleaf trie.LeafCallback) ([]byte, error) {
 }
 
 func (s *state) Hash() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := s.trie
 	return t.Root()
 }
