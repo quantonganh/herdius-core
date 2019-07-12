@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/herdius/herdius-core/accounts/account"
 	"github.com/herdius/herdius-core/blockchain"
@@ -29,6 +30,7 @@ const (
 )
 
 var nonce uint64 = 1
+var nonceMutex sync.Mutex
 
 func (t TxType) String() string {
 	return [...]string{"Update", "Lock", "Redeem"}[t]
@@ -77,7 +79,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		if err != nil {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxsResponse{})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -88,7 +90,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		} else {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxsResponse{})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -104,7 +106,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		if err != nil {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxsResponse{})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -117,7 +119,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		} else {
 			err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 				&protoplugin.TxsResponse{})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -147,7 +149,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Couldn't find the account due to : " + err.Error(),
 				})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 			}
@@ -168,7 +170,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -187,7 +189,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -200,7 +202,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -221,7 +223,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -234,7 +236,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -247,7 +249,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -263,7 +265,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 						TxId: "", Status: "failed", Queued: 0, Pending: 0,
 						Message: failedVerificationMsg,
 					})
-				nonce++
+				incrementNonce()
 				if err != nil {
 					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 				}
@@ -279,7 +281,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Not enough balance: " + string(msg.Tx.GetAsset().Value),
 				})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 			}
@@ -296,7 +298,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 					TxId: "", Status: "failed", Queued: 0, Pending: 0,
 					Message: "Incorrect Transaction format : " + msg.Tx.GetSenderAddress(),
 				})
-			nonce++
+			incrementNonce()
 			if err != nil {
 				return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 			}
@@ -316,7 +318,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			&protoplugin.TxResponse{
 				TxId: txID, Status: "success", Queued: int64(queue), Pending: int64(pending),
 			})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
@@ -340,7 +342,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			if errRep != nil {
 				return fmt.Errorf("could not reply to API client, transaction not updated: %v", errRep)
 			}
-			nonce++
+			incrementNonce()
 			return fmt.Errorf("could not update request: %v", err)
 		}
 		errRep := apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
@@ -352,7 +354,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		if errRep != nil {
 			return fmt.Errorf("could not reply to API client, but transaction was updated: %v", errRep)
 		}
-		nonce++
+		incrementNonce()
 		return nil
 	case *protoplugin.TxDeleteRequest:
 		mp := mempool.GetMemPool()
@@ -374,7 +376,7 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 					Error:  fmt.Sprintf("Unable to find Tx (id: %v) in memory pool", msg.TxId),
 				})
 		}
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf("Failed to reply to client :%v", err)
 		}
@@ -396,7 +398,7 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext, as acco
 				TxId: "", Status: "failed", Queued: 0, Pending: 0,
 				Message: "Transaction format incorrect : " + err.Error(),
 			})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -416,7 +418,7 @@ func postAccountUpdateTx(tx *protoplugin.Tx, ctx *network.PluginContext, as acco
 		&protoplugin.TxResponse{
 			TxId: txID, Status: "success", Queued: 0, Pending: 0,
 		})
-	nonce++
+	incrementNonce()
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 	}
@@ -455,7 +457,7 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 		plog.Info().Msgf("Block Response at processor: %v", blockRes)
 
 		err = pc.Reply(network.WithSignMessage(context.Background(), true), nonce, &blockRes)
-		nonce++
+		incrementNonce()
 
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
@@ -464,7 +466,7 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 	}
 
 	err = pc.Reply(network.WithSignMessage(context.Background(), true), nonce, &protoplugin.BlockResponse{})
-	nonce++
+	incrementNonce()
 
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
@@ -486,7 +488,7 @@ func getAccount(address string, ctx *network.PluginContext) error {
 
 	if account == nil {
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &protoplugin.AccountResponse{})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -520,9 +522,8 @@ func getAccount(address string, ctx *network.PluginContext) error {
 			LastBlockHeight:      account.LastBlockHeight,
 			FirstExternalAddress: account.FirstExternalAddress,
 		}
-		fmt.Println("Asked for account detail, ", accountResp)
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, &accountResp)
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 		}
@@ -539,15 +540,15 @@ func getTx(id string, ctx *network.PluginContext) error {
 	if err != nil {
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 			&protoplugin.TxDetailResponse{})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
 		return errors.New("Failed due to: " + err.Error())
 	}
-
+	log.Println("txDetailRes: ", txDetailRes)
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txDetailRes)
-	nonce++
+	incrementNonce()
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
@@ -563,7 +564,7 @@ func getTxs(address string, ctx *network.PluginContext) error {
 	if err != nil {
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 			&protoplugin.TxDetailResponse{})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
@@ -571,7 +572,7 @@ func getTxs(address string, ctx *network.PluginContext) error {
 	}
 
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
-	nonce++
+	incrementNonce()
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
@@ -587,7 +588,7 @@ func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) 
 	if err != nil {
 		err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce,
 			&protoplugin.TxDetailResponse{})
-		nonce++
+		incrementNonce()
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 		}
@@ -595,7 +596,7 @@ func getTxsByAssetAndAccount(asset, address string, ctx *network.PluginContext) 
 	}
 
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
-	nonce++
+	incrementNonce()
 	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
@@ -636,9 +637,15 @@ func getLockedTxsByBlockNumber(ctx *network.PluginContext, blockNumber int64) er
 		return fmt.Errorf("error getting API client: %v", err)
 	}
 	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), nonce, txs)
-	nonce++
+	incrementNonce()
 	if err != nil {
 		return fmt.Errorf("error replying to apiClient: %v", err)
 	}
 	return nil
+}
+
+func incrementNonce() {
+	nonceMutex.Lock()
+	nonce++
+	nonceMutex.Unlock()
 }
