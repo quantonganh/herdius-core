@@ -418,6 +418,8 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 		}
 	case *protoplugin.TxLockedRequest:
 		getLockedTxsByBlockNumber(ctx, msg.BlockNumber)
+	case *protoplugin.TxRedeemRequest:
+		getRedeemTxsByBlockNumber(ctx, msg.BlockNumber)
 	}
 	return nil
 }
@@ -671,6 +673,25 @@ func getLockedTxsByBlockNumber(ctx *network.PluginContext, blockNumber int64) er
 	an := getAddressNonce(ctx.Client().ID.Address)
 	txSvc := &blockchain.TxService{}
 	txs, err := txSvc.GetLockedTxsByBlockNumber(blockNumber)
+	if err != nil {
+		return fmt.Errorf("error getting lost transactions: %v", err)
+	}
+
+	apiClient, err := ctx.Network().Client(ctx.Client().Address)
+	if err != nil {
+		return fmt.Errorf("error getting API client: %v", err)
+	}
+	err = apiClient.Reply(network.WithSignMessage(context.Background(), true), an.get(), txs)
+	an.increase()
+	if err != nil {
+		return fmt.Errorf("error replying to apiClient: %v", err)
+	}
+	return nil
+}
+func getRedeemTxsByBlockNumber(ctx *network.PluginContext, blockNumber int64) error {
+	an := getAddressNonce(ctx.Client().ID.Address)
+	txSvc := &blockchain.TxService{}
+	txs, err := txSvc.GetRedeemTxsByBlockNumber(blockNumber)
 	if err != nil {
 		return fmt.Errorf("error getting lost transactions: %v", err)
 	}

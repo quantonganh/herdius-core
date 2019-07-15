@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const epsilon = 0.06
+const epsilon = 0.1
 
 func createTestBackoff() *Backoff {
 	b := DefaultBackoff()

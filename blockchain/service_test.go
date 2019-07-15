@@ -206,3 +206,43 @@ func TestGetLockedTxsByBlockNumber(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, 5, len(txs.Txs))
 }
+
+func addBlocksWithRedeemTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) int64 {
+	var txsBatch txbyte.Txs
+
+	for i := 1; i <= 5; i++ {
+		tx := getTx(i, privKey)
+		txbz, err := cdc.MarshalJSON(tx)
+		require.Nil(t, err)
+		txsBatch = append(txsBatch, txbz)
+	}
+	for i := 1; i <= 5; i++ {
+		tx := getTx(i, privKey)
+		tx.Type = "Redeem"
+		txbz, err := cdc.MarshalJSON(tx)
+		require.Nil(t, err)
+		txsBatch = append(txsBatch, txbz)
+	}
+	assert.Equal(t, 10, len(txsBatch))
+
+	baseBlock := createBlock(1, txsBatch, t)
+	blockhash := baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
+	bbbz, err := cdc.MarshalJSON(baseBlock)
+	require.Nil(t, err)
+	badgerDB.Set(blockhash, bbbz)
+	return baseBlock.GetHeader().GetHeight()
+}
+func TestGetRedeemTxsByBlockNumber(t *testing.T) {
+	dirname, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	require.Nil(t, err)
+	LoadDBTest(dirname)
+	defer os.RemoveAll(dirname)
+	defer badgerDB.Close() // Close the db to release the lock
+
+	privKey := secp256k1.GenPrivKey()
+	blockNumber := addBlocksWithRedeemTxs(privKey, t)
+	txSrv := TxService{}
+	txs, err := txSrv.GetRedeemTxsByBlockNumber(blockNumber)
+	require.Nil(t, err)
+	assert.Equal(t, 5, len(txs.Txs))
+}
