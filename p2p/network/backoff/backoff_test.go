@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const epsilon = 0.06
+
 func createTestBackoff() *Backoff {
 	b := DefaultBackoff()
 
@@ -23,10 +25,10 @@ func TestBasic(t *testing.T) {
 
 	b := createTestBackoff()
 
-	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), 0.05)
-	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), 0.05)
+	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), epsilon)
+	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), epsilon)
 	assert.Equal(t, false, b.TimeoutExceeded())
-	assert.InEpsilon(t, 0.4, b.NextDuration().Seconds(), 0.05)
+	assert.InEpsilon(t, 0.4, b.NextDuration().Seconds(), epsilon)
 	assert.Equal(t, true, b.TimeoutExceeded())
 }
 
@@ -35,11 +37,11 @@ func TestReset(t *testing.T) {
 
 	b := createTestBackoff()
 
-	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), 0.05)
-	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), 0.05)
+	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), epsilon)
+	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), epsilon)
 	b.Reset()
-	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), 0.05)
-	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), 0.05)
+	assert.InEpsilon(t, 0.1, b.NextDuration().Seconds(), epsilon)
+	assert.InEpsilon(t, 0.2, b.NextDuration().Seconds(), epsilon)
 }
 
 func TestEdgeCases(t *testing.T) {
