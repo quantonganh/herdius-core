@@ -275,6 +275,8 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1128), &protoplugin.TxLockedResponse{})
 	opcode.RegisterMessageType(opcode.Opcode(1129), &protobuf.Ping{})
 	opcode.RegisterMessageType(opcode.Opcode(1130), &protobuf.Pong{})
+	opcode.RegisterMessageType(opcode.Opcode(1131), &protoplugin.TxRedeemRequest{})
+	opcode.RegisterMessageType(opcode.Opcode(1132), &protoplugin.TxRedeemResponse{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
