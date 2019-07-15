@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/herdius/herdius-core/aws/restore"
 	"github.com/herdius/herdius-core/blockchain"
+	"github.com/herdius/herdius-core/blockchain/protobuf"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
 	cryptokey "github.com/herdius/herdius-core/crypto"
@@ -230,7 +231,10 @@ func main() {
 	restr := *restoreFlag
 	backup := *backupFlag
 	confg := config.GetConfiguration(env)
-	peers := strings.Split(*peersFlag, ",")
+	peers := []string{}
+	if len(*peersFlag) > 0 {
+		peers = strings.Split(*peersFlag, ",")
+	}
 
 	if port == 0 {
 		port = confg.SelfBroadcastPort
@@ -269,6 +273,8 @@ func main() {
 	opcode.RegisterMessageType(opcode.Opcode(1126), &protoplugin.TxDeleteRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1127), &protoplugin.TxLockedRequest{})
 	opcode.RegisterMessageType(opcode.Opcode(1128), &protoplugin.TxLockedResponse{})
+	opcode.RegisterMessageType(opcode.Opcode(1129), &protobuf.Ping{})
+	opcode.RegisterMessageType(opcode.Opcode(1130), &protobuf.Pong{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
