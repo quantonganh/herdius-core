@@ -761,6 +761,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			Fee:                   tx.Asset.Fee,
 			Nonce:                 tx.Asset.Nonce,
 			ExternalSenderAddress: tx.Asset.ExternalSenderAddress,
+			LockedAmount:          tx.Asset.LockedAmount,
+			RedeemedAmount:        tx.Asset.RedeemedAmount,
 		}
 		verifiableTx := pluginproto.Tx{
 			SenderAddress:   tx.SenderAddress,
