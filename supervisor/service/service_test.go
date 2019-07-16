@@ -160,6 +160,7 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	assert.True(t, len(account.EBalances) > 0)
 	assert.Equal(t, extSenderAddress, account.FirstExternalAddress[symbol])
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.FirstExternalAddress[symbol])
 
 	asset = &pluginproto.Asset{
 		Symbol:                symbol,
@@ -178,6 +179,8 @@ func TestUpdateExternalAccountBalance(t *testing.T) {
 	assert.True(t, len(account.EBalances) > 0)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[symbol][extSenderAddress].Address)
 	assert.Equal(t, uint64(0), account.EBalances[symbol][extSenderAddress].Balance)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.FirstExternalAddress[symbol])
+
 }
 
 func TestIsExternalAssetAddressExistTrue(t *testing.T) {
