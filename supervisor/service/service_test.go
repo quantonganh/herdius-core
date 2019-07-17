@@ -440,9 +440,21 @@ func TestUpdateAccountLockedBalance(t *testing.T) {
 		Asset:         asset,
 		Type:          "lock",
 	}
+
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+
+	eBalance := statedb.EBalance{
+		Address: extAddr,
+		Balance: 0,
+	}
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances[symbol] = make(map[string]statedb.EBalance)
+	eBalances[symbol][extAddr] = eBalance
+
 	account := &statedb.Account{
 		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		FirstExternalAddress: make(map[string]string),
+		EBalances:            eBalances,
 	}
 	account = updateAccountLockedBalance(account, tx)
 	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
@@ -464,9 +476,20 @@ func TestUpdateRedeemAccountLockedBalance(t *testing.T) {
 		Asset:         asset,
 		Type:          "lock",
 	}
+
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+
+	eBalance := statedb.EBalance{
+		Address: extAddr,
+		Balance: 0,
+	}
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances[symbol] = make(map[string]statedb.EBalance)
+	eBalances[symbol][extAddr] = eBalance
 	account := &statedb.Account{
 		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
 		FirstExternalAddress: make(map[string]string),
+		EBalances:            eBalances,
 	}
 	account = updateAccountLockedBalance(account, tx)
 	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
