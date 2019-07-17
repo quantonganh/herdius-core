@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/blockcypher/gobcy"
+	blockcypher "github.com/blockcypher/gobcy"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
@@ -43,11 +43,11 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 
 	for _, ba := range btcAccount {
 
-		btcCypher := gobcy.API{"490bb2949a2542fcb6f74f4efdba70dd", "btc", "test3"}
+		btcCypher := blockcypher.API{Token: "490bb2949a2542fcb6f74f4efdba70dd", Coin: "btc", Chain: "test3"}
 		addr, err := btcCypher.GetAddrFull(ba.Address, nil)
 
 		if err != nil {
-			log.Printf("Error getting BTC address", err)
+			log.Println("Error getting BTC address", err)
 			btc.addressError[ba.Address] = true
 			continue
 		}
