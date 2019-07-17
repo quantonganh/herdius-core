@@ -565,7 +565,9 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 	if tx.SenderAddress == senderAccount.Address {
 		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] += tx.Asset.Value
 	}
-
+	withdraw(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.LockedAmount)
+	senderAccount.Nonce = tx.Asset.Nonce
+	log.Printf("Locked Account: %v+\n", *senderAccount)
 	return senderAccount
 }
 
@@ -581,7 +583,9 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 		tx.Asset.RedeemedAmount <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
 		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.RedeemedAmount
 	}
-
+	senderAccount.Nonce = tx.Asset.Nonce
+	deposit(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.RedeemedAmount)
+	log.Printf("Redeemed Account: %v+\n", *senderAccount)
 	return senderAccount
 }
 func updateAccount(senderAccount *statedb.Account, tx *pluginproto.Tx) *statedb.Account {
