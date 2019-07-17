@@ -110,11 +110,17 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		syncers = append(syncers, btcSyncer)
 
 		// HBTC syncer
-		hbtcSyncer := newHBTCSyncer()
-		hbtcSyncer.Account = senderAccount
-		hbtcSyncer.Storage = exBal
-		hbtcSyncer.RPC = rpc.hbtcRPC
-		syncers = append(syncers, hbtcSyncer)
+		// hbtcSyncer := newHBTCSyncer()
+		// hbtcSyncer.Account = senderAccount
+		// hbtcSyncer.Storage = exBal
+		// hbtcSyncer.RPC = rpc.hbtcRPC
+		// syncers = append(syncers, hbtcSyncer)
+
+		// // HBTC testnetsyncer
+		hbtctestSyncer := newBTCTestNetSyncer()
+		hbtctestSyncer.Account = senderAccount
+		hbtctestSyncer.Storage = exBal
+		syncers = append(syncers, hbtctestSyncer)
 
 		// HERDIUS syncer
 		syncers = append(syncers, &HERToken{Account: senderAccount, Storage: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
