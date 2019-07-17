@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	stdSync "sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
@@ -51,6 +52,8 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 	}
 	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
 
+	log.Println("Sync account start")
+	var wg *stdSync.WaitGroup
 	for it.Next() {
 		var senderAccount statedb.Account
 		senderAddressBytes := it.Key
@@ -116,13 +119,18 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		// HERDIUS syncer
 		syncers = append(syncers, &HERToken{Account: senderAccount, Storage: exBal, RPC: rpc.ethRPC, TokenContractAddress: rpc.herTokenAddress})
 
-		for _, asset := range syncers {
-			// Dont update account if no new value recieved from respective api calls
-			if asset.GetExtBalance() == nil {
-				asset.Update()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, asset := range syncers {
+				// Dont update account if no new value recieved from respective api calls
+				if asset.GetExtBalance() == nil {
+					asset.Update()
+				}
+
 			}
-
-		}
+		}()
 	}
-
+	wg.Wait()
+	log.Println("Sync account end")
 }
