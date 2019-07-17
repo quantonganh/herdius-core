@@ -563,7 +563,7 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 		senderAccount.LockedBalance[asset] = make(map[string]uint64)
 	}
 	if tx.SenderAddress == senderAccount.Address {
-		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] += tx.Asset.Value
+		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] += tx.Asset.LockedAmount
 	}
 	withdraw(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.LockedAmount)
 	senderAccount.Nonce = tx.Asset.Nonce
