@@ -53,7 +53,7 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
 
 	log.Println("Sync account start")
-	var wg *stdSync.WaitGroup
+	var wg stdSync.WaitGroup
 	for it.Next() {
 		var senderAccount statedb.Account
 		senderAddressBytes := it.Key
