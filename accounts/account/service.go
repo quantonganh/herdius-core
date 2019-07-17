@@ -282,9 +282,9 @@ func (s *Service) VerifyLockedAmount() bool {
 // VerifyRedeemAmount checks account have proper locked amount for redeeming
 func (s *Service) VerifyRedeemAmount() bool {
 	log.Printf("Account before Redeem: %+v", s.account)
-	if s.account != nil && s.account.EBalances != nil && s.account.EBalances[s.assetSymbol] != nil {
-		if asset := s.account.EBalances[s.assetSymbol].Asset; asset != nil {
-			return s.txLockedAmount <= asset[s.account.FirstExternalAddress["ETH"]].Balance
+	if s.account != nil && s.account.LockBalances != nil && s.account.LockBalances[s.assetSymbol] != nil {
+		if asset := s.account.LockBalances[s.assetSymbol].Asset; asset != nil {
+			return s.txRedeemAmount <= asset[s.extAddress]
 		}
 	}
 	return false

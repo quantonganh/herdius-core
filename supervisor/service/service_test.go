@@ -433,7 +433,7 @@ func TestUpdateAccountLockedBalance(t *testing.T) {
 		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 1,
 		Network:               "Herdius",
-		Value:                 lockedAmount,
+		LockedAmount:          lockedAmount,
 	}
 	tx := &pluginproto.Tx{
 		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
@@ -469,7 +469,7 @@ func TestUpdateRedeemAccountLockedBalance(t *testing.T) {
 		ExternalSenderAddress: extSenderAddress,
 		Nonce:                 1,
 		Network:               "Herdius",
-		Value:                 lockedAmount,
+		LockedAmount:          lockedAmount,
 	}
 	tx := &pluginproto.Tx{
 		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
