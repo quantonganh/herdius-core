@@ -579,21 +579,6 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 				eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
 				senderAccount.EBalances = eBalances
 			}
-		} else {
-			eBalance := statedb.EBalance{}
-			eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
-			eBalance.Balance = 0
-			eBalance.LastBlockHeight = 0
-			eBalance.Nonce = 0
-			eBalances := senderAccount.EBalances
-			if len(eBalances) == 0 {
-				eBalances = make(map[string]map[string]statedb.EBalance)
-			}
-			if len(eBalances["HBTC"]) == 0 {
-				eBalances["HBTC"] = make(map[string]statedb.EBalance)
-			}
-			eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
-			senderAccount.EBalances = eBalances
 		}
 	}
 	log.Printf("Locked Account: %v+\n", *senderAccount)
