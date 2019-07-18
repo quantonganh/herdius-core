@@ -568,17 +568,15 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 	withdraw(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.LockedAmount)
 	senderAccount.Nonce = tx.Asset.Nonce
 	if strings.EqualFold("BTC", tx.Asset.Symbol) {
-		if assetEBalance, ok := senderAccount.EBalances["HBTC"]; ok {
-			if _, ok := assetEBalance[senderAccount.FirstExternalAddress["ETH"]]; !ok {
-				eBalance := statedb.EBalance{}
-				eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
-				eBalance.Balance = 0
-				eBalance.LastBlockHeight = 0
-				eBalance.Nonce = 0
-				eBalances := senderAccount.EBalances
-				eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
-				senderAccount.EBalances = eBalances
-			}
+		if _, ok := senderAccount.EBalances["HBTC"]; !ok {
+			eBalance := statedb.EBalance{}
+			eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
+			eBalance.Balance = 0
+			eBalance.LastBlockHeight = 0
+			eBalance.Nonce = 0
+			eBalances := senderAccount.EBalances
+			eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
+			senderAccount.EBalances = eBalances
 		}
 	}
 	log.Printf("Locked Account: %v+\n", *senderAccount)
