@@ -60,7 +60,7 @@ var addresses = make([]string, 0)
 
 var accountStorage external.BalanceStorage
 
-// HerdiusMessagePlugin will receive all trasnmitted messages.
+// HerdiusMessagePlugin will receive all transmitted messages.
 type HerdiusMessagePlugin struct{ *network.Plugin }
 
 func init() {

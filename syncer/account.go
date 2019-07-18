@@ -129,7 +129,7 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		go func() {
 			defer wg.Done()
 			for _, asset := range syncers {
-				// Dont update account if no new value recieved from respective api calls
+				// Dont update account if no new value received from respective api calls
 				if asset.GetExtBalance() == nil {
 					asset.Update()
 				}

@@ -22,7 +22,7 @@ type Asset struct {
 type Tx struct {
 	SenderAddress   string `json:"sender_address"`
 	SenderPubKey    string `json:"sender_pubkey"`
-	ReceiverAddress string `json:"reciever_address"`
+	ReceiverAddress string `json:"receiver_address"`
 	Asset           Asset  `json:"asset"`
 	Message         string `json:"message"`
 	Signature       string `json:"sign"`

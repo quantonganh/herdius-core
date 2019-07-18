@@ -27,8 +27,8 @@ func TestMemoryGetandSet(t *testing.T) {
 	m.Set(key, value)
 
 	result, has := m.Get(key)
-	assert.Equal(t, value.IsFirstHEREntry, result.IsFirstHEREntry, "Test byte comparision")
-	assert.Equal(t, true, has, "Test has comparision")
+	assert.Equal(t, value.IsFirstHEREntry, result.IsFirstHEREntry, "Test byte comparison")
+	assert.Equal(t, true, has, "Test has comparison")
 
 }
 

@@ -470,7 +470,7 @@ func getBlock(height int64, ctx *network.PluginContext) error {
 	block, err := blockchainSvc.GetBlockByHeight(height)
 
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("Failed to retreive the Block: :%v", err))
+		return fmt.Errorf(fmt.Sprintf("Failed to retrieve the Block: :%v", err))
 	}
 
 	pc, err := ctx.Network().Client(ctx.Client().Address)
@@ -519,7 +519,7 @@ func getAccount(address string, ctx *network.PluginContext) error {
 	accountSvc := &account.Service{}
 	account, err := accountSvc.GetAccountByAddress(address)
 	if err != nil {
-		plog.Error().Msgf("Failed to retreive the Account: %v", err)
+		plog.Error().Msgf("Failed to retrieve the Account: %v", err)
 	}
 
 	apiClient, err := ctx.Network().Client(ctx.Client().Address)
