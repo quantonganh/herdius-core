@@ -416,7 +416,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 				if err != nil {
 					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
 				}
-				log.Print("Sucessfully re-evaluated chain and backed up to S3")
+				log.Print("Successfully re-evaluated chain and backed up to S3")
 			}
 
 			return baseBlock, nil

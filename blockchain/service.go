@@ -24,7 +24,7 @@ import (
 
 // ServiceI is blockchain service interface
 type ServiceI interface {
-	GetBlockByHeight(hieght int64) (*protobuf.BaseBlock, error)
+	GetBlockByHeight(height int64) (*protobuf.BaseBlock, error)
 	CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error)
 	GetBlockByBlockHash(db db.DB, key []byte) (*protobuf.BaseBlock, error)
 	AddBaseBlock(bb *protobuf.BaseBlock) error
