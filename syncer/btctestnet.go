@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"math/big"
+	"time"
 
 	blockcypher "github.com/blockcypher/gobcy"
 	external "github.com/herdius/herdius-core/storage/exbalance"
@@ -40,12 +41,16 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 	if !ok {
 		return errors.New("BTC account does not exists")
 	}
-
+	btcCypher := blockcypher.API{Token: "490bb2949a2542fcb6f74f4efdba70dd", Coin: "btc", Chain: "test3"}
+	// Blockcypher should send 3 requests every 15 seconds since we are using
+	// free service
+	count := 1
 	for _, ba := range btcAccount {
-
-		btcCypher := blockcypher.API{Token: "490bb2949a2542fcb6f74f4efdba70dd", Coin: "btc", Chain: "test3"}
+		if count == 3 {
+			time.Sleep(15 * time.Second)
+			count = 1
+		}
 		addr, err := btcCypher.GetAddrFull(ba.Address, nil)
-
 		if err != nil {
 			log.Println("Error getting BTC address", err)
 			btc.addressError[ba.Address] = true
@@ -55,7 +60,7 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 		btc.Nonce[ba.Address] = uint64(len(addr.TXs))
 		btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
 		btc.addressError[ba.Address] = false
-		continue
+		count++
 
 	}
 	return nil

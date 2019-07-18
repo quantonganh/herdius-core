@@ -567,6 +567,38 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 	}
 	withdraw(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.LockedAmount)
 	senderAccount.Nonce = tx.Asset.Nonce
+	if strings.EqualFold("BTC", tx.Asset.Symbol) {
+		if assetEBalance, ok := senderAccount.EBalances["HBTC"]; ok {
+			if _, ok := assetEBalance[senderAccount.FirstExternalAddress["ETH"]]; !ok {
+				eBalance := statedb.EBalance{}
+				eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
+				eBalance.Balance = 0
+				eBalance.LastBlockHeight = 0
+				eBalance.Nonce = 0
+				eBalances := senderAccount.EBalances
+				eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
+				senderAccount.EBalances = eBalances
+			}
+		} else {
+			eBalance := statedb.EBalance{}
+			eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
+			eBalance.Balance = 0
+			eBalance.LastBlockHeight = 0
+			eBalance.Nonce = 0
+			eBalances := senderAccount.EBalances
+			if len(eBalances) == 0 {
+				eBalances = make(map[string]map[string]statedb.EBalance)
+			}
+			if len(eBalances["HBTC"]) == 0 {
+				eBalances["HBTC"] = make(map[string]statedb.EBalance)
+			}
+			eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
+			senderAccount.EBalances = eBalances
+			if senderAccount.FirstExternalAddress == nil {
+				senderAccount.FirstExternalAddress = make(map[string]string)
+			}
+		}
+	}
 	log.Printf("Locked Account: %v+\n", *senderAccount)
 	return senderAccount
 }
