@@ -459,6 +459,86 @@ func TestUpdateAccountLockedBalance(t *testing.T) {
 	account = updateAccountLockedBalance(account, tx)
 	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
 }
+func TestUpdateAccountLockedBalanceMintHBTCFirst(t *testing.T) {
+	symbol := "BTC"
+	lockedAmount := uint64(10)
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	asset := &pluginproto.Asset{
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
+		Nonce:                 1,
+		Network:               "Herdius",
+		LockedAmount:          lockedAmount,
+		Value:                 1,
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "lock",
+	}
+
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+
+	eBalance := statedb.EBalance{
+		Address: extAddr,
+		Balance: 0,
+	}
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances[symbol] = make(map[string]statedb.EBalance)
+	eBalances[symbol][extAddr] = eBalance
+
+	account := &statedb.Account{
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
+		EBalances:            eBalances,
+	}
+	account.FirstExternalAddress["ETH"] = "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	account = updateAccountLockedBalance(account, tx)
+	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
+	assert.Equal(t, tx.GetAsset().GetValue(), account.EBalances["HBTC"]["0xD8f647855876549d2623f52126CE40D053a2ef6A"].Balance)
+
+}
+func TestUpdateAccountLockedBalanceMintHBTCSecond(t *testing.T) {
+	symbol := "BTC"
+	lockedAmount := uint64(10)
+	extSenderAddress := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	asset := &pluginproto.Asset{
+		Symbol:                symbol,
+		ExternalSenderAddress: extSenderAddress,
+		Nonce:                 1,
+		Network:               "Herdius",
+		LockedAmount:          lockedAmount,
+		Value:                 1,
+	}
+	tx := &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "lock",
+	}
+
+	extAddr := "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+
+	eBalance := statedb.EBalance{
+		Address: extAddr,
+		Balance: 1,
+	}
+	eBalances := make(map[string]map[string]statedb.EBalance)
+	eBalances[symbol] = make(map[string]statedb.EBalance)
+	eBalances[symbol][extAddr] = eBalance
+	eBalances["HBTC"] = make(map[string]statedb.EBalance)
+	eBalances["HBTC"][extAddr] = eBalance
+
+	account := &statedb.Account{
+		Address:              "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		FirstExternalAddress: make(map[string]string),
+		EBalances:            eBalances,
+	}
+	account.FirstExternalAddress["ETH"] = "0xD8f647855876549d2623f52126CE40D053a2ef6A"
+	account = updateAccountLockedBalance(account, tx)
+	assert.Equal(t, lockedAmount, account.LockedBalance[symbol][extSenderAddress])
+	assert.Equal(t, uint64(2), account.EBalances["HBTC"]["0xD8f647855876549d2623f52126CE40D053a2ef6A"].Balance)
+
+}
 
 func TestUpdateRedeemAccountLockedBalance(t *testing.T) {
 	symbol := "ETH"
