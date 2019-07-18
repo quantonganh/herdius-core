@@ -594,9 +594,6 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 			}
 			eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
 			senderAccount.EBalances = eBalances
-			if senderAccount.FirstExternalAddress == nil {
-				senderAccount.FirstExternalAddress = make(map[string]string)
-			}
 		}
 	}
 	log.Printf("Locked Account: %v+\n", *senderAccount)
