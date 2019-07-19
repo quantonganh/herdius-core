@@ -23,8 +23,7 @@ type PeerClient struct {
 	ID      *peer.ID
 	Address string
 
-	Requests     sync.Map   // uint64 -> *RequestState
-	mu           sync.Mutex // guard RequestNonce
+	Requests     sync.Map // uint64 -> *RequestState
 	RequestNonce uint64
 
 	stream StreamState
@@ -169,10 +168,7 @@ func (c *PeerClient) Request(ctx context.Context, req proto.Message) (proto.Mess
 		return nil, err
 	}
 
-	c.mu.Lock()
-	c.RequestNonce++
-	signed.RequestNonce = c.RequestNonce
-	c.mu.Unlock()
+	signed.RequestNonce = atomic.AddUint64(&c.RequestNonce, 1)
 
 	err = c.Network.Write(c.Address, signed)
 	if err != nil {
