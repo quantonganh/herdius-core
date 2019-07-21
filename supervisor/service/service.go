@@ -562,6 +562,7 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 	if senderAccount.LockedBalance[asset] == nil {
 		senderAccount.LockedBalance[asset] = make(map[string]uint64)
 	}
+
 	if tx.SenderAddress == senderAccount.Address {
 		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] += tx.Asset.LockedAmount
 	}
@@ -573,8 +574,9 @@ func updateAccountLockedBalance(senderAccount *statedb.Account, tx *pluginproto.
 			eBalance.Address = senderAccount.FirstExternalAddress["ETH"]
 			eBalance.Balance = 0
 			eBalance.LastBlockHeight = 0
-			eBalance.Nonce = 0
+			eBalance.Nonce = 1
 			eBalances := senderAccount.EBalances
+			eBalances["HBTC"] = make(map[string]statedb.EBalance)
 			eBalances["HBTC"][senderAccount.FirstExternalAddress["ETH"]] = eBalance
 			senderAccount.EBalances = eBalances
 		}
