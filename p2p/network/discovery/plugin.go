@@ -3,7 +3,6 @@ package discovery
 import (
 	"context"
 
-	"github.com/herdius/herdius-core/hbi/message"
 	"github.com/herdius/herdius-core/p2p/dht"
 	"github.com/herdius/herdius-core/p2p/internal/protobuf"
 	"github.com/herdius/herdius-core/p2p/log"
@@ -106,7 +105,6 @@ func (state *Plugin) PeerDisconnect(client *network.PeerClient) {
 				Str("address", client.Network.ID.Address).
 				Str("peer_address", client.ID.Address).
 				Msg("Peer has disconnected.")
-			message.ResetNonce(client.ID.Address)
 		}
 	}
 }
