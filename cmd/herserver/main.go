@@ -409,6 +409,7 @@ func main() {
 }
 
 // validatorProcessor checks and validates all the new child blocks
+// TODO: This part will be moved to herdis-node
 func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
 	if firstPingFromValidator == 0 {
