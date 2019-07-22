@@ -31,6 +31,7 @@ import (
 	"github.com/herdius/herdius-core/p2p/types/opcode"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	syncer "github.com/herdius/herdius-core/syncer"
+	"github.com/herdius/herdius-core/types"
 
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
@@ -255,28 +256,28 @@ func main() {
 		PubKey:     pubKey,
 	}
 
-	opcode.RegisterMessageType(opcode.Opcode(1111), &blockProtobuf.ChildBlockMessage{})
-	opcode.RegisterMessageType(opcode.Opcode(1112), &blockProtobuf.ConnectionMessage{})
-	opcode.RegisterMessageType(opcode.Opcode(1113), &protoplugin.BlockHeightRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1114), &protoplugin.BlockResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1115), &protoplugin.AccountRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1116), &protoplugin.AccountResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1117), &protoplugin.TxRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1118), &protoplugin.TxResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1119), &protoplugin.TxDetailRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1120), &protoplugin.TxDetailResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1121), &protoplugin.TxsByAddressRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1122), &protoplugin.TxsResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1123), &protoplugin.TxsByAssetAndAddressRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1124), &protoplugin.TxUpdateRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1125), &protoplugin.TxUpdateResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1126), &protoplugin.TxDeleteRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1127), &protoplugin.TxLockedRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1128), &protoplugin.TxLockedResponse{})
-	opcode.RegisterMessageType(opcode.Opcode(1129), &protobuf.Ping{})
-	opcode.RegisterMessageType(opcode.Opcode(1130), &protobuf.Pong{})
-	opcode.RegisterMessageType(opcode.Opcode(1131), &protoplugin.TxRedeemRequest{})
-	opcode.RegisterMessageType(opcode.Opcode(1132), &protoplugin.TxRedeemResponse{})
+	opcode.RegisterMessageType(types.OpcodeChildBlockMessage, &blockProtobuf.ChildBlockMessage{})
+	opcode.RegisterMessageType(types.OpcodeConnectionMessage, &blockProtobuf.ConnectionMessage{})
+	opcode.RegisterMessageType(types.OpcodeBlockHeightRequest, &protoplugin.BlockHeightRequest{})
+	opcode.RegisterMessageType(types.OpcodeBlockResponse, &protoplugin.BlockResponse{})
+	opcode.RegisterMessageType(types.OpcodeAccountRequest, &protoplugin.AccountRequest{})
+	opcode.RegisterMessageType(types.OpcodeAccountResponse, &protoplugin.AccountResponse{})
+	opcode.RegisterMessageType(types.OpcodeTxRequest, &protoplugin.TxRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxResponse, &protoplugin.TxResponse{})
+	opcode.RegisterMessageType(types.OpcodeTxDetailRequest, &protoplugin.TxDetailRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxDetailResponse, &protoplugin.TxDetailResponse{})
+	opcode.RegisterMessageType(types.OpcodeTxsByAddressRequest, &protoplugin.TxsByAddressRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxsResponse, &protoplugin.TxsResponse{})
+	opcode.RegisterMessageType(types.OpcodeTxsByAssetAndAddressRequest, &protoplugin.TxsByAssetAndAddressRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxUpdateRequest, &protoplugin.TxUpdateRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxUpdateResponse, &protoplugin.TxUpdateResponse{})
+	opcode.RegisterMessageType(types.OpcodeTxDeleteRequest, &protoplugin.TxDeleteRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxLockedRequest, &protoplugin.TxLockedRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxLockedResponse, &protoplugin.TxLockedResponse{})
+	opcode.RegisterMessageType(types.OpcodePing, &protobuf.Ping{})
+	opcode.RegisterMessageType(types.OpcodePong, &protobuf.Pong{})
+	opcode.RegisterMessageType(types.OpcodeTxRedeemRequest, &protoplugin.TxRedeemRequest{})
+	opcode.RegisterMessageType(types.OpcodeTxRedeemResponse, &protoplugin.TxRedeemResponse{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
