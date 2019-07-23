@@ -118,6 +118,9 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 			return nil
 		}
 
+	case *protoplugin.TxsByBlockHeightRequest:
+		getTxsByblockHeight(msg.GetBlockHeight(), ctx)
+
 	case *protoplugin.TxDetailRequest:
 
 		txID := msg.GetTxId()
@@ -534,6 +537,22 @@ func getRedeemTxsByBlockNumber(ctx *network.PluginContext, blockNumber int64) er
 	}
 	if err := ctx.Reply(network.WithSignMessage(context.Background(), true), txs); err != nil {
 		return fmt.Errorf("error replying to apiClient: %v", err)
+	}
+	return nil
+}
+
+func getTxsByblockHeight(height int64, ctx *network.PluginContext) error {
+	txSvc := &blockchain.TxService{}
+	txs, err := txSvc.GetTxsByHeight(height)
+	if err != nil {
+		if err := ctx.Reply(network.WithSignMessage(context.Background(), true), &protoplugin.TxDetailResponse{}); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+		}
+		return errors.New("Failed due to: " + err.Error())
+	}
+
+	if err := ctx.Reply(network.WithSignMessage(context.Background(), true), txs); err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
 	}
 	return nil
 }

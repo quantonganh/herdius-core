@@ -267,15 +267,17 @@ func TestGetRedeemTxsByBlockNumber(t *testing.T) {
 
 func TestGetTxsByHeight(t *testing.T) {
 	dirname, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	require.Nil(t, err)
+
 	LoadDBTest(dirname)
 	defer os.RemoveAll(dirname)
 	defer badgerDB.Close() // Close the db to release the lock
 
 	blockDirName, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	require.Nil(t, err)
 	LoadBlockDBTest(blockDirName)
 	defer os.RemoveAll(blockDirName)
 	defer blockHeightHashDB.Close()
-	require.Nil(t, err)
 
 	privKey := secp256k1.GenPrivKey()
 	addBlocks(privKey, t)
