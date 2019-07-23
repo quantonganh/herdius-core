@@ -115,8 +115,62 @@ func (s *Service) CreateOrLoadGenesisBlock() (*protobuf.BaseBlock, error) {
 	return genesisBlock, nil
 }
 
+// getBlockByHeight query from blockHeightHashDB first, for O(1).
+func (s *Service) getBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
+	var blockhash []byte
+	err := blockHeightHashDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		var (
+			err  error
+			item *badger.Item
+		)
+		item, err = txn.Get([]byte(strconv.FormatInt(height, 10)))
+		if err != nil {
+			return err
+		}
+
+		blockhash, err = item.Value()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	baseBlock := &protobuf.BaseBlock{}
+	err = badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		item, err := txn.Get(blockhash)
+		if err != nil {
+			return err
+		}
+
+		v, err := item.Value()
+		if err != nil {
+			return err
+		}
+		if err := cdc.UnmarshalJSON(v, baseBlock); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return baseBlock, nil
+}
+
 // GetBlockByHeight ...
 func (s *Service) GetBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
+	// Query from new DB first, for O(1) behavior. If any error, fall back to
+	// O(n) behavior
+	if baseBlock, err := s.getBlockByHeight(height); err != nil {
+		return baseBlock, nil
+	}
+
 	lastBlock := &protobuf.BaseBlock{}
 	lastBlockFlag := false
 	err := badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
