@@ -64,6 +64,8 @@ func (state *AccountMessagePlugin) Receive(ctx *network.PluginContext) error {
 func (state *BlockMessagePlugin) Receive(ctx *network.PluginContext) error {
 	switch msg := ctx.Message().(type) {
 
+	case *protoplugin.LastBlockRequest:
+		getLastBlock(ctx)
 	case *protoplugin.BlockHeightRequest:
 		getBlock(msg.BlockHeight, ctx)
 
@@ -553,6 +555,40 @@ func getTxsByblockHeight(height int64, ctx *network.PluginContext) error {
 
 	if err := ctx.Reply(network.WithSignMessage(context.Background(), true), txs); err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
+	}
+	return nil
+}
+
+func getLastBlock(ctx *network.PluginContext) error {
+	blockchainSvc := &blockchain.Service{}
+	block := blockchainSvc.GetLastBlock()
+
+	supervisorAdd := ctx.Client().ID.Address
+	if block.Header != nil {
+		timestamp := &protoplugin.Timestamp{
+			Nanos:   block.GetHeader().GetTime().GetNanos(),
+			Seconds: block.GetHeader().GetTime().GetSeconds(),
+		}
+
+		totalTxs := block.GetHeader().TotalTxs
+
+		blockRes := protoplugin.BlockResponse{
+			BlockHeight:       block.GetHeader().GetHeight(),
+			TotalTxs:          totalTxs,
+			Time:              timestamp,
+			SupervisorAddress: supervisorAdd,
+		}
+
+		plog.Info().Msgf("Block Response at processor: %v", blockRes)
+
+		if err := ctx.Reply(network.WithSignMessage(context.Background(), true), &blockRes); err != nil {
+			return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
+		}
+		return nil
+	}
+
+	if err := ctx.Reply(network.WithSignMessage(context.Background(), true), &protoplugin.BlockResponse{}); err != nil {
+		return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
 	}
 	return nil
 }
