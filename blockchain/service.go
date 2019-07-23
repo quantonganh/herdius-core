@@ -167,7 +167,7 @@ func (s *Service) getBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
 func (s *Service) GetBlockByHeight(height int64) (*protobuf.BaseBlock, error) {
 	// Query from new DB first, for O(1) behavior. If any error, fall back to
 	// O(n) behavior
-	if baseBlock, err := s.getBlockByHeight(height); err != nil {
+	if baseBlock, err := s.getBlockByHeight(height); err == nil {
 		return baseBlock, nil
 	}
 
