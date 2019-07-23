@@ -27,4 +27,5 @@ const (
 	OpcodeTxRedeemRequest             = opcode.Opcode(1131)
 	OpcodeTxRedeemResponse            = opcode.Opcode(1132)
 	OpcodeTxsByBlockHeightRequest     = opcode.Opcode(1133)
+	OpcodeLastBlockRequest            = opcode.Opcode(1134)
 )

@@ -279,6 +279,7 @@ func main() {
 	opcode.RegisterMessageType(types.OpcodeTxRedeemRequest, &protoplugin.TxRedeemRequest{})
 	opcode.RegisterMessageType(types.OpcodeTxRedeemResponse, &protoplugin.TxRedeemResponse{})
 	opcode.RegisterMessageType(types.OpcodeTxsByBlockHeightRequest, &protoplugin.TxsByBlockHeightRequest{})
+	opcode.RegisterMessageType(types.OpcodeLastBlockRequest, &protoplugin.LastBlockRequest{})
 
 	builder := network.NewBuilder(env)
 	builder.SetKeys(keys)
