@@ -3,6 +3,7 @@ package blockchain
 import (
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -77,6 +78,9 @@ func addBlocks(privKey secp256k1.PrivKeySecp256k1, t *testing.T) {
 	bbbz1, err := cdc.MarshalJSON(baseBlock1)
 	require.Nil(t, err)
 	badgerDB.Set(blockhash, bbbz1)
+	if blockHeightHashDB != nil {
+		blockHeightHashDB.Set([]byte(strconv.FormatInt(1, 10)), blockhash)
+	}
 
 	for i := 6; i <= 10; i++ {
 		tx := getTx(i, privKey)
@@ -91,6 +95,9 @@ func addBlocks(privKey secp256k1.PrivKeySecp256k1, t *testing.T) {
 	bbbz2, err := cdc.MarshalJSON(baseBlock2)
 	require.Nil(t, err)
 	badgerDB.Set(blockhash, bbbz2)
+	if blockHeightHashDB != nil {
+		blockHeightHashDB.Set([]byte(strconv.FormatInt(2, 10)), blockhash)
+	}
 
 	for i := 11; i <= 15; i++ {
 		tx := getTx(i, privKey)
@@ -106,6 +113,10 @@ func addBlocks(privKey secp256k1.PrivKeySecp256k1, t *testing.T) {
 	require.Nil(t, err)
 	badgerDB.Set(blockhash, bbbz3)
 
+	if blockHeightHashDB != nil {
+		blockHeightHashDB.Set([]byte(strconv.FormatInt(3, 10)), blockhash)
+	}
+
 	for i := 16; i <= 20; i++ {
 		tx := getTx(i, privKey)
 		txbz, err := cdc.MarshalJSON(tx)
@@ -119,6 +130,9 @@ func addBlocks(privKey secp256k1.PrivKeySecp256k1, t *testing.T) {
 	bbbz4, err := cdc.MarshalJSON(baseBlock4)
 	require.Nil(t, err)
 	badgerDB.Set(blockhash, bbbz4)
+	if blockHeightHashDB != nil {
+		blockHeightHashDB.Set([]byte(strconv.FormatInt(4, 10)), blockhash)
+	}
 }
 
 func getTx(nonce int, privKey secp256k1.PrivKeySecp256k1) pluginproto.Tx {
@@ -164,6 +178,10 @@ func createBlock(height int64, txs txbyte.Txs, t *testing.T) *protobuf.BaseBlock
 
 func LoadDBTest(dirname string) {
 	badgerDB = db.NewDB("badger", db.GoBadgerBackend, dirname)
+}
+
+func LoadBlockDBTest(dirname string) {
+	blockHeightHashDB = db.NewDB("badger", db.GoBadgerBackend, dirname)
 }
 
 func addBlocksWithLockedTxs(privKey secp256k1.PrivKeySecp256k1, t *testing.T) int64 {
@@ -245,4 +263,27 @@ func TestGetRedeemTxsByBlockNumber(t *testing.T) {
 	txs, err := txSrv.GetRedeemTxsByBlockNumber(blockNumber)
 	require.Nil(t, err)
 	assert.Equal(t, 5, len(txs.Txs))
+}
+
+func TestGetTxsByHeight(t *testing.T) {
+	dirname, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	LoadDBTest(dirname)
+	defer os.RemoveAll(dirname)
+	defer badgerDB.Close() // Close the db to release the lock
+
+	blockDirName, err := ioutil.TempDir(os.TempDir(), "badgerdb_test_")
+	LoadBlockDBTest(blockDirName)
+	defer os.RemoveAll(blockDirName)
+	defer blockHeightHashDB.Close()
+	require.Nil(t, err)
+
+	privKey := secp256k1.GenPrivKey()
+	addBlocks(privKey, t)
+	txSrv := TxService{}
+
+	for i := int64(1); i < 5; i++ {
+		txs, err := txSrv.GetTxsByHeight(i)
+		require.Nil(t, err)
+		assert.Equal(t, 5, len(txs.GetTxs()), "Total transactions in a block should be 5")
+	}
 }

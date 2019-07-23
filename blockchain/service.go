@@ -167,6 +167,7 @@ func (s *Service) AddBaseBlock(bb *protobuf.BaseBlock) error {
 
 	badgerDB.Set(blockhash, bbbz)
 	badgerDB.Set([]byte("LastBlock"), bbbz)
+	blockHeightHashDB.Set([]byte(strconv.FormatInt(bb.Header.GetHeight(), 10)), blockhash)
 	return nil
 }
 
@@ -230,6 +231,7 @@ type TxServiceI interface {
 	GetTx(id string) (*pluginproto.TxDetailResponse, error)
 	GetTxs(address string) (*pluginproto.TxsResponse, error)
 	GetTxsByAssetAndAddress(assetName, address string) (*pluginproto.TxsResponse, error)
+	GetTxsByHeight(height int64) (*pluginproto.TxsResponse, error)
 }
 
 // TxService ...
@@ -553,6 +555,76 @@ func (t *TxService) GetRedeemTxsByBlockNumber(blockNumber int64) (*pluginproto.T
 	}
 
 	return &pluginproto.TxRedeemResponse{Txs: txs}, nil
+}
+
+// GetTxsByHeight returns a list of all txs in a given block by height
+func (t *TxService) GetTxsByHeight(height int64) (*pluginproto.TxsResponse, error) {
+	txs := make([]*pluginproto.TxDetailResponse, 0)
+	var blockhash []byte
+
+	err := blockHeightHashDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		var (
+			err  error
+			item *badger.Item
+		)
+		item, err = txn.Get([]byte(strconv.FormatInt(height, 10)))
+		if err != nil {
+			return err
+		}
+
+		blockhash, err = item.Value()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = badgerDB.GetBadgerDB().View(func(txn *badger.Txn) error {
+		item, err := txn.Get(blockhash)
+		if err != nil {
+			return err
+		}
+
+		v, err := item.Value()
+		if err != nil {
+			return err
+		}
+		baseBlock := &protobuf.BaseBlock{}
+		if err := cdc.UnmarshalJSON(v, baseBlock); err != nil {
+			return err
+		}
+
+		if baseBlock.GetTxsData() != nil {
+			txs = make([]*pluginproto.TxDetailResponse, len(baseBlock.GetTxsData().GetTx()))
+			for i, txbz := range baseBlock.GetTxsData().GetTx() {
+				var tx pluginproto.Tx
+				err := cdc.UnmarshalJSON(txbz, &tx)
+				if err != nil {
+					return err
+				}
+				txDetailRes := &pluginproto.TxDetailResponse{}
+				txDetailRes.Tx = &tx
+				txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+				ts := &pluginproto.Timestamp{
+					Seconds: baseBlock.GetHeader().Time.Seconds,
+					Nanos:   baseBlock.GetHeader().Time.Nanos,
+				}
+				txDetailRes.CreationDt = ts
+				txDetailRes.TxId = getTxIDWithoutStatus(&tx)
+				txs[i] = txDetailRes
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pluginproto.TxsResponse{Txs: txs}, nil
 }
 
 // LoadStateDBWithInitialAccounts loads state db with initial predefined accounts.
