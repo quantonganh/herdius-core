@@ -43,12 +43,10 @@ install:
 	$(GOGET) ./...
 
 delete-db-dirs:
-	@ rm -R ./herdius/chaindb
-	@ rm -R ./herdius/statedb
 	@ rm -R ./herdius
 
 create_db_dirs:
-	@ mkdir -p ./herdius && mkdir -p ./herdius/chaindb/ && mkdir -p ./herdius/statedb/ && mkdir -p ./herdius/syncdb/
+	@ mkdir -p mkdir ./herdius/chaindb/ ./herdius/statedb/ ./herdius/syncdb/ ./herdius/blockdb/
 
 build:
 	$(GOBUILD) ./...

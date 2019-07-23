@@ -3,11 +3,9 @@
 
 package protobuf
 
-import (
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	math "math"
-)
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -18,7 +16,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Account struct {
 	Address              string                       `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
@@ -41,17 +39,16 @@ func (m *Account) Reset()         { *m = Account{} }
 func (m *Account) String() string { return proto.CompactTextString(m) }
 func (*Account) ProtoMessage()    {}
 func (*Account) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a171dd46f4a5f190, []int{0}
+	return fileDescriptor_stream_6daccfe46e4e7610, []int{0}
 }
-
 func (m *Account) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Account.Unmarshal(m, b)
 }
 func (m *Account) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Account.Marshal(b, m, deterministic)
 }
-func (m *Account) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Account.Merge(m, src)
+func (dst *Account) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Account.Merge(dst, src)
 }
 func (m *Account) XXX_Size() int {
 	return xxx_messageInfo_Account.Size(m)
@@ -150,17 +147,16 @@ func (m *AccountRegisterRequest) Reset()         { *m = AccountRegisterRequest{}
 func (m *AccountRegisterRequest) String() string { return proto.CompactTextString(m) }
 func (*AccountRegisterRequest) ProtoMessage()    {}
 func (*AccountRegisterRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a171dd46f4a5f190, []int{1}
+	return fileDescriptor_stream_6daccfe46e4e7610, []int{1}
 }
-
 func (m *AccountRegisterRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccountRegisterRequest.Unmarshal(m, b)
 }
 func (m *AccountRegisterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_AccountRegisterRequest.Marshal(b, m, deterministic)
 }
-func (m *AccountRegisterRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AccountRegisterRequest.Merge(m, src)
+func (dst *AccountRegisterRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountRegisterRequest.Merge(dst, src)
 }
 func (m *AccountRegisterRequest) XXX_Size() int {
 	return xxx_messageInfo_AccountRegisterRequest.Size(m)
@@ -192,17 +188,16 @@ func (m *EBalance) Reset()         { *m = EBalance{} }
 func (m *EBalance) String() string { return proto.CompactTextString(m) }
 func (*EBalance) ProtoMessage()    {}
 func (*EBalance) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a171dd46f4a5f190, []int{2}
+	return fileDescriptor_stream_6daccfe46e4e7610, []int{2}
 }
-
 func (m *EBalance) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EBalance.Unmarshal(m, b)
 }
 func (m *EBalance) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EBalance.Marshal(b, m, deterministic)
 }
-func (m *EBalance) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EBalance.Merge(m, src)
+func (dst *EBalance) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EBalance.Merge(dst, src)
 }
 func (m *EBalance) XXX_Size() int {
 	return xxx_messageInfo_EBalance.Size(m)
@@ -252,17 +247,16 @@ func (m *EBalanceAsset) Reset()         { *m = EBalanceAsset{} }
 func (m *EBalanceAsset) String() string { return proto.CompactTextString(m) }
 func (*EBalanceAsset) ProtoMessage()    {}
 func (*EBalanceAsset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a171dd46f4a5f190, []int{3}
+	return fileDescriptor_stream_6daccfe46e4e7610, []int{3}
 }
-
 func (m *EBalanceAsset) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EBalanceAsset.Unmarshal(m, b)
 }
 func (m *EBalanceAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EBalanceAsset.Marshal(b, m, deterministic)
 }
-func (m *EBalanceAsset) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EBalanceAsset.Merge(m, src)
+func (dst *EBalanceAsset) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EBalanceAsset.Merge(dst, src)
 }
 func (m *EBalanceAsset) XXX_Size() int {
 	return xxx_messageInfo_EBalanceAsset.Size(m)
@@ -291,17 +285,16 @@ func (m *LockBalanceAsset) Reset()         { *m = LockBalanceAsset{} }
 func (m *LockBalanceAsset) String() string { return proto.CompactTextString(m) }
 func (*LockBalanceAsset) ProtoMessage()    {}
 func (*LockBalanceAsset) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a171dd46f4a5f190, []int{4}
+	return fileDescriptor_stream_6daccfe46e4e7610, []int{4}
 }
-
 func (m *LockBalanceAsset) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LockBalanceAsset.Unmarshal(m, b)
 }
 func (m *LockBalanceAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LockBalanceAsset.Marshal(b, m, deterministic)
 }
-func (m *LockBalanceAsset) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LockBalanceAsset.Merge(m, src)
+func (dst *LockBalanceAsset) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LockBalanceAsset.Merge(dst, src)
 }
 func (m *LockBalanceAsset) XXX_Size() int {
 	return xxx_messageInfo_LockBalanceAsset.Size(m)
@@ -332,9 +325,11 @@ func init() {
 	proto.RegisterMapType((map[string]uint64)(nil), "protobuf.LockBalanceAsset.AssetEntry")
 }
 
-func init() { proto.RegisterFile("accounts/protobuf/stream.proto", fileDescriptor_a171dd46f4a5f190) }
+func init() {
+	proto.RegisterFile("accounts/protobuf/stream.proto", fileDescriptor_stream_6daccfe46e4e7610)
+}
 
-var fileDescriptor_a171dd46f4a5f190 = []byte{
+var fileDescriptor_stream_6daccfe46e4e7610 = []byte{
 	// 538 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x93, 0xdd, 0x8a, 0xd3, 0x40,
 	0x14, 0xc7, 0x99, 0x7e, 0x6c, 0x9b, 0xd3, 0x76, 0xdd, 0x0e, 0x45, 0x63, 0x41, 0xa9, 0x29, 0x0b,

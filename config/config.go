@@ -15,6 +15,7 @@ type detail struct {
 	Protocol          string //Only `tcp` supported at the moment
 	ChainDBPath       string
 	StateDBPath       string
+	BlockDBPath       string
 	BadgerDB          string
 	LevelDB           string
 	NodeKeyDir        string
@@ -43,6 +44,7 @@ func GetConfiguration(env string) *detail {
 				Protocol:          viper.GetString(fmt.Sprint(env, ".protocol")),
 				ChainDBPath:       viper.GetString(fmt.Sprint(env, ".chaindbpath")),
 				StateDBPath:       viper.GetString(fmt.Sprint(env, ".statedbpath")),
+				BlockDBPath:       viper.GetString(fmt.Sprint(env, ".blockdbpath")),
 				BadgerDB:          viper.GetString(fmt.Sprint(env, ".badgerdb")),
 				LevelDB:           viper.GetString(fmt.Sprint(env, ".leveldb")),
 				NodeKeyDir:        viper.GetString(fmt.Sprint(env, ".nodekeydir")),
