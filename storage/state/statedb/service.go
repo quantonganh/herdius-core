@@ -41,7 +41,6 @@ type Trie interface {
 type state struct {
 	trie *trie.Trie
 	db   *trie.Database
-	mu   sync.Mutex
 }
 
 // GetState return global singleton state.
@@ -90,8 +89,6 @@ func GetDB() *trie.Database {
 }
 
 func (s *state) TryGet(key []byte) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	t := s.trie
 	value, err := t.TryGet(key)
 	if err != nil {
@@ -101,8 +98,6 @@ func (s *state) TryGet(key []byte) ([]byte, error) {
 }
 
 func (s *state) TryUpdate(key, value []byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	t := s.trie
 
 	err := t.TryUpdate(key, value)
@@ -125,8 +120,6 @@ func (s *state) TryDelete(key []byte) error {
 }
 
 func (s *state) Commit(onleaf trie.LeafCallback) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	t := s.trie
 	root, err := t.Commit(nil)
 	if err != nil {
@@ -138,8 +131,6 @@ func (s *state) Commit(onleaf trie.LeafCallback) ([]byte, error) {
 }
 
 func (s *state) Hash() []byte {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	t := s.trie
 	return t.Root()
 }
