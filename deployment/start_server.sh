@@ -38,7 +38,7 @@ esac
 
 # Kill old process if existed
 if [[ -f "$pidfile" ]]; then
-  sudo kill "$(cat "$pidfile")" || :
+  sudo kill -INT "$(cat "$pidfile")" || :
 fi
 
 # Preparation
