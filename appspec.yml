@@ -12,4 +12,4 @@ hooks:
   AfterInstall:
      - location: deployment/start_server.sh
        timeout: 60
-       runas: ec2-user
+       runas: root
