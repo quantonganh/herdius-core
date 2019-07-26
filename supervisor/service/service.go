@@ -53,7 +53,7 @@ type Supervisor struct {
 	TxBatches           *[]txbyte.Txs // TxGroups will consist of list of the transaction batches
 	writerMutex         *sync.Mutex
 	ChildBlock          []*protobuf.ChildBlock
-	Validator           []*protobuf.Validator
+	Validator           map[string]*protobuf.Validator
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
 	stateRoot           []byte
@@ -98,7 +98,7 @@ func (s *Supervisor) SetBackup(backup bool) {
 	s.backup = backup
 }
 
-// SetBackup sets Supervisor backup to S3 process
+// Backup sets Supervisor backup to S3 process
 func (s *Supervisor) Backup() bool {
 	return s.backup
 }
@@ -121,33 +121,25 @@ func (s *Supervisor) GetMutex() *sync.Mutex {
 // AddValidator adds a validator to group
 func (s *Supervisor) AddValidator(publicKey []byte, address string) error {
 	if s.Validator == nil {
-		s.Validator = make([]*protobuf.Validator, 0)
+		s.Validator = make(map[string]*protobuf.Validator)
 	}
 	validator := &protobuf.Validator{
 		Address:      address,
 		PubKey:       publicKey,
 		Stakingpower: 100,
 	}
-	//s.writerMutex.Lock()
-	s.Validator = append(s.Validator, validator)
-	//s.writerMutex.Unlock()
+	s.writerMutex.Lock()
+	s.Validator[address] = validator
+	s.writerMutex.Unlock()
+
 	return nil
 }
 
 // RemoveValidator removes a validator from validators list
 func (s *Supervisor) RemoveValidator(address string) {
-	for i, v := range s.Validator {
-
-		if v.Address == address {
-			s.writerMutex.Lock()
-			s.Validator[i] = s.Validator[len(s.Validator)-1]
-			// We do not need to put s.Validator[i] at the end, as it will be discarded anyway
-			s.Validator = s.Validator[:len(s.Validator)-1]
-			s.writerMutex.Unlock()
-			break
-		}
-	}
-
+	s.writerMutex.Lock()
+	delete(s.Validator, address)
+	s.writerMutex.Unlock()
 }
 
 // SetWriteMutex ...
@@ -183,13 +175,13 @@ func (s *Supervisor) GetValidatorGroupHash() ([]byte, error) {
 	}
 	vlBzs := make([][]byte, numValidators)
 
-	for i := 0; i < numValidators; i++ {
-		vl := s.Validator[i]
+	for _, validator := range s.Validator {
+		vl := validator
 		vlBz, err := cdc.MarshalBinaryBare(*vl)
 		if err != nil {
 			return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
 		}
-		vlBzs[i] = vlBz
+		vlBzs = append(vlBzs, vlBz)
 	}
 
 	return merkle.SimpleHashFromByteSlices(vlBzs), nil
@@ -378,39 +370,41 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
-	<-time.After(time.Duration(s.waitTime) * time.Second)
-	txs := mp.GetTxs()
-	if len(s.Validator) == 0 || len(*txs) == 0 {
-		log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
-		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create singular base block: %v", err)
-		}
-		mp.RemoveTxs(len(*txs))
-		if !s.Backup() {
-			log.Println("Backup value false, not backing up block or state")
+	select {
+	case <-time.After(time.Duration(s.waitTime) * time.Second):
+		txs := mp.GetTxs()
+		if len(s.Validator) == 0 || len(*txs) == 0 {
+			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
+			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create singular base block: %v", err)
+			}
+			mp.RemoveTxs(len(*txs))
+			if !s.Backup() {
+				log.Println("Backup value false, not backing up block or state")
+				return baseBlock, nil
+			}
+			backuper := aws.NewBackuper(s.env)
+			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
+			if err != nil {
+				log.Println("nonfatal: failed to backup to S3:", err)
+			} else if !succ {
+				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+				err := backuper.BackupNeededBaseBlocks(baseBlock)
+				if err != nil {
+					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
+				}
+				log.Print("Successfully re-evaluated chain and backed up to S3")
+			}
+
 			return baseBlock, nil
 		}
-		backuper := aws.NewBackuper(s.env)
-		succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
+		err := s.ShardToValidators(txs, net, s.stateRoot)
 		if err != nil {
-			log.Println("nonfatal: failed to backup to S3:", err)
-		} else if !succ {
-			log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-			err := backuper.BackupNeededBaseBlocks(baseBlock)
-			if err != nil {
-				log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
-			}
-			log.Print("Successfully re-evaluated chain and backed up to S3")
+			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 		}
-
-		return baseBlock, nil
+		mp.RemoveTxs(len(*txs))
 	}
-	err := s.ShardToValidators(txs, net, s.stateRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
-	}
-	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
 
@@ -673,6 +667,14 @@ func deposit(receiverAccount *statedb.Account, assetSymbol, assetExtAddress stri
 	}
 }
 
+func (s *Supervisor) validatorAddresses() []string {
+	addresses := make([]string, len(s.Validator))
+	for address := range s.Validator {
+		addresses = append(addresses, address)
+	}
+	return addresses
+}
+
 // ShardToValidators distributes a series of childblocks to a series of validators
 func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
 	numValds := len(s.Validator)
@@ -715,8 +717,8 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		ChildBlock: cb,
 	}
 
-	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
-	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
+	fmt.Println("Broadcasting child block to Validator:", s.validatorAddresses())
+	net.BroadcastByAddresses(ctx, cbmsg, s.validatorAddresses()...)
 	return nil
 }
 
