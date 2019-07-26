@@ -57,7 +57,6 @@ type Supervisor struct {
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
 	stateRoot           []byte
-	memPoolChan         chan<- mempool.MemPool
 	env                 string
 	waitTime            int
 	noOfPeersInGroup    int
@@ -178,40 +177,28 @@ func (s *Supervisor) GetChildBlockMerkleHash() ([]byte, error) {
 
 // GetValidatorGroupHash creates merkle hash of all the validators
 func (s *Supervisor) GetValidatorGroupHash() ([]byte, error) {
-	if s.Validator != nil && len(s.Validator) > 0 {
-		vlBzs := make([][]byte, len(s.Validator))
-
-		for i := 0; i < len(s.Validator); i++ {
-			vl := s.Validator[i]
-			vlBz, err := cdc.MarshalBinaryBare(*vl)
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
-			}
-			vlBzs[i] = vlBz
-		}
-
-		return merkle.SimpleHashFromByteSlices(vlBzs), nil
+	numValidators := len(s.Validator)
+	if numValidators == 0 {
+		return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
 	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	vlBzs := make([][]byte, numValidators)
+
+	for i := 0; i < numValidators; i++ {
+		vl := s.Validator[i]
+		vlBz, err := cdc.MarshalBinaryBare(*vl)
+		if err != nil {
+			return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
+		}
+		vlBzs[i] = vlBz
+	}
+
+	return merkle.SimpleHashFromByteSlices(vlBzs), nil
 }
 
 // GetNextValidatorGroupHash ([]byte, error) creates merkle hash of all the next validators
+// TODO: refine logic, currently, it's the same as s.GetValidatorGroupHash.
 func (s *Supervisor) GetNextValidatorGroupHash() ([]byte, error) {
-	if s.Validator != nil && len(s.Validator) > 0 {
-		vlBzs := make([][]byte, len(s.Validator))
-
-		for i := 0; i < len(s.Validator); i++ {
-			vl := s.Validator[i]
-			vlBz, err := cdc.MarshalBinaryBare(*vl)
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
-			}
-			vlBzs[i] = vlBz
-		}
-
-		return merkle.SimpleHashFromByteSlices(vlBzs), nil
-	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	return s.GetValidatorGroupHash()
 }
 
 // CreateBaseBlock creates the base block with all the child blocks
@@ -239,8 +226,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	// create array of vote commits
 	votecommits := make([]protobuf.VoteCommit, 0)
 	for _, v := range s.ChildBlock {
-		var cbh cmn.HexBytes
-		cbh = v.GetHeader().GetBlockID().GetBlockHash()
+		var cbh cmn.HexBytes = v.GetHeader().GetBlockID().GetBlockHash()
 		groupVoteInfo := s.VoteInfoData[cbh.String()]
 
 		voteCommit := protobuf.VoteCommit{
@@ -392,53 +378,53 @@ func (s *Supervisor) CreateChildBlock(net *network.Network, txs *transaction.TxL
 // or to be included in Singular base block
 func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error) {
 	mp := mempool.GetMemPool()
-	select {
-	case <-time.After(time.Duration(s.waitTime) * time.Second):
-		txs := mp.GetTxs()
-		if len(s.Validator) <= 0 || len(*txs) <= 0 {
-			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
-			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create singular base block: %v", err)
-			}
-			mp.RemoveTxs(len(*txs))
-			if !s.Backup() {
-				log.Println("Backup value false, not backing up block or state")
-				return baseBlock, nil
-			}
-			backuper := aws.NewBackuper(s.env)
-			succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
-			if err != nil {
-				log.Println("nonfatal: failed to backup to S3:", err)
-			} else if !succ {
-				log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
-				err := backuper.BackupNeededBaseBlocks(baseBlock)
-				if err != nil {
-					log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
-				}
-				log.Print("Successfully re-evaluated chain and backed up to S3")
-			}
-
-			return baseBlock, nil
-		}
-		err := s.ShardToValidators(txs, net, s.stateRoot)
+	<-time.After(time.Duration(s.waitTime) * time.Second)
+	txs := mp.GetTxs()
+	if len(s.Validator) == 0 || len(*txs) == 0 {
+		log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
+		baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
 		if err != nil {
-			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
+			return nil, fmt.Errorf("failed to create singular base block: %v", err)
 		}
 		mp.RemoveTxs(len(*txs))
+		if !s.Backup() {
+			log.Println("Backup value false, not backing up block or state")
+			return baseBlock, nil
+		}
+		backuper := aws.NewBackuper(s.env)
+		succ, err := backuper.TryBackupBaseBlock(lastBlock, baseBlock)
+		if err != nil {
+			log.Println("nonfatal: failed to backup to S3:", err)
+		} else if !succ {
+			log.Println("S3 backup criteria not met; proceeding to backup all unbacked base blocks")
+			err := backuper.BackupNeededBaseBlocks(baseBlock)
+			if err != nil {
+				log.Println("nonfatal: failed to backup both single new and all unbacked base blocks:", err)
+			}
+			log.Print("Successfully re-evaluated chain and backed up to S3")
+		}
+
+		return baseBlock, nil
 	}
+	err := s.ShardToValidators(txs, net, s.stateRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
+	}
+	mp.RemoveTxs(len(*txs))
 	return nil, nil
 }
 
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+		return nil, fmt.Errorf("failed to retrieve the state trie: %v", err)
 	}
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
-	_, err = s.updateStateForTxs(&txs, stateTrie)
+	if _, err := s.updateStateForTxs(&txs, stateTrie); err != nil {
+		return nil, fmt.Errorf("failed to update state for txs: %v", err)
+	}
 
 	// Get Merkle Root Hash of all transactions
 	mrh := txs.MerkleHash()
@@ -694,8 +680,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
 	numTxs := len(*txs)
-	numCbs := len(s.ChildBlock)
-	var numGrps int
+	numGrps := 0
 
 	if numValds <= 3 {
 		numGrps = numValds
@@ -706,20 +691,23 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	} else {
 		numGrps = numValds / 3
 	}
-	numCbs = numGrps
+	numCbs := numGrps
 	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
 	if len(stateRoot) <= 0 {
-		return fmt.Errorf("Cannot process an empty stateRoot for the trie")
+		return fmt.Errorf("cannot process an empty stateRoot for the trie")
 	}
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
-		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
+		return fmt.Errorf("error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
+	if err != nil {
+		return fmt.Errorf("failed to update state for txs: %v", err)
+	}
 
 	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)

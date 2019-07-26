@@ -257,8 +257,7 @@ func TestRemoveValidator(t *testing.T) {
 }
 
 func TestCreateChildBlock(t *testing.T) {
-	var txService transaction.Service
-	txService = transaction.TxService()
+	var txService transaction.Service = transaction.TxService()
 	for i := 1; i <= 200; i++ {
 		tx := getTx(i)
 		txService.AddTx(tx)
@@ -299,8 +298,7 @@ func getTx(nonce int) transaction.Tx {
 }
 
 func TestCreateChildBlockForSecp256k1Account(t *testing.T) {
-	var txService transaction.Service
-	txService = transaction.TxService()
+	var txService transaction.Service = transaction.TxService()
 	for i := 1; i <= 200; i++ {
 		tx := getTxSecp256k1Account(i)
 		txService.AddTx(tx)
@@ -356,6 +354,7 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
 	dir, err := ioutil.TempDir("", "yeezy")
+	assert.NoError(t, err)
 	trie = statedb.GetState(dir)
 	root, err := trie.Commit(nil)
 	assert.NoError(t, err)
@@ -366,6 +365,7 @@ func TestShardToValidatorsTrue(t *testing.T) {
 
 func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	dir, err := ioutil.TempDir("", "temp-dir")
+	assert.NoError(t, err)
 
 	extAddr := "external-address-01"
 	asset := "external-asset"
@@ -385,8 +385,8 @@ func TestUpdateStateWithNewExternalBalance(t *testing.T) {
 	assert.Equal(t, herAccount.EBalances[asset][extAddr].Balance, uint64(0))
 	trie = statedb.GetState(dir)
 	sactbz, err := cdc.MarshalJSON(herAccount)
+	assert.NoError(t, err)
 	err = trie.TryUpdate([]byte(herAccount.Address), sactbz)
-
 	assert.NoError(t, err)
 
 	badgerdb := db.NewDB("test.syncdb", db.GoBadgerBackend, "test.syncdb")
