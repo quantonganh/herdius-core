@@ -53,11 +53,10 @@ type Supervisor struct {
 	TxBatches           *[]txbyte.Txs // TxGroups will consist of list of the transaction batches
 	writerMutex         *sync.Mutex
 	ChildBlock          []*protobuf.ChildBlock
-	Validator           []*protobuf.Validator
+	Validator           map[string]*protobuf.Validator
 	ValidatorChildblock map[string]*protobuf.BlockID //Validator address pointing to child block hash
 	VoteInfoData        map[string][]*protobuf.VoteInfo
 	stateRoot           []byte
-	memPoolChan         chan<- mempool.MemPool
 	env                 string
 	waitTime            int
 	noOfPeersInGroup    int
@@ -99,7 +98,7 @@ func (s *Supervisor) SetBackup(backup bool) {
 	s.backup = backup
 }
 
-// SetBackup sets Supervisor backup to S3 process
+// Backup sets Supervisor backup to S3 process
 func (s *Supervisor) Backup() bool {
 	return s.backup
 }
@@ -122,33 +121,25 @@ func (s *Supervisor) GetMutex() *sync.Mutex {
 // AddValidator adds a validator to group
 func (s *Supervisor) AddValidator(publicKey []byte, address string) error {
 	if s.Validator == nil {
-		s.Validator = make([]*protobuf.Validator, 0)
+		s.Validator = make(map[string]*protobuf.Validator)
 	}
 	validator := &protobuf.Validator{
 		Address:      address,
 		PubKey:       publicKey,
 		Stakingpower: 100,
 	}
-	//s.writerMutex.Lock()
-	s.Validator = append(s.Validator, validator)
-	//s.writerMutex.Unlock()
+	s.writerMutex.Lock()
+	s.Validator[address] = validator
+	s.writerMutex.Unlock()
+
 	return nil
 }
 
 // RemoveValidator removes a validator from validators list
 func (s *Supervisor) RemoveValidator(address string) {
-	for i, v := range s.Validator {
-
-		if v.Address == address {
-			s.writerMutex.Lock()
-			s.Validator[i] = s.Validator[len(s.Validator)-1]
-			// We do not need to put s.Validator[i] at the end, as it will be discarded anyway
-			s.Validator = s.Validator[:len(s.Validator)-1]
-			s.writerMutex.Unlock()
-			break
-		}
-	}
-
+	s.writerMutex.Lock()
+	delete(s.Validator, address)
+	s.writerMutex.Unlock()
 }
 
 // SetWriteMutex ...
@@ -178,40 +169,28 @@ func (s *Supervisor) GetChildBlockMerkleHash() ([]byte, error) {
 
 // GetValidatorGroupHash creates merkle hash of all the validators
 func (s *Supervisor) GetValidatorGroupHash() ([]byte, error) {
-	if s.Validator != nil && len(s.Validator) > 0 {
-		vlBzs := make([][]byte, len(s.Validator))
-
-		for i := 0; i < len(s.Validator); i++ {
-			vl := s.Validator[i]
-			vlBz, err := cdc.MarshalBinaryBare(*vl)
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
-			}
-			vlBzs[i] = vlBz
-		}
-
-		return merkle.SimpleHashFromByteSlices(vlBzs), nil
+	numValidators := len(s.Validator)
+	if numValidators == 0 {
+		return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
 	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	vlBzs := make([][]byte, numValidators)
+
+	for _, validator := range s.Validator {
+		vl := validator
+		vlBz, err := cdc.MarshalBinaryBare(*vl)
+		if err != nil {
+			return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
+		}
+		vlBzs = append(vlBzs, vlBz)
+	}
+
+	return merkle.SimpleHashFromByteSlices(vlBzs), nil
 }
 
 // GetNextValidatorGroupHash ([]byte, error) creates merkle hash of all the next validators
+// TODO: refine logic, currently, it's the same as s.GetValidatorGroupHash.
 func (s *Supervisor) GetNextValidatorGroupHash() ([]byte, error) {
-	if s.Validator != nil && len(s.Validator) > 0 {
-		vlBzs := make([][]byte, len(s.Validator))
-
-		for i := 0; i < len(s.Validator); i++ {
-			vl := s.Validator[i]
-			vlBz, err := cdc.MarshalBinaryBare(*vl)
-			if err != nil {
-				return nil, fmt.Errorf(fmt.Sprintf("Validator Marshaling failed: %v.", err))
-			}
-			vlBzs[i] = vlBz
-		}
-
-		return merkle.SimpleHashFromByteSlices(vlBzs), nil
-	}
-	return nil, fmt.Errorf(fmt.Sprintf("No Child block available: %v.", s.ChildBlock))
+	return s.GetValidatorGroupHash()
 }
 
 // CreateBaseBlock creates the base block with all the child blocks
@@ -239,8 +218,7 @@ func (s *Supervisor) CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.B
 	// create array of vote commits
 	votecommits := make([]protobuf.VoteCommit, 0)
 	for _, v := range s.ChildBlock {
-		var cbh cmn.HexBytes
-		cbh = v.GetHeader().GetBlockID().GetBlockHash()
+		var cbh cmn.HexBytes = v.GetHeader().GetBlockID().GetBlockHash()
 		groupVoteInfo := s.VoteInfoData[cbh.String()]
 
 		voteCommit := protobuf.VoteCommit{
@@ -395,7 +373,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 	select {
 	case <-time.After(time.Duration(s.waitTime) * time.Second):
 		txs := mp.GetTxs()
-		if len(s.Validator) <= 0 || len(*txs) <= 0 {
+		if len(s.Validator) == 0 || len(*txs) == 0 {
 			log.Printf("Block creation wait time (%d) elapsed, creating singular base block but with %v transactions", s.waitTime, len(*txs))
 			baseBlock, err := s.createSingularBlock(lastBlock, net, *txs, mp, s.stateRoot)
 			if err != nil {
@@ -433,12 +411,14 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Failed to retrieve the state trie: %v.", err))
+		return nil, fmt.Errorf("failed to retrieve the state trie: %v", err)
 	}
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
-	_, err = s.updateStateForTxs(&txs, stateTrie)
+	if _, err := s.updateStateForTxs(&txs, stateTrie); err != nil {
+		return nil, fmt.Errorf("failed to update state for txs: %v", err)
+	}
 
 	// Get Merkle Root Hash of all transactions
 	mrh := txs.MerkleHash()
@@ -687,6 +667,14 @@ func deposit(receiverAccount *statedb.Account, assetSymbol, assetExtAddress stri
 	}
 }
 
+func (s *Supervisor) validatorAddresses() []string {
+	addresses := make([]string, len(s.Validator))
+	for address := range s.Validator {
+		addresses = append(addresses, address)
+	}
+	return addresses
+}
+
 // ShardToValidators distributes a series of childblocks to a series of validators
 func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
 	numValds := len(s.Validator)
@@ -694,8 +682,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
 	numTxs := len(*txs)
-	numCbs := len(s.ChildBlock)
-	var numGrps int
+	numGrps := 0
 
 	if numValds <= 3 {
 		numGrps = numValds
@@ -706,20 +693,23 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	} else {
 		numGrps = numValds / 3
 	}
-	numCbs = numGrps
+	numCbs := numGrps
 	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
 	if len(stateRoot) <= 0 {
-		return fmt.Errorf("Cannot process an empty stateRoot for the trie")
+		return fmt.Errorf("cannot process an empty stateRoot for the trie")
 	}
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
-		return fmt.Errorf("Error attempting to retrieve state db trie from stateRoot: %v", err)
+		return fmt.Errorf("error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	previousBlockHash := make([]byte, 0)
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
+	if err != nil {
+		return fmt.Errorf("failed to update state for txs: %v", err)
+	}
 
 	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
 	ctx := network.WithSignMessage(context.Background(), true)
@@ -727,8 +717,8 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		ChildBlock: cb,
 	}
 
-	fmt.Println("Broadcasting child block to Validator:", s.Validator[0].Address)
-	net.BroadcastByAddresses(ctx, cbmsg, s.Validator[0].Address)
+	fmt.Println("Broadcasting child block to Validator:", s.validatorAddresses())
+	net.BroadcastByAddresses(ctx, cbmsg, s.validatorAddresses()...)
 	return nil
 }
 
