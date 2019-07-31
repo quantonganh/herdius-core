@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -554,4 +555,74 @@ func TestUpdateRedeemAccountLockedBalance(t *testing.T) {
 
 	account = updateRedeemAccountLockedBalance(account, tx)
 	assert.Equal(t, value, account.LockedBalance[symbol][extSenderAddress])
+}
+
+func TestValidatorGroups(t *testing.T) {
+	tests := []struct {
+		name                             string
+		numValidators                    int
+		desiredNumGroups                 int
+		expectedNumGroups                int
+		expectedNumValidatorsInEachGroup int
+		expectedNumValidatorsInLastGroup int
+	}{
+		{"validator less than group", 1, 2, 1, 1, 1},
+		{"validator equal group", 2, 2, 2, 1, 1},
+		{"validator greater than group", 500, 5, 5, 100, 100},
+		{"validator not divisible to each group #1", 501, 5, 5, 101, 97},
+		{"validator not divisible to each group #2", 499, 5, 5, 100, 99},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			supsvc := &Supervisor{}
+			supsvc.SetWriteMutex()
+			for i := 1; i <= tc.numValidators; i++ {
+				supsvc.AddValidator([]byte{1}, fmt.Sprintf("validator-%d", i))
+			}
+			groups := supsvc.validatorGroups(tc.desiredNumGroups)
+			if len(groups) != tc.expectedNumGroups {
+				t.Errorf("Unexpected number of groups, want: %d, got: %d", tc.expectedNumGroups, len(groups))
+			}
+
+			for i := 0; i < len(groups)-1; i++ {
+				if len(groups[i]) != tc.expectedNumValidatorsInEachGroup {
+					t.Errorf("Unexpected number of validators in each group, want: %d, got: %d", tc.expectedNumValidatorsInEachGroup, len(groups[i]))
+				}
+			}
+			if len(groups[len(groups)-1]) != tc.expectedNumValidatorsInLastGroup {
+				t.Errorf("Unexpected number of validators in last group, want: %d, got: %d", tc.expectedNumValidatorsInLastGroup, len(groups[len(groups)-1]))
+			}
+		})
+	}
+}
+
+func TestTxsGroups(t *testing.T) {
+	tests := []struct {
+		name              string
+		numTxs            int
+		desiredNumGroups  int
+		expectedNumGroups int
+	}{
+		{"txs less than group", 1, 2, 1},
+		{"txs equal group", 2, 2, 2},
+		{"txs greater than group", 4500, 5, 5},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			supsvc := &Supervisor{}
+			txs := make([]*transaction.Tx, tc.numTxs)
+			txList := &transaction.TxList{Transactions: txs}
+
+			groups := supsvc.txsGroups(txList, tc.desiredNumGroups)
+			if len(groups) != tc.expectedNumGroups {
+				t.Errorf("Unexpected number of groups, want: %d, got: %d", tc.expectedNumGroups, len(groups))
+			}
+		})
+	}
 }

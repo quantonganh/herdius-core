@@ -675,6 +675,50 @@ func (s *Supervisor) validatorAddresses() []string {
 	return addresses
 }
 
+func (s *Supervisor) validatorGroups(numGroup int) [][]string {
+	s.writerMutex.Lock()
+	defer s.writerMutex.Unlock()
+
+	numValds := len(s.Validator)
+	validators := make([]string, len(s.Validator))
+	for address := range s.Validator {
+		validators = append(validators, address)
+	}
+
+	var groups [][]string
+	if numGroup <= 0 {
+		numGroup = 1
+	}
+	groupSize := (numValds + numGroup - 1) / numGroup
+
+	for start := 0; start < numValds; start += groupSize {
+		end := start + groupSize
+		if end > numValds {
+			end = numValds
+		}
+		groups = append(groups, validators[start:end])
+	}
+
+	return groups
+}
+
+func (s *Supervisor) txsGroups(txList *transaction.TxList, numGroup int) [][]*transaction.Tx {
+	txs := txList.Transactions
+
+	var groups [][]*transaction.Tx
+	groupSize := (len(txs) + numGroup - 1) / numGroup
+
+	for start := 0; start < len(txs); start += groupSize {
+		end := start + groupSize
+		if end > len(txs) {
+			end = len(txs)
+		}
+		groups = append(groups, txs[start:end])
+	}
+
+	return groups
+}
+
 // ShardToValidators distributes a series of childblocks to a series of validators
 func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
 	numValds := len(s.Validator)
@@ -682,27 +726,18 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
 	numTxs := len(*txs)
-	numGrps := 0
+	// TODO: Make number of groups configurable.
+	numGroup := 5
+	vGroups := s.validatorGroups(numGroup)
+	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, vGroups, numValds)
 
-	if numValds <= 3 {
-		numGrps = numValds
-	} else if numValds%3 == 0 {
-		numGrps = numValds % 3
-	} else if numValds%2 == 0 {
-		numGrps = numValds % 2
-	} else {
-		numGrps = numValds / 3
-	}
-	numCbs := numGrps
-	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, numCbs, numValds)
-	if len(stateRoot) <= 0 {
+	if len(stateRoot) == 0 {
 		return fmt.Errorf("cannot process an empty stateRoot for the trie")
 	}
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
 		return fmt.Errorf("error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
-	previousBlockHash := make([]byte, 0)
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
@@ -711,14 +746,21 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 		return fmt.Errorf("failed to update state for txs: %v", err)
 	}
 
-	cb := s.CreateChildBlock(net, txList, 1, previousBlockHash)
-	ctx := network.WithSignMessage(context.Background(), true)
-	cbmsg := &protobuf.ChildBlockMessage{
-		ChildBlock: cb,
+	txsGroups := s.txsGroups(txList, numGroup)
+	previousBlockHash := make([]byte, 0)
+
+	for i := range txsGroups {
+		cb := s.CreateChildBlock(net, &transaction.TxList{Transactions: txsGroups[i]}, int64(len(txsGroups[i])), previousBlockHash)
+		previousBlockHash = cb.GetHeader().GetBlockID().BlockHash
+		if i > 0 {
+			cb.GetHeader().GetLastBlockID().BlockHash = previousBlockHash
+		}
+		ctx := network.WithSignMessage(context.Background(), true)
+		cbmsg := &protobuf.ChildBlockMessage{ChildBlock: cb}
+		fmt.Println("Broadcasting child block to Validator Group:", vGroups[i])
+		net.BroadcastByAddresses(ctx, cbmsg, vGroups[i]...)
 	}
 
-	fmt.Println("Broadcasting child block to Validator:", s.validatorAddresses())
-	net.BroadcastByAddresses(ctx, cbmsg, s.validatorAddresses()...)
 	return nil
 }
 
