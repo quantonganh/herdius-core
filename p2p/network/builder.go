@@ -53,6 +53,7 @@ var defaultBuilderOptions = options{
 	writeBufferSize:   defaultWriteBufferSize,
 	writeFlushLatency: defaultWriteFlushLatency,
 	writeTimeout:      defaultWriteTimeout,
+	address:           defaultaddress,
 }
 
 // A BuilderOption sets options such as connection timeout and cryptographic // policies for the network
@@ -63,6 +64,13 @@ type BuilderOption func(*options)
 func ConnectionTimeout(d time.Duration) BuilderOption {
 	return func(o *options) {
 		o.connectionTimeout = d
+	}
+}
+
+//Address address sets assress for connectionn, should include type and port tcp://127.0.0.1:port
+func Address(address string) BuilderOption {
+	return func(o *options) {
+		o.address = address
 	}
 }
 
@@ -123,10 +131,10 @@ func WriteTimeout(d time.Duration) BuilderOption {
 }
 
 // NewBuilder returns a new builder with default options.
-func NewBuilder(fullTCPAddress string) *Builder {
+func NewBuilder() *Builder {
 	builder := &Builder{
 		opts:       defaultBuilderOptions,
-		address:    fullTCPAddress,
+		address:    defaultaddress,
 		keys:       ed25519.RandomKeyPair(),
 		transports: new(sync.Map),
 	}
@@ -139,8 +147,8 @@ func NewBuilder(fullTCPAddress string) *Builder {
 }
 
 // NewBuilderWithOptions returns a new builder with specified options.
-func NewBuilderWithOptions(fullTCPAddress string, opt ...BuilderOption) *Builder {
-	builder := NewBuilder(fullTCPAddress)
+func NewBuilderWithOptions(opt ...BuilderOption) *Builder {
+	builder := NewBuilder()
 
 	for _, o := range opt {
 		o(&builder.opts)

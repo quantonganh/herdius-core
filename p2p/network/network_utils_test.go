@@ -57,7 +57,8 @@ func (te *testSuite) startBoostrap(numNodes int, plugins ...network.PluginInterf
 	for i := 0; i < numNodes; i++ {
 		config := config.GetConfiguration("dev")
 		address := config.ConstructTCPAddress()
-		builder := network.NewBuilderWithOptions(address, te.builderOptions...)
+		te.builderOptions = append(te.builderOptions, network.Address(address))
+		builder := network.NewBuilderWithOptions(te.builderOptions...)
 		builder.SetKeys(te.e.signature.RandomKeyPair())
 		builder.SetAddress(network.FormatAddress(te.e.networkType, "localhost", uint16(network.GetRandomUnusedPort())))
 

@@ -50,7 +50,7 @@ func TestPluginHooks(t *testing.T) {
 	for i := 0; i < nodeCount; i++ {
 		config := config.GetConfiguration("dev")
 		address := config.ConstructTCPAddress()
-		builder := NewBuilder(address)
+		builder := NewBuilderWithOptions(Address(address))
 		builder.SetKeys(ed25519.RandomKeyPair())
 		builder.SetAddress(FormatAddress("tcp", host, uint16(GetRandomUnusedPort())))
 		builder.AddPlugin(new(MockPlugin))
@@ -111,7 +111,7 @@ func TestRegisterPlugin(t *testing.T) {
 
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
-	b := NewBuilder(address)
+	b := NewBuilderWithOptions(Address(address))
 	b.AddPluginWithPriority(-99999, new(Plugin))
 
 	n, err := b.Build()

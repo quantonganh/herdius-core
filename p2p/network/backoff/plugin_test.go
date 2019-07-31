@@ -90,7 +90,7 @@ func newNode(i int, addDiscoveryPlugin bool, addBackoffPlugin bool) (*network.Ne
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 
-	builder := network.NewBuilder(address)
+	builder := network.NewBuilderWithOptions(network.Address(address))
 	builder.SetKeys(keys[addr])
 	builder.SetAddress(addr)
 

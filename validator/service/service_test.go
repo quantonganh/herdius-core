@@ -26,7 +26,7 @@ func TestCreateAndVerifyVote(t *testing.T) {
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 
-	builder := network.NewBuilder(address)
+	builder := network.NewBuilderWithOptions(network.Address(address))
 	builder.SetKeys(keys)
 
 	net, err := builder.Build()

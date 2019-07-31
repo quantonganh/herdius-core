@@ -21,7 +21,9 @@ var (
 )
 
 func buildNetwork(port uint16) (*Network, error) {
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetKeys(keys)
 	builder.SetAddress(
 		fmt.Sprintf("%s://%s:%d", protocol, host, port),
@@ -62,7 +64,9 @@ func TestSetters(t *testing.T) {
 func TestNoKeys(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetKeys(nil)
 	_, err := builder.Build()
 	if err == nil {
@@ -73,7 +77,9 @@ func TestNoKeys(t *testing.T) {
 func TestBuilderAddress(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetAddress("")
 	_, err := builder.Build()
 	assert.NotEqual(t, nil, err)
@@ -91,8 +97,7 @@ func TestDuplicatePlugin(t *testing.T) {
 
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
-
-	builder := NewBuilder(address)
+	builder := NewBuilderWithOptions(Address(address))
 	_, err := builder.Build()
 
 	assert.Equal(t, nil, err)
@@ -111,7 +116,7 @@ func TestConnectionTimeout(t *testing.T) {
 	timeout := 5 * time.Second
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
-	builder := NewBuilderWithOptions(address, ConnectionTimeout(timeout))
+	builder := NewBuilderWithOptions(Address(address), ConnectionTimeout(timeout))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.connectionTimeout, timeout, "connection timeout given should match found")
@@ -123,7 +128,7 @@ func TestSignaturePolicy(t *testing.T) {
 	signaturePolicy := ed25519.New()
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
-	builder := NewBuilderWithOptions(address, SignaturePolicy(signaturePolicy))
+	builder := NewBuilderWithOptions(Address(address), SignaturePolicy(signaturePolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.signaturePolicy, signaturePolicy, "signature policy given should match found")
@@ -135,7 +140,7 @@ func TestHashPolicy(t *testing.T) {
 	hashPolicy := blake2b.New()
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
-	builder := NewBuilderWithOptions(address, HashPolicy(hashPolicy))
+	builder := NewBuilderWithOptions(Address(address), HashPolicy(hashPolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.hashPolicy, hashPolicy, "hash policy given should match found")
@@ -149,7 +154,7 @@ func TestWindowSize(t *testing.T) {
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		address,
+		Address(address),
 		RecvWindowSize(recvWindowSize),
 		SendWindowSize(sendWindowSize),
 	)
@@ -168,7 +173,7 @@ func TestWriteBufferSize(t *testing.T) {
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		address,
+		Address(address),
 		WriteBufferSize(writeBufferSize),
 	)
 	net, err := builder.Build()
@@ -183,7 +188,7 @@ func TestWriteFlushLatency(t *testing.T) {
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		address,
+		Address(address),
 		WriteFlushLatency(writeFlushLatency),
 	)
 	net, err := builder.Build()
@@ -198,7 +203,7 @@ func TestWriteTimeout(t *testing.T) {
 	config := config.GetConfiguration("dev")
 	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		address,
+		Address(address),
 		WriteTimeout(writeTimeout),
 	)
 	net, err := builder.Build()
