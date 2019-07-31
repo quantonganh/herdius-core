@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/p2p/crypto/blake2b"
 	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
 	"github.com/pkg/errors"
@@ -20,7 +21,9 @@ var (
 )
 
 func buildNetwork(port uint16) (*Network, error) {
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetKeys(keys)
 	builder.SetAddress(
 		fmt.Sprintf("%s://%s:%d", protocol, host, port),
@@ -61,7 +64,9 @@ func TestSetters(t *testing.T) {
 func TestNoKeys(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetKeys(nil)
 	_, err := builder.Build()
 	if err == nil {
@@ -72,7 +77,9 @@ func TestNoKeys(t *testing.T) {
 func TestBuilderAddress(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	builder.SetAddress("")
 	_, err := builder.Build()
 	assert.NotEqual(t, nil, err)
@@ -88,7 +95,9 @@ func TestBuilderAddress(t *testing.T) {
 func TestDuplicatePlugin(t *testing.T) {
 	t.Parallel()
 
-	builder := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address))
 	_, err := builder.Build()
 
 	assert.Equal(t, nil, err)
@@ -105,7 +114,9 @@ func TestConnectionTimeout(t *testing.T) {
 	t.Parallel()
 
 	timeout := 5 * time.Second
-	builder := NewBuilderWithOptions("dev", ConnectionTimeout(timeout))
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address), ConnectionTimeout(timeout))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.connectionTimeout, timeout, "connection timeout given should match found")
@@ -115,7 +126,9 @@ func TestSignaturePolicy(t *testing.T) {
 	t.Parallel()
 
 	signaturePolicy := ed25519.New()
-	builder := NewBuilderWithOptions("dev", SignaturePolicy(signaturePolicy))
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address), SignaturePolicy(signaturePolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.signaturePolicy, signaturePolicy, "signature policy given should match found")
@@ -125,7 +138,9 @@ func TestHashPolicy(t *testing.T) {
 	t.Parallel()
 
 	hashPolicy := blake2b.New()
-	builder := NewBuilderWithOptions("dev", HashPolicy(hashPolicy))
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	builder := NewBuilderWithOptions(Address(address), HashPolicy(hashPolicy))
 	net, err := builder.Build()
 	assert.Equal(t, nil, err)
 	assert.Equal(t, net.opts.hashPolicy, hashPolicy, "hash policy given should match found")
@@ -136,8 +151,10 @@ func TestWindowSize(t *testing.T) {
 
 	recvWindowSize := 2000
 	sendWindowSize := 1000
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		"dev",
+		Address(address),
 		RecvWindowSize(recvWindowSize),
 		SendWindowSize(sendWindowSize),
 	)
@@ -153,8 +170,10 @@ func TestWriteBufferSize(t *testing.T) {
 	t.Parallel()
 
 	writeBufferSize := 2048
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		"dev",
+		Address(address),
 		WriteBufferSize(writeBufferSize),
 	)
 	net, err := builder.Build()
@@ -166,8 +185,10 @@ func TestWriteFlushLatency(t *testing.T) {
 	t.Parallel()
 
 	writeFlushLatency := 100 * time.Millisecond
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		"dev",
+		Address(address),
 		WriteFlushLatency(writeFlushLatency),
 	)
 	net, err := builder.Build()
@@ -179,8 +200,10 @@ func TestWriteTimeout(t *testing.T) {
 	t.Parallel()
 
 	writeTimeout := 1 * time.Second
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
 	builder := NewBuilderWithOptions(
-		"dev",
+		Address(address),
 		WriteTimeout(writeTimeout),
 	)
 	net, err := builder.Build()

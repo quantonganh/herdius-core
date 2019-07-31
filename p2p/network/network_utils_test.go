@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/crypto/blake2b"
 	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
@@ -54,7 +55,10 @@ func newTest(t *testing.T, e env, opts ...network.BuilderOption) *testSuite {
 
 func (te *testSuite) startBoostrap(numNodes int, plugins ...network.PluginInterface) {
 	for i := 0; i < numNodes; i++ {
-		builder := network.NewBuilderWithOptions("dev", te.builderOptions...)
+		config := config.GetConfiguration("dev")
+		address := config.ConstructTCPAddress()
+		te.builderOptions = append(te.builderOptions, network.Address(address))
+		builder := network.NewBuilderWithOptions(te.builderOptions...)
 		builder.SetKeys(te.e.signature.RandomKeyPair())
 		builder.SetAddress(network.FormatAddress(te.e.networkType, "localhost", uint16(network.GetRandomUnusedPort())))
 

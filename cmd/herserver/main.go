@@ -281,7 +281,9 @@ func main() {
 	opcode.RegisterMessageType(types.OpcodeTxsByBlockHeightRequest, &protoplugin.TxsByBlockHeightRequest{})
 	opcode.RegisterMessageType(types.OpcodeLastBlockRequest, &protoplugin.LastBlockRequest{})
 
-	builder := network.NewBuilder(env)
+	config := config.GetConfiguration(env)
+	address := config.ConstructTCPAddress()
+	builder := network.NewBuilderWithOptions(network.Address(address))
 	builder.SetKeys(keys)
 
 	builder.SetAddress(network.FormatAddress(confg.Protocol, confg.SelfBroadcastIP, uint16(port)))

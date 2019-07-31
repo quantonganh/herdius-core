@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 
@@ -47,7 +48,9 @@ func TestPluginHooks(t *testing.T) {
 	nodeCount := 4
 
 	for i := 0; i < nodeCount; i++ {
-		builder := NewBuilder("dev")
+		config := config.GetConfiguration("dev")
+		address := config.ConstructTCPAddress()
+		builder := NewBuilderWithOptions(Address(address))
 		builder.SetKeys(ed25519.RandomKeyPair())
 		builder.SetAddress(FormatAddress("tcp", host, uint16(GetRandomUnusedPort())))
 		builder.AddPlugin(new(MockPlugin))
@@ -106,7 +109,9 @@ func TestRegisterPlugin(t *testing.T) {
 
 	PluginID := (*Plugin)(nil)
 
-	b := NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+	b := NewBuilderWithOptions(Address(address))
 	b.AddPluginWithPriority(-99999, new(Plugin))
 
 	n, err := b.Build()

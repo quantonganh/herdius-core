@@ -31,6 +31,7 @@ const (
 	defaultWriteBufferSize   = 4096
 	defaultWriteFlushLatency = 50 * time.Millisecond
 	defaultWriteTimeout      = 3 * time.Second
+	defaultaddress           = "tcp://127.0.0.1:2001"
 )
 
 var contextPool = sync.Pool{
@@ -89,6 +90,7 @@ type options struct {
 	writeBufferSize   int
 	writeFlushLatency time.Duration
 	writeTimeout      time.Duration
+	address           string
 }
 
 // ConnState represents a connection.
