@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/herdius/herdius-core/blockchain/protobuf"
+	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/crypto/secp256k1"
 	"github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/network"
@@ -22,7 +23,10 @@ func TestCreateAndVerifyVote(t *testing.T) {
 		PubKey:     pubKey,
 	}
 
-	builder := network.NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+
+	builder := network.NewBuilder(address)
 	builder.SetKeys(keys)
 
 	net, err := builder.Build()

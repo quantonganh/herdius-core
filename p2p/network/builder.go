@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/crypto/blake2b"
 	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
@@ -124,12 +123,10 @@ func WriteTimeout(d time.Duration) BuilderOption {
 }
 
 // NewBuilder returns a new builder with default options.
-func NewBuilder(env string) *Builder {
-	config := config.GetConfiguration(env)
-	address := config.ConstructTCPAddress()
+func NewBuilder(fullTCPAddress string) *Builder {
 	builder := &Builder{
 		opts:       defaultBuilderOptions,
-		address:    address,
+		address:    fullTCPAddress,
 		keys:       ed25519.RandomKeyPair(),
 		transports: new(sync.Map),
 	}
@@ -142,8 +139,8 @@ func NewBuilder(env string) *Builder {
 }
 
 // NewBuilderWithOptions returns a new builder with specified options.
-func NewBuilderWithOptions(env string, opt ...BuilderOption) *Builder {
-	builder := NewBuilder(env)
+func NewBuilderWithOptions(fullTCPAddress string, opt ...BuilderOption) *Builder {
+	builder := NewBuilder(fullTCPAddress)
 
 	for _, o := range opt {
 		o(&builder.opts)

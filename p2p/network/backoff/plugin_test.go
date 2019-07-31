@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/herdius/herdius-core/config"
 	"github.com/herdius/herdius-core/p2p/crypto"
 	"github.com/herdius/herdius-core/p2p/crypto/ed25519"
 	"github.com/herdius/herdius-core/p2p/network"
@@ -86,7 +87,10 @@ func newNode(i int, addDiscoveryPlugin bool, addBackoffPlugin bool) (*network.Ne
 		keys[addr] = ed25519.RandomKeyPair()
 	}
 
-	builder := network.NewBuilder("dev")
+	config := config.GetConfiguration("dev")
+	address := config.ConstructTCPAddress()
+
+	builder := network.NewBuilder(address)
 	builder.SetKeys(keys[addr])
 	builder.SetAddress(addr)
 
