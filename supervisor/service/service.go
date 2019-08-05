@@ -680,7 +680,7 @@ func (s *Supervisor) validatorGroups(numGroup int) [][]string {
 	defer s.writerMutex.Unlock()
 
 	numValds := len(s.Validator)
-	validators := make([]string, len(s.Validator))
+	validators := make([]string, 0)
 	for address := range s.Validator {
 		validators = append(validators, address)
 	}
@@ -729,7 +729,7 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	// TODO: Make number of groups configurable.
 	numGroup := 5
 	vGroups := s.validatorGroups(numGroup)
-	fmt.Printf("Number of txs (%v), child blocks (%v), validators (%v)\n", numTxs, vGroups, numValds)
+	fmt.Printf("Number of txs (%v), groups (%v), validators (%v)\n", numTxs, vGroups, numValds)
 
 	if len(stateRoot) == 0 {
 		return fmt.Errorf("cannot process an empty stateRoot for the trie")
