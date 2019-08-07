@@ -51,9 +51,6 @@ var isChildBlockReceivedByValidator = false
 // Child block message object received
 var mcb = &blockProtobuf.ChildBlockMessage{}
 
-// firstPingFromValidator checks whether a connection is established betweer supervisor and validator.
-// And it is used to send a message on established connection.
-var firstPingFromValidator = 0
 var nodeKeydir = "./cmd/testdata/secp205k1Accts/"
 var t1 time.Time
 var t2 time.Time
@@ -416,19 +413,19 @@ func main() {
 // TODO: This part will be moved to herdis-node
 func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
 	ctx := network.WithSignMessage(context.Background(), true)
-	if firstPingFromValidator == 0 {
-		supervisorClient, err := net.Client(peers[0])
-		if err != nil {
-			log.Printf("unable to get supervisor client: %+v", err)
-			return
-		}
+	supervisorClient, err := net.Client(peers[0])
+	if err != nil {
+		log.Error().Msgf("unable to get supervisor client: %+v", err)
+		return
+	}
+
+	if supervisorClient.RequestNonce == 0 {
 		reply, err := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
 		if err != nil {
-			log.Printf("unable to request from client: %+v", err)
+			log.Error().Msgf("unable to request from client: %+v", err)
 			return
 		}
-		fmt.Println("Supervisor reply: " + reply.String())
-		firstPingFromValidator++
+		log.Info().Msg("Supervisor reply: " + reply.String())
 		return
 	}
 
@@ -449,13 +446,14 @@ func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []stri
 		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
 		err := vService.VerifyTxs(cbRootHash, txs)
 		if err != nil {
-			fmt.Println("Failed to verify transaction:", err)
+			log.Error().Msgf("Failed to verify transaction: %v", err)
 			return
 		}
 
 		// Sign and vote the child block
 		err = vService.Vote(net, net.Address, mcb)
 		if err != nil {
+			log.Error().Msgf("Failed to get vote: %v", err)
 			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to get vote"})
 		}
 
