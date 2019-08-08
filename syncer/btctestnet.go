@@ -56,10 +56,12 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 			btc.addressError[ba.Address] = true
 			continue
 		}
-		btc.BlockHeight[ba.Address] = big.NewInt(int64(addr.TXs[0].BlockHeight))
-		btc.Nonce[ba.Address] = uint64(len(addr.TXs))
-		btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
-		btc.addressError[ba.Address] = false
+		if len(addr.TXs) > 0 {
+			btc.BlockHeight[ba.Address] = big.NewInt(int64(addr.TXs[0].BlockHeight))
+			btc.Nonce[ba.Address] = uint64(len(addr.TXs))
+			btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
+			btc.addressError[ba.Address] = false
+		}
 		count++
 
 	}
