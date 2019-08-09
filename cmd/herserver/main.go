@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"strconv"
 
 	nlog "log"
-	"os"
 	"strings"
 	"time"
 
@@ -36,7 +34,6 @@ import (
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
 	sup "github.com/herdius/herdius-core/supervisor/service"
-	validator "github.com/herdius/herdius-core/validator/service"
 	amino "github.com/tendermint/go-amino"
 )
 
@@ -202,8 +199,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 				log.Info().Msgf("<%s> Validator verification or signature verification failed: %v", ctx.Client().ID.Address, isVerified)
 			}
 
-		} else {
-			isChildBlockReceivedByValidator = true
 		}
 	}
 	return nil
@@ -353,8 +348,6 @@ func main() {
 		}
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		if *supervisorFlag {
 			supsvc.SetEnv(env)
@@ -402,62 +395,7 @@ func main() {
 				stateRoot = baseBlock.GetHeader().GetStateRoot()
 				log.Info().Msgf("State root : %v", stateRoot)
 			}
-		} else {
-			validatorProcessor(net, reader, peers)
 		}
 
-	}
-}
-
-// validatorProcessor checks and validates all the new child blocks
-// TODO: This part will be moved to herdis-node
-func validatorProcessor(net *network.Network, reader *bufio.Reader, peers []string) {
-	ctx := network.WithSignMessage(context.Background(), true)
-	supervisorClient, err := net.Client(peers[0])
-	if err != nil {
-		log.Error().Msgf("unable to get supervisor client: %+v", err)
-		return
-	}
-
-	if supervisorClient.RequestNonce == 0 {
-		reply, err := supervisorClient.Request(ctx, &blockProtobuf.ConnectionMessage{Message: "Connection established with Validator"})
-		if err != nil {
-			log.Error().Msgf("unable to request from client: %+v", err)
-			return
-		}
-		log.Info().Msg("Supervisor reply: " + reply.String())
-		return
-	}
-
-	// Check if a new child block has arrived
-	if isChildBlockReceivedByValidator {
-		vService := validator.Validator{}
-
-		//Get all the transaction data included in the child block
-		txsData := mcb.GetChildBlock().GetTxsData()
-		if txsData == nil {
-			fmt.Println("No txsData")
-			isChildBlockReceivedByValidator = false
-			return
-		}
-		txs := txsData.Tx
-
-		//Get Root hash of the transactions
-		cbRootHash := mcb.GetChildBlock().GetHeader().GetRootHash()
-		err := vService.VerifyTxs(cbRootHash, txs)
-		if err != nil {
-			log.Error().Msgf("Failed to verify transaction: %v", err)
-			return
-		}
-
-		// Sign and vote the child block
-		err = vService.Vote(net, net.Address, mcb)
-		if err != nil {
-			log.Error().Msgf("Failed to get vote: %v", err)
-			net.Broadcast(ctx, &blockProtobuf.ConnectionMessage{Message: "Failed to get vote"})
-		}
-
-		net.Broadcast(ctx, mcb)
-		isChildBlockReceivedByValidator = false
 	}
 }
