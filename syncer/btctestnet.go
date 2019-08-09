@@ -7,6 +7,7 @@ import (
 	"time"
 
 	blockcypher "github.com/blockcypher/gobcy"
+
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
@@ -56,10 +57,12 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 			btc.addressError[ba.Address] = true
 			continue
 		}
-		btc.BlockHeight[ba.Address] = big.NewInt(int64(addr.TXs[0].BlockHeight))
-		btc.Nonce[ba.Address] = uint64(len(addr.TXs))
-		btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
-		btc.addressError[ba.Address] = false
+		if len(addr.TXs) > 0 {
+			btc.BlockHeight[ba.Address] = big.NewInt(int64(addr.TXs[0].BlockHeight))
+			btc.Nonce[ba.Address] = uint64(len(addr.TXs))
+			btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
+			btc.addressError[ba.Address] = false
+		}
 		count++
 
 	}
@@ -82,6 +85,11 @@ func (btc *BTCTestNetSyncer) Update() {
 			// last-balance < External-ETH
 			// Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
 			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok && lastExtBalance != nil {
+				// We need to guard here because buggy code before causing ext balance
+				// for given btc account set to nil.
+				if btc.ExtBalance[btcAccount.Address] == nil {
+					btc.ExtBalance[btcAccount.Address] = big.NewInt(0)
+				}
 				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) < 0 {
 					log.Printf("lastExtBalance.Cmp(btc.ExtBalance[%s])", btcAccount.Address)
 
