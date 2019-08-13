@@ -570,6 +570,9 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 		return senderAccount
 	}
 	asset := strings.ToUpper(tx.Asset.Symbol)
+	if strings.EqualFold(tx.Asset.Symbol, "HBTC") {
+		asset = "BTC"
+	}
 	if senderAccount.LockedBalance[asset] == nil {
 		return senderAccount
 	}
