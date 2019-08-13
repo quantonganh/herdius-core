@@ -13,7 +13,7 @@ ethrpc = "https://ropsten.infura.io/v3/"
 blockchaininforpc = "https://blockchain.info/rawaddr/"
 hercontractaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
 s3backupbucket = "herdius-blockchain-backup-dev"
-hbtcrpc = "http://54.209.249.119:81/contract/hbtc"
+hbtcrpc = "http://localhost:81/contract/hbtc"
 
 [staging]
 selfbroadcastip = "10.0.1.159"

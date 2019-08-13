@@ -282,9 +282,11 @@ func (s *Service) VerifyLockedAmount() bool {
 // VerifyRedeemAmount checks account have proper locked amount for redeeming
 func (s *Service) VerifyRedeemAmount() bool {
 	log.Printf("Account before Redeem: %+v", s.account)
-	if s.account != nil && s.account.LockBalances != nil && s.account.LockBalances[s.assetSymbol] != nil {
-		if asset := s.account.LockBalances[s.assetSymbol].Asset; asset != nil {
-			return s.txRedeemAmount <= asset[s.extAddress]
+	if strings.EqualFold(s.assetSymbol, "HBTC") {
+		if s.account != nil && s.account.LockBalances != nil && s.account.LockBalances["BTC"] != nil {
+			if asset := s.account.LockBalances["BTC"].Asset; asset != nil {
+				return s.txRedeemAmount <= asset[s.extAddress]
+			}
 		}
 	}
 	return false
