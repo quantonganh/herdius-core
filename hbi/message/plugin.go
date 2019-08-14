@@ -230,19 +230,6 @@ func (state *TransactionMessagePlugin) Receive(ctx *network.PluginContext) error
 				return errors.New(failedVerificationMsg)
 			}
 		}
-		redeem := Redeem.String()
-		if strings.EqualFold(tx.Type, redeem) {
-			if !accSrv.VerifyRedeemAmount() {
-				failedVerificationMsg := "Redeem amount greater than account locked amount"
-				if err := ctx.Reply(network.WithSignMessage(context.Background(), true), &protoplugin.TxResponse{
-					TxId: "", Status: "failed", Queued: 0, Pending: 0,
-					Message: failedVerificationMsg,
-				}); err != nil {
-					return fmt.Errorf(fmt.Sprintf("Failed to reply to client :%v", err))
-				}
-				return errors.New(failedVerificationMsg)
-			}
-		}
 
 		// Check if asset has enough balance
 		// account.Balance > Tx.Value
