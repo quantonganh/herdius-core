@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	stdSync "sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +22,7 @@ type apiEndponts struct {
 	hbtcRPC         string
 }
 
+// SyncAllAccounts syncs all assets of available accounts.
 func SyncAllAccounts(exBal external.BalanceStorage) {
 	var rpc apiEndponts
 	viper.SetConfigName("config")   // Config file name without extension
@@ -29,12 +31,17 @@ func SyncAllAccounts(exBal external.BalanceStorage) {
 	if err != nil {
 		fmt.Println("Config file not found...")
 	} else {
-		rpc.ethRPC = viper.GetString("dev.ethrpc") + os.Getenv("INFURAID")
+		rpc.ethRPC = viper.GetString("dev.ethrpc")
 		rpc.herTokenAddress = viper.GetString("dev.hercontractaddress")
 		rpc.btcRPC = viper.GetString("dev.blockchaininforpc")
 		rpc.hbtcRPC = viper.GetString("dev.hbtcrpc")
 
 	}
+
+	if strings.Index(rpc.ethRPC, ".infura.io") > -1 {
+		rpc.ethRPC += os.Getenv("INFURAID")
+	}
+
 	for {
 		sync(exBal, rpc)
 	}
