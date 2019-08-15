@@ -892,7 +892,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 				log.Printf("Sender has no assets for the given symbol: %v", symbol)
 				continue
 			}
-			if balance.Balance <= tx.Asset.Value {
+			if balance.Balance < tx.Asset.Value {
 				plog.Error().Msgf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
 				log.Printf("Sender does not have enough assets in account (%d) to send transaction amount (%d)", balance.Balance, tx.Asset.Value)
 				continue
