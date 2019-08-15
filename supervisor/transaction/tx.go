@@ -10,15 +10,23 @@ const (
 	tab   = "\t"
 )
 
+// Asset ...
 type Asset struct {
-	Category string `json:"category"`
-	Symbol   string `json:"symbol"`
-	Network  string `json:"network"`
-	Value    string `json:"value"`
-	Fee      string `json:"fee"`
-	Nonce    string `json:"nonce"`
+	Category                string `json:"category"`
+	Symbol                  string `json:"symbol"`
+	Network                 string `json:"network"`
+	Value                   string `json:"value"`
+	Fee                     string `json:"fee"`
+	Nonce                   string `json:"nonce"`
+	ExternalSenderAddress   string `json:"external_sender_address"`
+	ExternalRecieverAddress string `json:"external_reciever_address"`
+	ExternalNonce           uint64 `json:"external_nonce"`
+	ExternalBlockHeight     uint64 `json:"external_block_height"`
+	LockedAmount            uint64 `json:"locked_amount"`
+	RedeemedAmount          uint64 `json:"redeemed_amount"`
 }
 
+// Tx ...
 type Tx struct {
 	SenderAddress   string `json:"sender_address"`
 	SenderPubKey    string `json:"sender_pubkey"`

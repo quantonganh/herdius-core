@@ -10,13 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/herdius/herdius-core/aws/restore"
 	"github.com/herdius/herdius-core/blockchain"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
 	blockProtobuf "github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/config"
-	cryptokey "github.com/herdius/herdius-core/crypto"
 	cryptoAmino "github.com/herdius/herdius-core/crypto/encoding/amino"
 	"github.com/herdius/herdius-core/hbi/message"
 	protoplugin "github.com/herdius/herdius-core/hbi/protobuf"
@@ -30,8 +28,6 @@ import (
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	syncer "github.com/herdius/herdius-core/syncer"
 	"github.com/herdius/herdius-core/types"
-
-	"github.com/herdius/herdius-core/storage/state/statedb"
 
 	sup "github.com/herdius/herdius-core/supervisor/service"
 	amino "github.com/tendermint/go-amino"
@@ -105,100 +101,6 @@ func (state *HerdiusMessagePlugin) Receive(ctx *network.PluginContext) error {
 			&blockProtobuf.ConnectionMessage{Message: "Connection established with Supervisor"})
 		if err != nil {
 			return fmt.Errorf(fmt.Sprintf("Failed to reply to client: %v", err))
-		}
-	case *blockProtobuf.ChildBlockMessage:
-		mcb = msg
-		vote := mcb.GetVote()
-		if vote != nil {
-			// Increment the vote count of validator group
-			voteCount++
-
-			var cbhash cmn.HexBytes
-			cbhash = mcb.GetChildBlock().GetHeader().GetBlockID().GetBlockHash()
-			voteinfo := supsvc.VoteInfoData[cbhash.String()]
-			voteinfo = append(voteinfo, vote)
-			supsvc.VoteInfoData[cbhash.String()] = voteinfo
-
-			sign := vote.GetSignature()
-			var pubKey cryptokey.PubKey
-
-			cdc.UnmarshalBinaryBare(vote.GetValidator().GetPubKey(), &pubKey)
-
-			isVerified := pubKey.VerifyBytes(vote.GetValidator().GetPubKey(), sign)
-
-			isChildBlockSigned := mcb.GetVote().GetSignedCurrentBlock()
-
-			// Check whether Childblock is verified and signed by the validator
-			if isChildBlockSigned && isVerified {
-
-				address := ctx.Client().ID.Address
-				mx := supsvc.GetMutex()
-				mx.Lock()
-				supsvc.ValidatorChildblock[address] = mcb.GetChildBlock().GetHeader().GetBlockID()
-				mx.Unlock()
-				log.Info().Msgf("<%s> Validator verified and signed the child block: %v", address, isVerified)
-
-				// TODO: It needs to be implemented in a proper way
-				// It should probably be a part of the consensus on child block
-				// How can we do that?
-				if voteCount == len(supsvc.Validator) {
-
-					lastBlock := blockchainSvc.GetLastBlock()
-
-					var stateRoot cmn.HexBytes
-					stateRoot = supsvc.StateRoot()
-					stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
-					if err != nil {
-						log.Error().Msgf("Failed to create new state trie: %v", err)
-					}
-					// TODO: handle err?
-					newStateRoot, err := stateTrie.Commit(nil)
-					supsvc.SetStateRoot(newStateRoot)
-					supsvc.ChildBlock = append(supsvc.ChildBlock, mcb.GetChildBlock())
-					// TODO: handle err?
-					baseBlock, err := supsvc.CreateBaseBlock(lastBlock)
-
-					err = blockchainSvc.AddBaseBlock(baseBlock)
-					if err != nil {
-						log.Error().Msgf("Failed to Add Base Block: %v", err)
-					}
-
-					var bbh cmn.HexBytes
-					bbh = baseBlock.GetHeader().GetBlock_ID().GetBlockHash()
-					log.Info().Msg("New Block Added")
-					log.Info().Msgf("Block Id: %v", bbh.String())
-
-					log.Info().Msgf("Block Height: %v", baseBlock.GetHeader().GetHeight())
-
-					s := lastBlock.GetHeader().GetTime().GetSeconds()
-					ts := time.Unix(s, 0)
-					log.Info().Msgf("Timestamp : %v", ts)
-
-					stateRoot = supsvc.StateRoot()
-					log.Info().Msgf("State root : %v", stateRoot)
-					// Once new base block is added to be block chain
-					// do the following
-
-					supsvc.ValidatorChildblock = make(map[string]*blockProtobuf.BlockID, 0)
-					supsvc.ChildBlock = make([]*blockProtobuf.ChildBlock, 0)
-					supsvc.VoteInfoData = make(map[string][]*blockProtobuf.VoteInfo, 0)
-					mcb = &blockProtobuf.ChildBlockMessage{}
-					voteCount = 0
-
-					supsvc.SetStateRoot([]byte{0})
-					t2 = time.Now()
-
-					diff := t2.Sub(t1)
-
-					log.Info().Msgf("Total time : %v", diff)
-
-				} else {
-					log.Info().Msgf("Vote count mismatch, votes (%d) of validators (%d)", voteCount, len(supsvc.Validator))
-				}
-			} else {
-				log.Info().Msgf("<%s> Validator verification or signature verification failed: %v", ctx.Client().ID.Address, isVerified)
-			}
-
 		}
 	}
 	return nil
@@ -371,9 +273,7 @@ func main() {
 			if err != nil {
 				log.Error().Msg(err.Error())
 			}
-
 			if baseBlock != nil {
-				//log.Info().Msgf("Block Detail: %v", baseBlock)
 				err = blockchainSvc.AddBaseBlock(baseBlock)
 				if err != nil {
 					log.Error().Msgf("Failed to Add Base Block: %v", err)

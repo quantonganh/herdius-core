@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/herdius/herdius-core/blockchain/protobuf"
 	"github.com/herdius/herdius-core/storage/db"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 
@@ -339,17 +340,19 @@ func getTxSecp256k1Account(nonce int) transaction.Tx {
 }
 
 func TestShardToValidatorsFalse(t *testing.T) {
+	lastBlock := &protobuf.BaseBlock{}
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()
 	supsvc.AddValidator([]byte{1}, "add-01")
 	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
-	err := supsvc.ShardToValidators(txs, nil, nil)
+	_, err := supsvc.ShardToValidators(lastBlock, txs, nil, nil)
 	assert.Error(t, err)
 }
 
 func TestShardToValidatorsTrue(t *testing.T) {
+	lastBlock := &protobuf.BaseBlock{}
 	supsvc := &Supervisor{}
 	supsvc.SetWriteMutex()
 	supsvc.AddValidator([]byte{1}, "add-01")
@@ -362,7 +365,7 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	root, err := trie.Commit(nil)
 	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
-	err = supsvc.ShardToValidators(txs, nil, root)
+	_, err = supsvc.ShardToValidators(lastBlock, txs, nil, root)
 	assert.NoError(t, err)
 }
 

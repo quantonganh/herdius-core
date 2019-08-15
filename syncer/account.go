@@ -59,7 +59,7 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 	}
 	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
 
-	log.Println("Sync account start")
+	//log.Println("Sync account start")
 	var wg stdSync.WaitGroup
 	for it.Next() {
 		var senderAccount statedb.Account
@@ -145,5 +145,5 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		}()
 	}
 	wg.Wait()
-	log.Println("Sync account end")
+	//	log.Println("Sync account end")
 }
