@@ -343,6 +343,38 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 						break
 					}
 				}
+			} else if len(baseBlock.GetChildBlock()) > 0 {
+				var cbs []*protobuf.ChildBlock
+				err := cdc.UnmarshalJSON(baseBlock.GetChildBlock(), &cbs)
+				if err != nil {
+					log.Printf("Failed to Unmarshal child block array: %v", err)
+					continue
+				}
+				for _, cb := range cbs {
+					// Get all the transaction from the child block
+					txs := cb.GetTxsData().GetTx()
+					for _, txbz := range txs {
+						var tx pluginproto.Tx
+						err := cdc.UnmarshalJSON(txbz, &tx)
+						if err != nil {
+							log.Printf("Failed to Unmarshal tx: %v", err)
+							continue
+						}
+						txID := getTxIDWithoutStatus(&tx)
+						if txID == id {
+							txDetailRes.Tx = &tx
+							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+
+							ts := &pluginproto.Timestamp{
+								Seconds: baseBlock.GetHeader().Time.Seconds,
+								Nanos:   baseBlock.GetHeader().Time.Nanos,
+							}
+							txDetailRes.CreationDt = ts
+							txDetailRes.TxId = txID
+							break
+						}
+					}
+				}
 			}
 		}
 		return nil
@@ -484,6 +516,48 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 						}
 					}
 
+				}
+			} else if len(baseBlock.GetChildBlock()) > 0 {
+				var cbs []*protobuf.ChildBlock
+				err := cdc.UnmarshalJSON(baseBlock.GetChildBlock(), &cbs)
+				if err != nil {
+					log.Printf("Failed to Unmarshal child block array: %v", err)
+					continue
+				}
+				for _, cb := range cbs {
+					// Get all the transaction from the child block
+					txs := cb.GetTxsData().GetTx()
+					for _, txbz := range txs {
+						var tx pluginproto.Tx
+						err := cdc.UnmarshalJSON(txbz, &tx)
+						if err != nil {
+							log.Printf("Failed to Unmarshal tx: %v", err)
+							continue
+						}
+						if strings.EqualFold(assetName, tx.Asset.Symbol) {
+							if strings.EqualFold(address, tx.SenderAddress) ||
+								strings.EqualFold(address, tx.RecieverAddress) {
+								txDetailRes := &pluginproto.TxDetailResponse{}
+								txDetailRes.Tx = &tx
+								txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+								ts := &pluginproto.Timestamp{
+									Seconds: baseBlock.GetHeader().Time.Seconds,
+									Nanos:   baseBlock.GetHeader().Time.Nanos,
+								}
+								txDetailRes.CreationDt = ts
+								txID := getTxIDWithoutStatus(&tx)
+								//Remove duplicate transactions from the array
+								//TODO: needs to be fixed
+								if duplicateTxTracker[txID] == 1 {
+									continue
+								}
+								duplicateTxTracker[txID] = 1
+								txDetailRes.TxId = txID
+
+								txDetails = append(txDetails, txDetailRes)
+							}
+						}
+					}
 				}
 			}
 		}

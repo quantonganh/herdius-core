@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/herdius/herdius-core/aws"
 	"github.com/herdius/herdius-core/blockchain/protobuf"
+	cryptokey "github.com/herdius/herdius-core/crypto"
 	hehash "github.com/herdius/herdius-core/crypto/herhash"
 	"github.com/herdius/herdius-core/crypto/merkle"
 	"github.com/herdius/herdius-core/crypto/secp256k1"
@@ -41,7 +42,7 @@ type SupervisorI interface {
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
 	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error)
-	ShardToValidators(*txbyte.Txs, *network.Network, []byte) error
+	ShardToValidators(*protobuf.BaseBlock, *txbyte.Txs, *network.Network, []byte) (*protobuf.BaseBlock, error)
 }
 
 var (
@@ -131,7 +132,7 @@ func (s *Supervisor) AddValidator(publicKey []byte, address string) error {
 	s.writerMutex.Lock()
 	s.Validator[address] = validator
 	s.writerMutex.Unlock()
-
+	log.Printf("New validator added: <%s>", address)
 	return nil
 }
 
@@ -140,6 +141,7 @@ func (s *Supervisor) RemoveValidator(address string) {
 	s.writerMutex.Lock()
 	delete(s.Validator, address)
 	s.writerMutex.Unlock()
+	log.Printf("Validator removed: <%s>\n", address)
 }
 
 // SetWriteMutex ...
@@ -399,13 +401,13 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 
 			return baseBlock, nil
 		}
-		err := s.ShardToValidators(txs, net, s.stateRoot)
+		baseBlock, err := s.ShardToValidators(lastBlock, txs, net, s.stateRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 		}
 		mp.RemoveTxs(len(*txs))
+		return baseBlock, nil
 	}
-	return nil, nil
 }
 
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
@@ -723,10 +725,10 @@ func (s *Supervisor) txsGroups(txList *transaction.TxList, numGroup int) [][]*tr
 }
 
 // ShardToValidators distributes a series of childblocks to a series of validators
-func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, stateRoot []byte) error {
+func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs *txbyte.Txs, net *network.Network, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	numValds := len(s.Validator)
-	if numValds <= 0 {
-		return fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
+	if numValds == 0 {
+		return nil, fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
 	numTxs := len(*txs)
 	// TODO: Make number of groups configurable.
@@ -735,36 +737,91 @@ func (s *Supervisor) ShardToValidators(txs *txbyte.Txs, net *network.Network, st
 	fmt.Printf("Number of txs (%v), groups (%v), validators (%v)\n", numTxs, vGroups, numValds)
 
 	if len(stateRoot) == 0 {
-		return fmt.Errorf("cannot process an empty stateRoot for the trie")
+		return nil, fmt.Errorf("cannot process an empty stateRoot for the trie")
 	}
 	stateTrie, err := statedb.NewTrie(common.BytesToHash(stateRoot))
 	if err != nil {
-		return fmt.Errorf("error attempting to retrieve state db trie from stateRoot: %v", err)
+		return nil, fmt.Errorf("error attempting to retrieve state db trie from stateRoot: %v", err)
 	}
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
 	txList, err := s.updateStateForTxs(txs, stateTrie)
 	if err != nil {
-		return fmt.Errorf("failed to update state for txs: %v", err)
+		return nil, fmt.Errorf("failed to update state for txs: %v", err)
 	}
 
 	txsGroups := s.txsGroups(txList, numGroup)
 	previousBlockHash := make([]byte, 0)
-
+	var voteCount = 0
 	for i := range txsGroups {
 		cb := s.CreateChildBlock(net, &transaction.TxList{Transactions: txsGroups[i]}, int64(len(txsGroups[i])), previousBlockHash)
 		previousBlockHash = cb.GetHeader().GetBlockID().BlockHash
 		if i > 0 {
 			cb.GetHeader().GetLastBlockID().BlockHash = previousBlockHash
 		}
-		ctx := network.WithSignMessage(context.Background(), true)
 		cbmsg := &protobuf.ChildBlockMessage{ChildBlock: cb}
-		fmt.Println("Broadcasting child block to Validator Group:", vGroups[i])
-		net.BroadcastByAddresses(ctx, cbmsg, vGroups[i]...)
+		log.Println("Broadcasting child block to Validator Group:", vGroups[i])
+		for _, address := range vGroups[i] {
+			validator, err := net.Client(address)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create validator peer client: %v", err)
+			}
+			if validator.Address == "" {
+				log.Println("Empty validator node:", validator)
+				return nil, fmt.Errorf("Empty validator node:: %v", validator)
+			}
+			ctx := network.WithSignMessage(context.Background(), true)
+			response, err := validator.Request(ctx, cbmsg)
+			if err != nil {
+				return nil, fmt.Errorf(fmt.Sprintf("Failed to find block due to: %v", err))
+			}
+			switch msg := response.(type) {
+			case *protobuf.ChildBlockMessage:
+				mcb := msg
+				vote := mcb.GetVote()
+				if vote != nil {
+					// Increment the vote count of validator group
+					voteCount++
+
+					var cbhash cmn.HexBytes
+					cbhash = mcb.GetChildBlock().GetHeader().GetBlockID().GetBlockHash()
+					voteinfo := s.VoteInfoData[cbhash.String()]
+					voteinfo = append(voteinfo, vote)
+					s.VoteInfoData[cbhash.String()] = voteinfo
+
+					sign := vote.GetSignature()
+					var pubKey cryptokey.PubKey
+
+					cdc.UnmarshalBinaryBare(vote.GetValidator().GetPubKey(), &pubKey)
+
+					isVerified := pubKey.VerifyBytes(vote.GetValidator().GetPubKey(), sign)
+
+					isChildBlockSigned := mcb.GetVote().GetSignedCurrentBlock()
+
+					// Check whether Childblock is verified and signed by the validator
+					if isChildBlockSigned && isVerified {
+						mx := s.GetMutex()
+						mx.Lock()
+						s.ValidatorChildblock[address] = mcb.GetChildBlock().GetHeader().GetBlockID()
+						mx.Unlock()
+						log.Printf("<%s> Validator verified and signed the child block: %v", address, isVerified)
+						s.ChildBlock = append(s.ChildBlock, mcb.GetChildBlock())
+					}
+				}
+			}
+		}
 	}
 
-	return nil
+	if voteCount == len(s.Validator) {
+		baseBlock, err := s.CreateBaseBlock(lastBlock)
+		if err != nil {
+			return nil, err
+		}
+		return baseBlock, nil
+	}
+
+	return nil, nil
 }
 
 func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) (*transaction.TxList, error) {
