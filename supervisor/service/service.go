@@ -132,7 +132,7 @@ func (s *Supervisor) AddValidator(publicKey []byte, address string) error {
 	s.writerMutex.Lock()
 	s.Validator[address] = validator
 	s.writerMutex.Unlock()
-	log.Println("Validators: ", s.Validator)
+	log.Printf("New validator added: <%s>", address)
 	return nil
 }
 
@@ -141,6 +141,7 @@ func (s *Supervisor) RemoveValidator(address string) {
 	s.writerMutex.Lock()
 	delete(s.Validator, address)
 	s.writerMutex.Unlock()
+	log.Printf("Validator removed: <%s>\n", address)
 }
 
 // SetWriteMutex ...
