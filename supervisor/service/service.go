@@ -407,7 +407,6 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 		mp.RemoveTxs(len(*txs))
 		return baseBlock, nil
 	}
-	return nil, nil
 }
 
 func (s *Supervisor) createSingularBlock(lastBlock *protobuf.BaseBlock, net *network.Network, txs txbyte.Txs, mp *mempool.MemPool, stateRoot []byte) (*protobuf.BaseBlock, error) {
@@ -727,7 +726,7 @@ func (s *Supervisor) txsGroups(txList *transaction.TxList, numGroup int) [][]*tr
 // ShardToValidators distributes a series of childblocks to a series of validators
 func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs *txbyte.Txs, net *network.Network, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	numValds := len(s.Validator)
-	if numValds <= 0 {
+	if numValds == 0 {
 		return nil, fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
 	numTxs := len(*txs)
@@ -769,6 +768,7 @@ func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs *txbyt
 			}
 			if validator.Address == "" {
 				log.Println("Empty validator node:", validator)
+				return nil, fmt.Errorf("Empty validator node:: %v", validator)
 			}
 			ctx := network.WithSignMessage(context.Background(), true)
 			response, err := validator.Request(ctx, cbmsg)
