@@ -446,6 +446,45 @@ func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 						txDetails = append(txDetails, txDetailRes)
 					}
 				}
+			} else if len(baseBlock.GetChildBlock()) > 0 {
+				var cbs []*protobuf.ChildBlock
+				err := cdc.UnmarshalJSON(baseBlock.GetChildBlock(), &cbs)
+				if err != nil {
+					log.Printf("Failed to Unmarshal child block array: %v", err)
+					continue
+				}
+				for _, cb := range cbs {
+					// Get all the transaction from the child block
+					txs := cb.GetTxsData().GetTx()
+					for _, txbz := range txs {
+						var txT transaction.Tx
+						err := cdc.UnmarshalJSON(txbz, &txT)
+						if err != nil {
+							log.Printf("Failed to Unmarshal tx: %v", err)
+							continue
+						}
+						tx, err := transactiontoProto(txT)
+						if err != nil {
+							log.Printf("Error converting Transation to Proto tx: %v", err)
+							continue
+						}
+						if strings.EqualFold(address, tx.SenderAddress) ||
+							strings.EqualFold(address, tx.RecieverAddress) {
+							txDetailRes := &pluginproto.TxDetailResponse{}
+							txDetailRes.Tx = &tx
+							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
+							ts := &pluginproto.Timestamp{
+								Seconds: baseBlock.GetHeader().Time.Seconds,
+								Nanos:   baseBlock.GetHeader().Time.Nanos,
+							}
+							txDetailRes.CreationDt = ts
+							txID := getTxIDWithoutStatus(&tx)
+							txDetailRes.TxId = txID
+
+							txDetails = append(txDetails, txDetailRes)
+						}
+					}
+				}
 			}
 		}
 		return nil
