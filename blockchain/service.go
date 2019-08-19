@@ -367,7 +367,6 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 							continue
 						}
 						txID := getTxIDWithoutStatus(&tx)
-						fmt.Println(txID)
 						if txID == id {
 							txDetailRes.Tx = &tx
 							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
