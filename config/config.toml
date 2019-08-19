@@ -15,6 +15,7 @@ hercontractaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
 s3backupbucket = "herdius-blockchain-backup-dev"
 hbtcrpc = "http://localhost:81/contract/hbtc"
 tezosrpc = "http://alphanet-node.tzscan.io"
+daitokenaddress = "0x7562157d0bbb6d78935133bf06ae279e707aa9ad"
 
 [staging]
 selfbroadcastip = "10.0.1.159"
