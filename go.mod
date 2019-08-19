@@ -1,6 +1,7 @@
 module github.com/herdius/herdius-core
 
 require (
+	github.com/DefinitelyNotAGoat/go-tezos v1.0.9
 	github.com/allegro/bigcache v1.1.0 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20190514202536-8f808a500156 // indirect
 	github.com/aws/aws-sdk-go v1.19.35
@@ -44,7 +45,7 @@ require (
 	github.com/uber-go/atomic v1.3.2
 	github.com/xtaci/kcp-go v5.0.7+incompatible
 	go.uber.org/atomic v1.4.0 // indirect
-	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 )
