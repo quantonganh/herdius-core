@@ -403,6 +403,8 @@ func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 		opts.PrefetchSize = 10
 		it := txn.NewIterator(opts)
 		defer it.Close()
+		var duplicateTxTracker map[string]uint8
+		duplicateTxTracker = make(map[string]uint8)
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			v, err := item.Value()
@@ -479,6 +481,10 @@ func (t *TxService) GetTxs(address string) (*pluginproto.TxsResponse, error) {
 							}
 							txDetailRes.CreationDt = ts
 							txID := getTxIDWithoutStatus(&tx)
+							if duplicateTxTracker[txID] == 1 {
+								continue
+							}
+							duplicateTxTracker[txID] = 1
 							txDetailRes.TxId = txID
 
 							txDetails = append(txDetails, txDetailRes)
