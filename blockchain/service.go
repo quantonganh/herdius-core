@@ -535,10 +535,15 @@ func (t *TxService) GetTxsByAssetAndAddress(assetName, address string) (*pluginp
 					// Get all the transaction from the child block
 					txs := cb.GetTxsData().GetTx()
 					for _, txbz := range txs {
-						var tx pluginproto.Tx
-						err := cdc.UnmarshalJSON(txbz, &tx)
+						var txT transaction.Tx
+						err := cdc.UnmarshalJSON(txbz, &txT)
 						if err != nil {
 							log.Printf("Failed to Unmarshal tx: %v", err)
+							continue
+						}
+						tx, err := transactiontoProto(txT)
+						if err != nil {
+							log.Printf("Error converting Transation to Proto tx: %v", err)
 							continue
 						}
 						if strings.EqualFold(assetName, tx.Asset.Symbol) {
