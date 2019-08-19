@@ -20,6 +20,7 @@ import (
 	"github.com/herdius/herdius-core/p2p/log"
 	"github.com/herdius/herdius-core/storage/db"
 	"github.com/herdius/herdius-core/storage/state/statedb"
+	"github.com/herdius/herdius-core/supervisor/transaction"
 )
 
 // ServiceI is blockchain service interface
@@ -354,13 +355,19 @@ func (t *TxService) GetTx(id string) (*pluginproto.TxDetailResponse, error) {
 					// Get all the transaction from the child block
 					txs := cb.GetTxsData().GetTx()
 					for _, txbz := range txs {
-						var tx pluginproto.Tx
-						err := cdc.UnmarshalJSON(txbz, &tx)
+						var txT transaction.Tx
+						err := cdc.UnmarshalJSON(txbz, &txT)
 						if err != nil {
 							log.Printf("Failed to Unmarshal tx: %v", err)
 							continue
 						}
+						tx, err := transactiontoProto(txT)
+						if err != nil {
+							log.Printf("Error converting Transation to Proto tx: %v", err)
+							continue
+						}
 						txID := getTxIDWithoutStatus(&tx)
+						fmt.Println(txID)
 						if txID == id {
 							txDetailRes.Tx = &tx
 							txDetailRes.BlockId = uint64(baseBlock.GetHeader().GetHeight())
@@ -820,4 +827,50 @@ func getTxIDWithoutStatus(tx *pluginproto.Tx) string {
 	txbzWithOutStatus, _ := cdc.MarshalJSON(txWithOutStatus)
 	txID := cmn.CreateTxID(txbzWithOutStatus)
 	return txID
+}
+
+func transactiontoProto(txValue transaction.Tx) (tx pluginproto.Tx, err error) {
+	val := uint64(0)
+	if txValue.Asset.Value != "" {
+		val, err = strconv.ParseUint(txValue.Asset.Value, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("Failed to parse transaction value: %v", err)
+		}
+	}
+	fee := uint64(0)
+	if txValue.Asset.Fee != "" {
+		fee, err = strconv.ParseUint(txValue.Asset.Fee, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("Failed to parse transaction fee: %v", err)
+		}
+	}
+	nonc := uint64(0)
+	if txValue.Asset.Nonce != "" {
+		nonc, err = strconv.ParseUint(txValue.Asset.Nonce, 10, 64)
+		if err != nil {
+			err = fmt.Errorf("Failed to parse transaction nonce: %v", err)
+		}
+	}
+	asset := &pluginproto.Asset{
+		Category:              txValue.Asset.Category,
+		Symbol:                txValue.Asset.Symbol,
+		Network:               txValue.Asset.Network,
+		Value:                 val,
+		Fee:                   fee,
+		Nonce:                 nonc,
+		ExternalSenderAddress: txValue.Asset.ExternalSenderAddress,
+		LockedAmount:          txValue.Asset.LockedAmount,
+		RedeemedAmount:        txValue.Asset.RedeemedAmount,
+	}
+	tx = pluginproto.Tx{
+		SenderAddress:   txValue.SenderAddress,
+		SenderPubkey:    txValue.SenderPubKey,
+		RecieverAddress: txValue.ReceiverAddress,
+		Asset:           asset,
+		Message:         txValue.Message,
+		Type:            txValue.Type,
+		Sign:            txValue.Signature,
+	}
+
+	return
 }
