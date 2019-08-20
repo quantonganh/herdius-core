@@ -347,7 +347,7 @@ func TestShardToValidatorsFalse(t *testing.T) {
 	supsvc.AddValidator([]byte{1}, "add-02")
 	supsvc.SetWriteMutex()
 	txs := &txbyte.Txs{}
-	_, err := supsvc.ShardToValidators(lastBlock, txs, nil, nil)
+	_, err := supsvc.ShardToValidators(lastBlock, *txs, nil, nil)
 	assert.Error(t, err)
 }
 
@@ -365,7 +365,7 @@ func TestShardToValidatorsTrue(t *testing.T) {
 	root, err := trie.Commit(nil)
 	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
-	_, err = supsvc.ShardToValidators(lastBlock, txs, nil, root)
+	_, err = supsvc.ShardToValidators(lastBlock, *txs, nil, root)
 	assert.NoError(t, err)
 }
 
