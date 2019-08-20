@@ -42,7 +42,7 @@ type SupervisorI interface {
 	CreateBaseBlock(lastBlock *protobuf.BaseBlock) (*protobuf.BaseBlock, error)
 	GetMutex() *sync.Mutex
 	ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Network) (*protobuf.BaseBlock, error)
-	ShardToValidators(*protobuf.BaseBlock, *txbyte.Txs, *network.Network, []byte) (*protobuf.BaseBlock, error)
+	ShardToValidators(*protobuf.BaseBlock, txbyte.Txs, *network.Network, []byte) (*protobuf.BaseBlock, error)
 }
 
 var (
@@ -401,7 +401,7 @@ func (s *Supervisor) ProcessTxs(lastBlock *protobuf.BaseBlock, net *network.Netw
 
 			return baseBlock, nil
 		}
-		baseBlock, err := s.ShardToValidators(lastBlock, txs, net, s.stateRoot)
+		baseBlock, err := s.ShardToValidators(lastBlock, *txs, net, s.stateRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to shard Txs to child blocks: %v", err)
 		}
@@ -725,12 +725,12 @@ func (s *Supervisor) txsGroups(txList *transaction.TxList, numGroup int) [][]*tr
 }
 
 // ShardToValidators distributes a series of childblocks to a series of validators
-func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs *txbyte.Txs, net *network.Network, stateRoot []byte) (*protobuf.BaseBlock, error) {
+func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs txbyte.Txs, net *network.Network, stateRoot []byte) (*protobuf.BaseBlock, error) {
 	numValds := len(s.Validator)
 	if numValds == 0 {
 		return nil, fmt.Errorf("not enough validators in pool to shard, # validators: %v", numValds)
 	}
-	numTxs := len(*txs)
+	numTxs := len(txs)
 	// TODO: Make number of groups configurable.
 	numGroup := 5
 	vGroups := s.validatorGroups(numGroup)
@@ -746,7 +746,7 @@ func (s *Supervisor) ShardToValidators(lastBlock *protobuf.BaseBlock, txs *txbyt
 	if accountStorage != nil {
 		stateTrie = updateStateWithNewExternalBalance(stateTrie)
 	}
-	txList, err := s.updateStateForTxs(txs, stateTrie)
+	txList, err := s.updateStateForTxs(&txs, stateTrie)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update state for txs: %v", err)
 	}
@@ -833,7 +833,6 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		if err != nil {
 			return nil, fmt.Errorf("unable to unmarshal tx: %v", err)
 		}
-		txlist.Transactions = append(txlist.Transactions, &txStr)
 
 		err = cdc.UnmarshalJSON(txbz, &tx)
 		if err != nil {
@@ -850,6 +849,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			tx.Status = "failed"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
+			txStr.Status = tx.Status
+			txlist.Transactions = append(txlist.Transactions, &txStr)
 			if err != nil {
 				log.Printf("Failed to encode failed tx: %v", err)
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
@@ -906,6 +907,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			tx.Status = "failed"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
+			txStr.Status = tx.Status
+			txlist.Transactions = append(txlist.Transactions, &txStr)
 			if err != nil {
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
 				log.Printf("Failed to encode failed tx: %v", err)
@@ -980,6 +983,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			}
 			tx.Status = "success"
 			txbz, err = cdc.MarshalJSON(&tx)
+			txStr.Status = tx.Status
+			txlist.Transactions = append(txlist.Transactions, &txStr)
 			(*txs)[i] = txbz
 			if err != nil {
 				log.Printf("Failed to encode failed tx: %v", err)
@@ -1015,6 +1020,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
+				txStr.Status = tx.Status
+				txlist.Transactions = append(txlist.Transactions, &txStr)
 				if err != nil {
 					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
@@ -1023,6 +1030,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 			tx.Status = "success"
 			txbz, err = cdc.MarshalJSON(&tx)
 			(*txs)[i] = txbz
+			txStr.Status = tx.Status
+			txlist.Transactions = append(txlist.Transactions, &txStr)
 			if err != nil {
 				log.Printf("Failed to encode failed tx: %v", err)
 				plog.Error().Msgf("Failed to encode failed tx: %v", err)
@@ -1038,6 +1047,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
+				txStr.Status = tx.Status
+				txlist.Transactions = append(txlist.Transactions, &txStr)
 				if err != nil {
 					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
@@ -1064,6 +1075,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 				tx.Status = "failed"
 				txbz, err = cdc.MarshalJSON(&tx)
 				(*txs)[i] = txbz
+				txStr.Status = tx.Status
+				txlist.Transactions = append(txlist.Transactions, &txStr)
 				if err != nil {
 					log.Printf("Failed to encode failed tx: %v", err)
 					plog.Error().Msgf("Failed to encode failed tx: %v", err)
@@ -1114,6 +1127,8 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		tx.Status = "success"
 		txbz, err = cdc.MarshalJSON(&tx)
 		(*txs)[i] = txbz
+		txStr.Status = tx.Status
+		txlist.Transactions = append(txlist.Transactions, &txStr)
 		if err != nil {
 			log.Printf("Failed to encode failed tx: %v", err)
 			plog.Error().Msgf("Failed to encode failed tx: %v", err)
