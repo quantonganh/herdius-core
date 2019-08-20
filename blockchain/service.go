@@ -884,6 +884,7 @@ func transactiontoProto(txValue transaction.Tx) (tx pluginproto.Tx, err error) {
 		val, err = strconv.ParseUint(txValue.Asset.Value, 10, 64)
 		if err != nil {
 			err = fmt.Errorf("Failed to parse transaction value: %v", err)
+			return
 		}
 	}
 	fee := uint64(0)
@@ -891,6 +892,7 @@ func transactiontoProto(txValue transaction.Tx) (tx pluginproto.Tx, err error) {
 		fee, err = strconv.ParseUint(txValue.Asset.Fee, 10, 64)
 		if err != nil {
 			err = fmt.Errorf("Failed to parse transaction fee: %v", err)
+			return
 		}
 	}
 	nonc := uint64(0)
@@ -898,6 +900,7 @@ func transactiontoProto(txValue transaction.Tx) (tx pluginproto.Tx, err error) {
 		nonc, err = strconv.ParseUint(txValue.Asset.Nonce, 10, 64)
 		if err != nil {
 			err = fmt.Errorf("Failed to parse transaction nonce: %v", err)
+			return
 		}
 	}
 	asset := &pluginproto.Asset{
