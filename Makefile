@@ -61,8 +61,4 @@ all: install run-test create_db_dirs
 
 start-supervisor: build-herserver
 	@echo "Starting supervisor node"$(GOPARAMETERS)
-	@./herserver -supervisor=true$(GOPARAMETERS)
-
-start-validator:
-	@echo "Starting validator node"
-	@./herserver$(GOPARAMETERS)
+	@./herserver $(GOPARAMETERS)
