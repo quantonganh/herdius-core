@@ -33,13 +33,13 @@ func TestInitHBTC(t *testing.T) {
 	account.FirstExternalAddress = map[string]string{"ETH": addr}
 
 	hs := newHBTCSyncer()
-	hs.Account = account
-	hs.Storage = accountCache
-	hs.ExtBalance[addr] = big.NewInt(1)
+	hs.syncer.Account = account
+	hs.syncer.Storage = accountCache
+	hs.syncer.ExtBalance[addr] = big.NewInt(1)
 	hs.Update()
 	cachedAcc, ok := accountCache.Get(account.Address)
 	assert.Equal(t, ok, true, "cache should return account")
-	assert.Equal(t, hs.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated with external balance")
+	assert.Equal(t, hs.syncer.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated with external balance")
 }
 
 func TestExternalHBTCisGreater(t *testing.T) {
@@ -64,19 +64,19 @@ func TestExternalHBTCisGreater(t *testing.T) {
 	account.FirstExternalAddress = map[string]string{"ETH": addr}
 
 	hs := newHBTCSyncer()
-	hs.Account = account
-	hs.Storage = accountCache
-	hs.ExtBalance[addr] = big.NewInt(1)
+	hs.syncer.Account = account
+	hs.syncer.Storage = accountCache
+	hs.syncer.ExtBalance[addr] = big.NewInt(1)
 
 	hs.Update()
 
-	hs.ExtBalance[addr] = big.NewInt(20)
+	hs.syncer.ExtBalance[addr] = big.NewInt(20)
 
 	hs.Update()
 
 	cachedAcc, ok := accountCache.Get(account.Address)
 	assert.Equal(t, ok, true, "cache should return account")
-	assert.Equal(t, hs.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated")
+	assert.Equal(t, hs.syncer.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated")
 }
 
 func TestExternalHBTCisLesser(t *testing.T) {
@@ -101,18 +101,18 @@ func TestExternalHBTCisLesser(t *testing.T) {
 	account.FirstExternalAddress = map[string]string{"ETH": addr}
 
 	hs := newHBTCSyncer()
-	hs.Account = account
-	hs.Storage = accountCache
-	hs.ExtBalance[addr] = big.NewInt(20)
+	hs.syncer.Account = account
+	hs.syncer.Storage = accountCache
+	hs.syncer.ExtBalance[addr] = big.NewInt(20)
 
 	hs.Update()
 
-	hs.ExtBalance[addr] = big.NewInt(10)
+	hs.syncer.ExtBalance[addr] = big.NewInt(10)
 
 	hs.Update()
 
 	cachedAcc, ok := accountCache.Get(account.Address)
 	assert.Equal(t, ok, true, "cache should return account")
-	assert.Equal(t, hs.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated")
+	assert.Equal(t, hs.syncer.ExtBalance[addr].Uint64(), cachedAcc.Account.EBalances["HBTC"][addr].Balance, "HBTC Balance should be updated")
 
 }
