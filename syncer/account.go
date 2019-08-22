@@ -105,23 +105,23 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 
 		// ETH syncer
 		ethSyncer := newEthSyncer()
-		ethSyncer.Account = senderAccount
-		ethSyncer.Storage = exBal
 		ethSyncer.RPC = rpc.ethRPC
+		ethSyncer.syncer.Account = senderAccount
+		ethSyncer.syncer.Storage = exBal
 		syncers = append(syncers, ethSyncer)
 
 		// BTC syncer
 		btcSyncer := newBTCSyncer()
-		btcSyncer.Account = senderAccount
-		btcSyncer.Storage = exBal
 		btcSyncer.RPC = rpc.btcRPC
+		btcSyncer.syncer.Account = senderAccount
+		btcSyncer.syncer.Storage = exBal
 		syncers = append(syncers, btcSyncer)
 
 		// HBTC syncer
 		hbtcSyncer := newHBTCSyncer()
-		hbtcSyncer.Account = senderAccount
-		hbtcSyncer.Storage = exBal
 		hbtcSyncer.RPC = rpc.hbtcRPC
+		hbtcSyncer.syncer.Account = senderAccount
+		hbtcSyncer.syncer.Storage = exBal
 		syncers = append(syncers, hbtcSyncer)
 
 		// HBTC testnetsyncer
@@ -135,8 +135,9 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 
 		// TEZOS syncer
 		tezosSyncer := newTezosSyncer()
-		tezosSyncer.Account = senderAccount
-		tezosSyncer.Storage = exBal
+		tezosSyncer.RPC = rpc.tezosRPC
+		tezosSyncer.syncer.Account = senderAccount
+		tezosSyncer.syncer.Storage = exBal
 		syncers = append(syncers, tezosSyncer)
 
 		wg.Add(1)

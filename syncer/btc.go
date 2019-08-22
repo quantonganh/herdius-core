@@ -4,34 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/http"
 	"os"
 
-	external "github.com/herdius/herdius-core/storage/exbalance"
-	"github.com/herdius/herdius-core/storage/state/statedb"
+	"github.com/herdius/herdius-core/p2p/log"
 )
 
 // BTCSyncer syncs all external BTC accounts.
 type BTCSyncer struct {
-	LastExtBalance map[string]*big.Int
-	ExtBalance     map[string]*big.Int
-	BlockHeight    map[string]*big.Int
-	Nonce          map[string]uint64
-	RPC            string
-	Account        statedb.Account
-	Storage        external.BalanceStorage
-	addressError   map[string]bool
+	RPC    string
+	syncer *ExternalSyncer
 }
 
 func newBTCSyncer() *BTCSyncer {
 	b := &BTCSyncer{}
-	b.ExtBalance = make(map[string]*big.Int)
-	b.LastExtBalance = make(map[string]*big.Int)
-	b.BlockHeight = make(map[string]*big.Int)
-	b.Nonce = make(map[string]uint64)
-	b.addressError = make(map[string]bool)
+	b.syncer = newExternalSyncer("BTC")
 
 	return b
 }
@@ -92,7 +80,7 @@ type BlockchainInfoResponse struct {
 func (btc *BTCSyncer) GetExtBalance() error {
 	var url string
 
-	btcAccount, ok := btc.Account.EBalances["BTC"]
+	btcAccount, ok := btc.syncer.Account.EBalances[btc.syncer.assetSymbol]
 	if !ok {
 		return errors.New("BTC account does not exists")
 	}
@@ -107,8 +95,8 @@ func (btc *BTCSyncer) GetExtBalance() error {
 		}
 		resp, err := http.Get(url)
 		if err != nil {
-			log.Println("Error connecting Blockchain info ", err)
-			btc.addressError[ba.Address] = true
+			log.Error().Msgf("Error connecting Blockchain info: %v", err)
+			btc.syncer.addressError[ba.Address] = true
 			continue
 		}
 		defer resp.Body.Close()
@@ -116,7 +104,8 @@ func (btc *BTCSyncer) GetExtBalance() error {
 		if resp.StatusCode == http.StatusOK {
 			bodyBytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				btc.addressError[ba.Address] = true
+				log.Error().Msgf("failed to read response body: %v", err)
+				btc.syncer.addressError[ba.Address] = true
 				continue
 			}
 
@@ -124,28 +113,29 @@ func (btc *BTCSyncer) GetExtBalance() error {
 
 			err = json.Unmarshal(bodyBytes, &response)
 			if err != nil {
-				btc.addressError[ba.Address] = true
+				log.Error().Msgf("failed to unmarshal response: %v", err)
+				btc.syncer.addressError[ba.Address] = true
 				continue
 			}
 
 			balance := big.NewInt(response.FinalBalance)
 			// if tx>0 get last block height
-			btc.BlockHeight[ba.Address] = big.NewInt(0)
-			btc.Nonce[ba.Address] = uint64(0)
+			btc.syncer.BlockHeight[ba.Address] = big.NewInt(0)
+			btc.syncer.Nonce[ba.Address] = uint64(0)
 
 			if len(response.Txs) > 0 {
 				if response.Txs[0].BlockHeight > 0 {
-					btc.BlockHeight[ba.Address] = big.NewInt(int64(response.Txs[0].BlockHeight))
-					btc.Nonce[ba.Address] = response.NTx
+					btc.syncer.BlockHeight[ba.Address] = big.NewInt(int64(response.Txs[0].BlockHeight))
+					btc.syncer.Nonce[ba.Address] = response.NTx
 
 				}
 			}
 
-			btc.ExtBalance[ba.Address] = balance
-			btc.addressError[ba.Address] = false
+			btc.syncer.ExtBalance[ba.Address] = balance
+			btc.syncer.addressError[ba.Address] = false
 			continue
 		}
-		btc.addressError[ba.Address] = true
+		btc.syncer.addressError[ba.Address] = true
 	}
 	return nil
 
@@ -154,110 +144,11 @@ func (btc *BTCSyncer) GetExtBalance() error {
 // Update updates accounts in cache as and when external balances
 // external chains are updated.
 func (btc *BTCSyncer) Update() {
-	assetSymbol := "BTC"
-	for _, btcAccount := range btc.Account.EBalances[assetSymbol] {
-		if btc.addressError[btcAccount.Address] {
-			log.Println("Account info is not available at this moment, skip sync: ", btcAccount.Address)
+	for _, assetAccount := range btc.syncer.Account.EBalances[btc.syncer.assetSymbol] {
+		if btc.syncer.addressError[assetAccount.Address] {
+			log.Warn().Msg("BTC Account info is not available at this moment, skip sync: " + assetAccount.Address)
 			continue
 		}
-		herEthBalance := *big.NewInt(int64(0))
-		storageKey := assetSymbol + "-" + btcAccount.Address
-		if last, ok := btc.Storage.Get(btc.Account.Address); ok {
-			// last-balance < External-ETH
-			// Balance of ETH in H = Balance of ETH in H + ( Current_External_Bal - last_External_Bal_In_Cache)
-			if lastExtBalance, ok := last.LastExtBalance[storageKey]; ok && lastExtBalance != nil {
-				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) < 0 {
-					log.Printf("lastExtBalance.Cmp(btc.ExtBalance[%s])", btcAccount.Address)
-
-					herEthBalance.Sub(btc.ExtBalance[btcAccount.Address], lastExtBalance)
-
-					btcAccount.Balance += herEthBalance.Uint64()
-					btcAccount.LastBlockHeight = btc.BlockHeight[btcAccount.Address].Uint64()
-					btcAccount.Nonce = btc.Nonce[btcAccount.Address]
-					btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-
-					last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateIsFirstEntryByKey(storageKey, false)
-					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					last = last.UpdateAccount(btc.Account)
-					btc.Storage.Set(btc.Account.Address, last)
-
-					log.Printf("New account balance after external balance credit: %v\n", last)
-				}
-
-				// last-balance < External-ETH
-				// Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
-				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) > 0 {
-					log.Println("lastExtBalance.Cmp(btc.ExtBalance) ============")
-
-					herEthBalance.Sub(lastExtBalance, btc.ExtBalance[btcAccount.Address])
-
-					btcAccount.Balance -= herEthBalance.Uint64()
-					btcAccount.LastBlockHeight = btc.BlockHeight[btcAccount.Address].Uint64()
-					btcAccount.Nonce = btc.Nonce[btcAccount.Address]
-					btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-
-					last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateIsFirstEntryByKey(storageKey, false)
-					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					last = last.UpdateAccount(btc.Account)
-					btc.Storage.Set(btc.Account.Address, last)
-
-					log.Printf("New account balance after external balance debit: %v\n", last)
-				}
-				continue
-			}
-
-			log.Printf("Initialise external balance in cache: %v\n", last)
-			if btc.ExtBalance[btcAccount.Address] == nil {
-				btc.ExtBalance[btcAccount.Address] = big.NewInt(0)
-			}
-			if btc.BlockHeight[btcAccount.Address] == nil {
-				btc.BlockHeight[btcAccount.Address] = big.NewInt(0)
-			}
-			last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-			last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-			last = last.UpdateIsFirstEntryByKey(storageKey, true)
-			last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
-			btcAccount.UpdateBalance(btc.ExtBalance[btcAccount.Address].Uint64())
-			btcAccount.UpdateBlockHeight(btc.BlockHeight[btcAccount.Address].Uint64())
-			btcAccount.UpdateNonce(btc.Nonce[btcAccount.Address])
-			btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-			last = last.UpdateAccount(btc.Account)
-			btc.Storage.Set(btc.Account.Address, last)
-			continue
-		}
-
-		log.Printf("Initialise account in cache.")
-		balance := btc.ExtBalance[btcAccount.Address]
-		blockHeight := btc.BlockHeight[btcAccount.Address]
-		lastbalances := make(map[string]*big.Int)
-		lastbalances[storageKey] = btc.ExtBalance[btcAccount.Address]
-
-		currentbalances := make(map[string]*big.Int)
-		currentbalances[storageKey] = btc.ExtBalance[btcAccount.Address]
-		if balance == nil {
-			lastbalances[storageKey] = big.NewInt(0)
-			currentbalances[storageKey] = big.NewInt(0)
-		}
-		isFirstEntry := make(map[string]bool)
-		isFirstEntry[storageKey] = true
-		isNewAmountUpdate := make(map[string]bool)
-		isNewAmountUpdate[storageKey] = false
-		if balance != nil {
-			btcAccount.UpdateBalance(balance.Uint64())
-		}
-		if blockHeight != nil {
-			btcAccount.UpdateBlockHeight(blockHeight.Uint64())
-		}
-		btcAccount.UpdateNonce(btc.Nonce[btcAccount.Address])
-
-		btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-		val := external.AccountCache{
-			Account: btc.Account, LastExtBalance: lastbalances, CurrentExtBalance: currentbalances, IsFirstEntry: isFirstEntry, IsNewAmountUpdate: isNewAmountUpdate,
-		}
-		btc.Storage.Set(btc.Account.Address, val)
+		btc.syncer.update(assetAccount.Address)
 	}
 }
