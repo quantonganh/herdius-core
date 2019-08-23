@@ -2,17 +2,17 @@ package sync
 
 import (
 	"errors"
-	"log"
 	"math/big"
-	"time"
+	"strings"
 
 	blockcypher "github.com/blockcypher/gobcy"
 
+	"github.com/herdius/herdius-core/p2p/log"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 )
 
-// BTCSyncer syncs all external BTC accounts.
+// BTCTestNetSyncer syncs all external BTC accounts in btctestnet.
 type BTCTestNetSyncer struct {
 	LastExtBalance map[string]*big.Int
 	ExtBalance     map[string]*big.Int
@@ -43,18 +43,17 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 		return errors.New("BTC account does not exists")
 	}
 	btcCypher := blockcypher.API{Token: "490bb2949a2542fcb6f74f4efdba70dd", Coin: "btc", Chain: "test3"}
-	// Blockcypher should send 3 requests every 15 seconds since we are using
-	// free service
-	count := 1
 	for _, ba := range btcAccount {
-		if count == 3 {
-			time.Sleep(15 * time.Second)
-			count = 1
-		}
 		addr, err := btcCypher.GetAddrFull(ba.Address, nil)
 		if err != nil {
-			log.Println("Error getting BTC address", err)
+			log.Error().Err(err).Msg("Error getting BTC address in btctestnet")
 			btc.addressError[ba.Address] = true
+			// This relies on how blockcypher handles error
+			// See https://github.com/blockcypher/gobcy/blob/6eace16b4b81ea8dbdcde5417d6b1cc3828a3d1f/gobcy.go#L118
+			if strings.HasPrefix(err.Error(), "HTTP 429") {
+				log.Error().Msg("Rate limit reached, stop sync btctestnet")
+				return err
+			}
 			continue
 		}
 		if len(addr.TXs) > 0 {
@@ -63,9 +62,8 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 			btc.ExtBalance[ba.Address] = big.NewInt(int64(addr.Balance))
 			btc.addressError[ba.Address] = false
 		}
-		count++
-
 	}
+
 	return nil
 
 }
@@ -76,7 +74,7 @@ func (btc *BTCTestNetSyncer) Update() {
 	assetSymbol := "BTC"
 	for _, btcAccount := range btc.Account.EBalances[assetSymbol] {
 		if btc.addressError[btcAccount.Address] {
-			log.Println("Account info is not available at this moment, skip sync: ", btcAccount.Address)
+			log.Warn().Msgf("Account info is not available at this moment, skip sync: %s", btcAccount.Address)
 			continue
 		}
 		herEthBalance := *big.NewInt(int64(0))
@@ -91,7 +89,7 @@ func (btc *BTCTestNetSyncer) Update() {
 					btc.ExtBalance[btcAccount.Address] = big.NewInt(0)
 				}
 				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) < 0 {
-					log.Printf("lastExtBalance.Cmp(btc.ExtBalance[%s])", btcAccount.Address)
+					log.Debug().Msgf("lastExtBalance.Cmp(btc.ExtBalance[%s])", btcAccount.Address)
 
 					herEthBalance.Sub(btc.ExtBalance[btcAccount.Address], lastExtBalance)
 
@@ -107,13 +105,13 @@ func (btc *BTCTestNetSyncer) Update() {
 					last = last.UpdateAccount(btc.Account)
 					btc.Storage.Set(btc.Account.Address, last)
 
-					log.Printf("New account balance after external balance credit: %v\n", last)
+					log.Debug().Msgf("New account balance after external balance credit: %v\n", last)
 				}
 
 				// last-balance < External-ETH
 				// Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
 				if lastExtBalance.Cmp(btc.ExtBalance[btcAccount.Address]) > 0 {
-					log.Println("lastExtBalance.Cmp(btc.ExtBalance) ============")
+					log.Debug().Msg("lastExtBalance.Cmp(btc.ExtBalance) ============")
 
 					herEthBalance.Sub(lastExtBalance, btc.ExtBalance[btcAccount.Address])
 
@@ -129,7 +127,7 @@ func (btc *BTCTestNetSyncer) Update() {
 					last = last.UpdateAccount(btc.Account)
 					btc.Storage.Set(btc.Account.Address, last)
 
-					log.Printf("New account balance after external balance debit: %v\n", last)
+					log.Debug().Msgf("New account balance after external balance debit: %v\n", last)
 				}
 				continue
 			}
