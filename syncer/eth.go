@@ -64,8 +64,9 @@ func (es *EthSyncer) GetExtBalance() error {
 			es.syncer.addressError[ea.Address] = true
 			continue
 		}
-
-		balance, err = client.BalanceAt(context.Background(), account, latestBlockNumber)
+		ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+		defer cancel()
+		balance, err = client.BalanceAt(ctx, account, latestBlockNumber)
 		if err != nil {
 			log.Error().Msgf("Error getting ETH Balance from RPC: %v", err)
 			es.syncer.addressError[ea.Address] = true
@@ -93,7 +94,8 @@ func (es *EthSyncer) Update() {
 }
 
 func (es *EthSyncer) getLatestBlockNumber(client *ethclient.Client) (*big.Int, error) {
-	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+	defer cancel()
 	header, err := client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -102,7 +104,8 @@ func (es *EthSyncer) getLatestBlockNumber(client *ethclient.Client) (*big.Int, e
 }
 
 func (es *EthSyncer) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
-	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+	defer cancel()
 	nonce, err := client.NonceAt(ctx, account, block)
 	if err != nil {
 		return 0, err
