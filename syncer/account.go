@@ -1,18 +1,18 @@
 package sync
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"strings"
 	stdSync "sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtrie "github.com/ethereum/go-ethereum/trie"
+	"github.com/spf13/viper"
+
 	"github.com/herdius/herdius-core/blockchain"
+	"github.com/herdius/herdius-core/p2p/log"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
-	"github.com/spf13/viper"
 )
 
 type apiEndponts struct {
@@ -30,7 +30,7 @@ func SyncAllAccounts(exBal external.BalanceStorage) {
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
 	if err != nil {
-		fmt.Println("Config file not found...")
+		log.Error().Err(err).Msg("failed to read config file")
 	} else {
 		rpc.ethRPC = viper.GetString("dev.ethrpc")
 		rpc.herTokenAddress = viper.GetString("dev.hercontractaddress")
@@ -55,33 +55,33 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 
 	stateTrie, err := ethtrie.New(common.BytesToHash(stateRoot), statedb.GetDB())
 	if err != nil {
-		log.Printf("Failed to retrieve the state trie: %v.", err)
+		log.Error().Err(err).Msg("failed to retrieve the state trie.")
 		return
 	}
 	it := ethtrie.NewIterator(stateTrie.NodeIterator(nil))
 
-	//log.Println("Sync account start")
+	log.Debug().Msg("Sync account start")
 	var wg stdSync.WaitGroup
 	for it.Next() {
 		var senderAccount statedb.Account
 		senderAddressBytes := it.Key
 		senderActbz, err := stateTrie.TryGet(senderAddressBytes)
 		if err != nil {
-			log.Printf("Failed to retrieve account detail: %v", err)
+			log.Error().Err(err).Msg("failed to retrieve account detail")
 			continue
 		}
 
 		if len(senderActbz) > 0 {
 			err = cdc.UnmarshalJSON(senderActbz, &senderAccount)
 			if err != nil {
-				log.Printf("Failed to Unmarshal account: %v", err)
+				log.Warn().Err(err).Msg("failed to Unmarshal account")
 				// Try unmarshal to old account struct
 				var oldAccount statedb.OldAccount
 				if err := cdc.UnmarshalJSON(senderActbz, &oldAccount); err != nil {
-					log.Printf("Failed to Unmarshal old account: %v", err)
+					log.Error().Err(err).Msg("failed to Unmarshal old account")
 					continue
 				}
-				log.Printf("Sync old account before supporting multiple ebalances added.")
+				log.Debug().Msg("Sync old account before supporting multiple ebalances added.")
 				senderAccount.Address = oldAccount.Address
 				senderAccount.AddressHash = oldAccount.AddressHash
 				senderAccount.Balance = oldAccount.Balance
@@ -153,5 +153,5 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		}()
 	}
 	wg.Wait()
-	//	log.Println("Sync account end")
+	log.Debug().Msg("Sync account end")
 }
