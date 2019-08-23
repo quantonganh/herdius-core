@@ -143,7 +143,8 @@ func (her *HERToken) Update() {
 }
 
 func (her *HERToken) getLatestBlockNumber(client *ethclient.Client) (*big.Int, error) {
-	header, err := client.HeaderByNumber(context.Background(), nil)
+	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	header, err := client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +152,8 @@ func (her *HERToken) getLatestBlockNumber(client *ethclient.Client) (*big.Int, e
 }
 
 func (her *HERToken) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
-	nonce, err := client.NonceAt(context.Background(), account, block)
+	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	nonce, err := client.NonceAt(ctx, account, block)
 	if err != nil {
 		return 0, err
 	}

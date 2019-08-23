@@ -86,6 +86,7 @@ func (btc *BTCSyncer) GetExtBalance() error {
 	}
 
 	apiKey := os.Getenv("BLOCKCHAIN_INFO_KEY")
+	httpClient := newHTTPClient()
 
 	for _, ba := range btcAccount {
 		if len(apiKey) > 0 {
@@ -93,7 +94,7 @@ func (btc *BTCSyncer) GetExtBalance() error {
 		} else {
 			url = btc.RPC + ba.Address + "?limit=1"
 		}
-		resp, err := http.Get(url)
+		resp, err := httpClient.Get(url)
 		if err != nil {
 			log.Error().Msgf("Error connecting Blockchain info: %v", err)
 			btc.syncer.addressError[ba.Address] = true
