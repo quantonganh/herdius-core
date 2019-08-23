@@ -63,6 +63,8 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 
 	log.Debug().Msg("Sync account start")
 	var wg stdSync.WaitGroup
+	// TODO: make this configuration
+	semaphore := make(chan struct{}, 50)
 	for it.Next() {
 		var senderAccount statedb.Account
 		senderAddressBytes := it.Key
@@ -144,6 +146,14 @@ func sync(exBal external.BalanceStorage, rpc apiEndponts) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
+			// Acquire Lock
+			semaphore <- struct{}{}
+			defer func() {
+				// Release Lock
+				<-semaphore
+			}()
+
 			for _, asset := range syncers {
 				// Dont update account if no new value received from respective api calls
 				if asset.GetExtBalance() == nil {
