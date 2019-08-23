@@ -209,7 +209,7 @@ func main() {
 
 	lastBlock := blockchainSvc.GetLastBlock()
 
-	go syncer.SyncAllAccounts(accountStorage)
+	go syncer.SyncAllAccounts(accountStorage, env)
 
 	var lbh cmn.HexBytes
 	lastBlockHash := lastBlock.GetHeader().GetBlock_ID().GetBlockHash()

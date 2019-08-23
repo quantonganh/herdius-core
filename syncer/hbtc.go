@@ -33,27 +33,32 @@ func (hs *HBTCSyncer) GetExtBalance() error {
 	// If ETH account exists
 	ethAccount, ok := hs.syncer.Account.EBalances[hs.ethSymbol]
 	if !ok {
+		log.Warn().Msg("HBTC depends on ETH, but no ETH account available")
 		return errors.New("ETH account does not exists")
 	}
 
 	hbtcAccount, ok := ethAccount[hs.syncer.Account.FirstExternalAddress[hs.ethSymbol]]
 	if !ok {
+		log.Warn().Msg("HBTC does not exist")
 		return errors.New("HBTC account does not exists")
 	}
 
 	resp, err := http.Get(fmt.Sprintf("%s/%s", hs.RPC, hbtcAccount.Address))
 	if err != nil {
+		log.Error().Err(err).Msg("failed to get hbtc balance")
 		return err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to read response body")
 		return err
 	}
 
 	balance, err := strconv.ParseInt(strings.TrimSuffix(string(body), "\n"), 10, 64)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to parse response body")
 		return err
 	}
 

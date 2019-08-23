@@ -24,20 +24,21 @@ type apiEndponts struct {
 }
 
 // SyncAllAccounts syncs all assets of available accounts.
-func SyncAllAccounts(exBal external.BalanceStorage) {
+func SyncAllAccounts(exBal external.BalanceStorage, env string) {
 	var rpc apiEndponts
 	viper.SetConfigName("config")   // Config file name without extension
 	viper.AddConfigPath("./config") // Path to config file
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to read config file")
-	} else {
-		rpc.ethRPC = viper.GetString("dev.ethrpc")
-		rpc.herTokenAddress = viper.GetString("dev.hercontractaddress")
-		rpc.btcRPC = viper.GetString("dev.blockchaininforpc")
-		rpc.hbtcRPC = viper.GetString("dev.hbtcrpc")
-		rpc.tezosRPC = viper.GetString("dev.tezosrpc")
+		return
 	}
+
+	rpc.ethRPC = viper.GetString(env + ".ethrpc")
+	rpc.herTokenAddress = viper.GetString(env + ".hercontractaddress")
+	rpc.btcRPC = viper.GetString(env + ".blockchaininforpc")
+	rpc.hbtcRPC = viper.GetString(env + ".hbtcrpc")
+	rpc.tezosRPC = viper.GetString(env + ".tezosrpc")
 
 	if strings.Index(rpc.ethRPC, ".infura.io") > -1 {
 		rpc.ethRPC += os.Getenv("INFURAID")
