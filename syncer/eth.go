@@ -93,7 +93,8 @@ func (es *EthSyncer) Update() {
 }
 
 func (es *EthSyncer) getLatestBlockNumber(client *ethclient.Client) (*big.Int, error) {
-	header, err := client.HeaderByNumber(context.Background(), nil)
+	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	header, err := client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,8 @@ func (es *EthSyncer) getLatestBlockNumber(client *ethclient.Client) (*big.Int, e
 }
 
 func (es *EthSyncer) getNonce(client *ethclient.Client, account common.Address, block *big.Int) (uint64, error) {
-	nonce, err := client.NonceAt(context.Background(), account, block)
+	ctx, _ := context.WithTimeout(context.Background(), rpcTimeout)
+	nonce, err := client.NonceAt(ctx, account, block)
 	if err != nil {
 		return 0, err
 	}

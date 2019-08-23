@@ -2,10 +2,16 @@ package sync
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/herdius/herdius-core/p2p/log"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
+)
+
+const (
+	rpcTimeout  = time.Second * 2
+	httpTimeout = time.Second * 2
 )
 
 // ExternalSyncer syncs all asset external accounts

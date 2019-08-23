@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -43,7 +42,8 @@ func (hs *HBTCSyncer) GetExtBalance() error {
 		return errors.New("HBTC account does not exists")
 	}
 
-	resp, err := http.Get(fmt.Sprintf("%s/%s", hs.RPC, hbtcAccount.Address))
+	httpClient := newHTTPClient()
+	resp, err := httpClient.Get(fmt.Sprintf("%s/%s", hs.RPC, hbtcAccount.Address))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get hbtc balance")
 		return err
