@@ -44,6 +44,11 @@ func (btc *BTCTestNetSyncer) GetExtBalance() error {
 	}
 	btcCypher := blockcypher.API{Token: "490bb2949a2542fcb6f74f4efdba70dd", Coin: "btc", Chain: "test3"}
 	for _, ba := range btcAccount {
+		if strings.HasPrefix(ba.Address, "1") || strings.HasPrefix(ba.Address, "3") {
+			btc.addressError[ba.Address] = true
+			log.Warn().Msgf("Address %s is a main network, not btc testnet, do not sync", ba.Address)
+			continue
+		}
 		addr, err := btcCypher.GetAddrFull(ba.Address, nil)
 		if err != nil {
 			log.Error().Err(err).Msg("Error getting BTC address in btctestnet")
