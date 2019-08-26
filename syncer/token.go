@@ -2,13 +2,13 @@ package sync
 
 import (
 	"context"
-	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/herdius/herdius-core/p2p/log"
 	external "github.com/herdius/herdius-core/storage/exbalance"
 	"github.com/herdius/herdius-core/storage/state/statedb"
 	"github.com/herdius/herdius-core/syncer/contract"
@@ -35,7 +35,7 @@ func (her *HERToken) GetExtBalance() error {
 	)
 	client, err := ethclient.Dial(her.RPC)
 	if err != nil {
-		log.Println("Error connecting ETH RPC", err)
+		log.Error().Err(err).Msg("Error connecting ETH RPC")
 		return err
 	}
 	tokenAddress := common.HexToAddress(her.TokenContractAddress)
@@ -44,14 +44,14 @@ func (her *HERToken) GetExtBalance() error {
 	// Get latest block number
 	latestBlockNumber, err = her.getLatestBlockNumber(client)
 	if err != nil {
-		log.Println("Error getting TOKEN Latest block from RPC", err)
+		log.Error().Err(err).Msg("Error getting TOKEN Latest block from RPC")
 		return err
 	}
 
 	//Get nonce
 	nonce, err = her.getNonce(client, address, latestBlockNumber)
 	if err != nil {
-		log.Println("Error getting TOKEN Account nonce from RPC", err)
+		log.Error().Err(err).Msg("Error getting TOKEN Account nonce from RPC")
 		return err
 	}
 
@@ -59,7 +59,9 @@ func (her *HERToken) GetExtBalance() error {
 	if err != nil {
 		return err
 	}
-	bal, err := instance.BalanceOf(&bind.CallOpts{BlockNumber: latestBlockNumber}, address)
+	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
+	defer cancel()
+	bal, err := instance.BalanceOf(&bind.CallOpts{BlockNumber: latestBlockNumber, Context: ctx}, address)
 	if err != nil {
 		return err
 	}
@@ -93,7 +95,7 @@ func (her *HERToken) Update() {
 				last = last.UpdateIsNewHERAmountUpdate(true)
 				last = last.UpdateIsFirstHER(false)
 
-				log.Printf("New account balance after external balance credit: %v\n", last)
+				log.Debug().Msgf("New account balance after external balance credit: %v\n", last)
 				her.Storage.Set(her.Account.Address, last)
 				return
 
@@ -112,7 +114,7 @@ func (her *HERToken) Update() {
 				last = last.UpdateIsNewHERAmountUpdate(true)
 				last = last.UpdateIsFirstHER(false)
 
-				log.Printf("New account balance after external balance debit: %v\n", last)
+				log.Debug().Msgf("New account balance after external balance debit: %v\n", last)
 				her.Storage.Set(her.Account.Address, last)
 				return
 			}
