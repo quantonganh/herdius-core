@@ -581,6 +581,14 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 	if tx.SenderAddress == senderAccount.Address &&
 		tx.Asset.RedeemedAmount <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
 		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.RedeemedAmount
+		newExternalBal := senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Balance + tx.Asset.RedeemedAmount
+		newEBal := statedb.EBalance{
+			Address:         tx.Asset.ExternalSenderAddress,
+			Balance:         newExternalBal,
+			LastBlockHeight: senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].LastBlockHeight,
+			Nonce:           senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Nonce,
+		}
+		senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress] = newEBal
 	}
 	senderAccount.Nonce = tx.Asset.Nonce
 	deposit(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.RedeemedAmount)
