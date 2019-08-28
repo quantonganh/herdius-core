@@ -946,7 +946,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
 			symbol := tx.Asset.Symbol
-			if symbol != "BTC" && symbol != "ETH" {
+			if symbol != "BTC" && symbol != "ETH" && strings.EqualFold(symbol, "HBTC") {
 				log.Printf("Unsupported external asset symbol: %v", symbol)
 				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
 				continue
