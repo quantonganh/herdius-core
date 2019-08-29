@@ -576,9 +576,31 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 		asset = "BTC"
 	}
 	if senderAccount.LockedBalance[asset] == nil {
-		return senderAccount
-	}
-	if tx.SenderAddress == senderAccount.Address &&
+		if strings.EqualFold(tx.Asset.Symbol, "HBTC") {
+			newExternalBal := senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Balance + tx.Asset.RedeemedAmount
+			newEBal := statedb.EBalance{
+				Address:         tx.Asset.ExternalSenderAddress,
+				Balance:         newExternalBal,
+				LastBlockHeight: senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].LastBlockHeight,
+				Nonce:           senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Nonce,
+			}
+			senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress] = newEBal
+
+			// New HBTC Balance update
+			firstExternalAddress := senderAccount.FirstExternalAddress["ETH"]
+			newHBTCExternalBal := senderAccount.EBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress].Balance - tx.Asset.RedeemedAmount
+			newHBTCEBal := statedb.EBalance{
+				Address:         firstExternalAddress,
+				Balance:         newHBTCExternalBal,
+				LastBlockHeight: senderAccount.EBalances[tx.Asset.Symbol][firstExternalAddress].LastBlockHeight,
+				Nonce:           senderAccount.EBalances[tx.Asset.Symbol][firstExternalAddress].Nonce,
+			}
+			senderAccount.EBalances[tx.Asset.Symbol][firstExternalAddress] = newHBTCEBal
+		} else {
+			return senderAccount
+		}
+
+	} else if tx.SenderAddress == senderAccount.Address &&
 		tx.Asset.RedeemedAmount <= senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] {
 		senderAccount.LockedBalance[asset][tx.Asset.ExternalSenderAddress] -= tx.Asset.RedeemedAmount
 		newExternalBal := senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Balance + tx.Asset.RedeemedAmount
@@ -946,7 +968,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
 			symbol := tx.Asset.Symbol
-			if symbol != "BTC" && symbol != "ETH" {
+			if symbol != "BTC" && symbol != "ETH" && symbol != "HBTC" {
 				log.Printf("Unsupported external asset symbol: %v", symbol)
 				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
 				continue
