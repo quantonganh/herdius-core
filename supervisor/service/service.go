@@ -577,15 +577,6 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 	}
 	if senderAccount.LockedBalance[asset] == nil {
 		if strings.EqualFold(tx.Asset.Symbol, "HBTC") {
-			newExternalBal := senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Balance + tx.Asset.RedeemedAmount
-			newEBal := statedb.EBalance{
-				Address:         tx.Asset.ExternalSenderAddress,
-				Balance:         newExternalBal,
-				LastBlockHeight: senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].LastBlockHeight,
-				Nonce:           senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress].Nonce,
-			}
-			senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress] = newEBal
-
 			// New HBTC Balance update
 			firstExternalAddress := senderAccount.FirstExternalAddress["ETH"]
 			newHBTCExternalBal := senderAccount.EBalances[tx.Asset.Symbol][tx.Asset.ExternalSenderAddress].Balance - tx.Asset.RedeemedAmount
@@ -613,7 +604,7 @@ func updateRedeemAccountLockedBalance(senderAccount *statedb.Account, tx *plugin
 		senderAccount.EBalances[asset][tx.Asset.ExternalSenderAddress] = newEBal
 	}
 	senderAccount.Nonce = tx.Asset.Nonce
-	deposit(senderAccount, tx.Asset.Symbol, tx.Asset.ExternalSenderAddress, tx.Asset.RedeemedAmount)
+	deposit(senderAccount, asset, tx.Asset.ExternalSenderAddress, tx.Asset.RedeemedAmount)
 	log.Printf("Redeemed Account: %v+\n", *senderAccount)
 	return senderAccount
 }
@@ -968,7 +959,7 @@ func (s *Supervisor) updateStateForTxs(txs *txbyte.Txs, stateTrie statedb.Trie) 
 		// Check if tx is of type account update
 		if strings.EqualFold(tx.Type, "External") {
 			symbol := tx.Asset.Symbol
-			if symbol != "BTC" && symbol != "ETH" && symbol != "HBTC" {
+			if symbol != "BTC" && symbol != "ETH" && symbol != "HBTC" && symbol != "XTZ" {
 				log.Printf("Unsupported external asset symbol: %v", symbol)
 				plog.Error().Msgf("Unsupported external asset symbol: %v", symbol)
 				continue
