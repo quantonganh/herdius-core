@@ -138,6 +138,28 @@ func TestRegisterMultipleExternalAssets(t *testing.T) {
 	assert.True(t, len(account.EBalances[newSymbol]) == 1)
 	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[newSymbol][newExtSenderAddress].Address)
 	assert.Equal(t, newExtSenderAddress, account.FirstExternalAddress[newSymbol])
+
+	// Tezos support
+	newXTZSymbol := "XTZ"
+	newTezosExtSenderAddress := "Tezos-Address"
+	// Third add XTZ
+	asset = &pluginproto.Asset{
+		Symbol:                newXTZSymbol,
+		ExternalSenderAddress: newTezosExtSenderAddress,
+		Nonce:                 3,
+		Network:               "Herdius",
+	}
+	tx = &pluginproto.Tx{
+		SenderAddress: "HHy1CuT3UxCGJ3BHydLEvR5ut6HRy2qUvm",
+		Asset:         asset,
+		Type:          "update",
+	}
+
+	account = updateAccount(account, tx)
+	assert.True(t, len(account.EBalances) == 3)
+	assert.True(t, len(account.EBalances[newXTZSymbol]) == 1)
+	assert.Equal(t, tx.Asset.ExternalSenderAddress, account.EBalances[newXTZSymbol][newTezosExtSenderAddress].Address)
+	assert.Equal(t, newTezosExtSenderAddress, account.FirstExternalAddress[newXTZSymbol])
 }
 
 func TestUpdateExternalAccountBalance(t *testing.T) {
