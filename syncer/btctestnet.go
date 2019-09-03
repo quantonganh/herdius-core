@@ -119,19 +119,19 @@ func (btc *BTCTestNetSyncer) Update() {
 					log.Debug().Msg("lastExtBalance.Cmp(btc.ExtBalance) ============")
 
 					herEthBalance.Sub(lastExtBalance, btc.ExtBalance[btcAccount.Address])
+					if btcAccount.Balance >= herEthBalance.Uint64() {
+						btcAccount.Balance -= herEthBalance.Uint64()
+						btcAccount.LastBlockHeight = btc.BlockHeight[btcAccount.Address].Uint64()
+						btcAccount.Nonce = btc.Nonce[btcAccount.Address]
+						btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
 
-					btcAccount.Balance -= herEthBalance.Uint64()
-					btcAccount.LastBlockHeight = btc.BlockHeight[btcAccount.Address].Uint64()
-					btcAccount.Nonce = btc.Nonce[btcAccount.Address]
-					btc.Account.EBalances[assetSymbol][btcAccount.Address] = btcAccount
-
-					last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-					last = last.UpdateIsFirstEntryByKey(storageKey, false)
-					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-					last = last.UpdateAccount(btc.Account)
-					btc.Storage.Set(btc.Account.Address, last)
-
+						last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
+						last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
+						last = last.UpdateIsFirstEntryByKey(storageKey, false)
+						last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
+						last = last.UpdateAccount(btc.Account)
+						btc.Storage.Set(btc.Account.Address, last)
+					}
 					log.Debug().Msgf("New account balance after external balance debit: %v\n", last)
 				}
 				continue
@@ -146,7 +146,7 @@ func (btc *BTCTestNetSyncer) Update() {
 			}
 			last = last.UpdateLastExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
 			last = last.UpdateCurrentExtBalanceByKey(storageKey, btc.ExtBalance[btcAccount.Address])
-			last = last.UpdateIsFirstEntryByKey(storageKey, true)
+			//	last = last.UpdateIsFirstEntryByKey(storageKey, true)
 			last = last.UpdateIsNewAmountUpdateByKey(storageKey, false)
 			btcAccount.UpdateBalance(btc.ExtBalance[btcAccount.Address].Uint64())
 			btcAccount.UpdateBlockHeight(btc.BlockHeight[btcAccount.Address].Uint64())
