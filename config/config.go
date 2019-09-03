@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"go/build"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -31,9 +33,14 @@ func GetConfiguration(env string) *detail {
 		env = "dev"
 	}
 	once.Do(func() {
-		dirname := os.Getenv("GOPATH")
-		viper.SetConfigName("config")                                                // Config file name without extension
-		viper.AddConfigPath(dirname + "/src/github.com/herdius/herdius-core/config") // Path to config file
+		goPaths := strings.Split(os.Getenv("GOPATH"), string(os.PathListSeparator))
+		if len(goPaths) == 0 {
+			goPaths = append(goPaths, build.Default.GOPATH)
+		}
+		for _, goPath := range goPaths {
+			viper.AddConfigPath(goPath + "/src/github.com/herdius/herdius-core/config") // Path to config file
+		}
+		viper.SetConfigName("config") // Config file name without extension
 		err := viper.ReadInConfig()
 		if err != nil {
 			log.Printf("Config file not found: %v", err)
