@@ -45,7 +45,7 @@ install:
 delete-db-dirs:
 	@ rm -R ./herdius
 
-create_db_dirs:
+create-db-dirs:
 	@ mkdir -p mkdir ./herdius/chaindb/ ./herdius/statedb/ ./herdius/syncdb/ ./herdius/blockdb/
 
 build:
@@ -57,7 +57,7 @@ build-herserver:
 run-test:
 	@$(GOTEST) -v ./...
 
-all: install run-test create_db_dirs
+all: install run-test create-db-dirs
 
 start-supervisor: build-herserver
 	@echo "Starting supervisor node"$(GOPARAMETERS)

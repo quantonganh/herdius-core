@@ -38,7 +38,7 @@ cd $GOPATH/src/github.com/herdius/herdius-core
 #### Create State Trie and Blockchain DB Dirs
 
 ```
-make create_db_dirs
+make create-db-dirs
 ```
 
 #### Install and Build
