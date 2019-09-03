@@ -78,22 +78,22 @@ func (es *ExternalSyncer) update(address string) {
 			// Balance of ETH in H1 	= Balance of ETH in H - ( last_External_Bal_In_Cache - Current_External_Bal )
 			if lastExtBalance.Cmp(es.ExtBalance[assetAccount.Address]) > 0 {
 				log.Debug().Msg("lastExtBalance.Cmp(es.ExtBalance) ============")
-
 				herEthBalance.Sub(lastExtBalance, es.ExtBalance[assetAccount.Address])
+				if assetAccount.Balance >= herEthBalance.Uint64() {
+					assetAccount.Balance -= herEthBalance.Uint64()
+					if es.BlockHeight[assetAccount.Address] != nil {
+						assetAccount.LastBlockHeight = es.BlockHeight[assetAccount.Address].Uint64()
+					}
+					assetAccount.Nonce = es.Nonce[assetAccount.Address]
+					es.Account.EBalances[assetSymbol][assetAccount.Address] = assetAccount
 
-				assetAccount.Balance -= herEthBalance.Uint64()
-				if es.BlockHeight[assetAccount.Address] != nil {
-					assetAccount.LastBlockHeight = es.BlockHeight[assetAccount.Address].Uint64()
+					last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[assetAccount.Address])
+					last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[assetAccount.Address])
+					last = last.UpdateIsFirstEntryByKey(storageKey, false)
+					last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
+					last = last.UpdateAccount(es.Account)
+					es.Storage.Set(es.Account.Address, last)
 				}
-				assetAccount.Nonce = es.Nonce[assetAccount.Address]
-				es.Account.EBalances[assetSymbol][assetAccount.Address] = assetAccount
-
-				last = last.UpdateLastExtBalanceByKey(storageKey, es.ExtBalance[assetAccount.Address])
-				last = last.UpdateCurrentExtBalanceByKey(storageKey, es.ExtBalance[assetAccount.Address])
-				last = last.UpdateIsFirstEntryByKey(storageKey, false)
-				last = last.UpdateIsNewAmountUpdateByKey(storageKey, true)
-				last = last.UpdateAccount(es.Account)
-				es.Storage.Set(es.Account.Address, last)
 				log.Debug().Msgf("New account balance after external balance debit: %v\n", last)
 			}
 			return
